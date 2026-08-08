@@ -3,6 +3,8 @@ import SwiftUI
 /// Browser Tab 根视图：玻璃地址栏 + 内容区。
 /// 未打开网页时显示首页内容（AI 字幕状态 + 远程文件）；加载网页后显示 WKWebView。
 struct BrowserView: View {
+    @Environment(AppEnvironment.self) private var environment
+
     @State private var webViewModel = BrowserViewModel()
     @State private var remoteFilesViewModel = RemoteFilesViewModel()
     @State private var subtitleViewModel = SubtitleStatusViewModel()
@@ -37,7 +39,8 @@ struct BrowserView: View {
         case .idle:
             HomeView(
                 remoteFilesViewModel: remoteFilesViewModel,
-                subtitleViewModel: subtitleViewModel
+                subtitleViewModel: subtitleViewModel,
+                onPlayMedia: { environment.requestPlayback(of: $0) }
             )
         case .loading, .ready:
             WebViewRepresentable(viewModel: webViewModel)

@@ -4,12 +4,13 @@ import SwiftUI
 struct HomeView: View {
     let remoteFilesViewModel: RemoteFilesViewModel
     let subtitleViewModel: SubtitleStatusViewModel
+    let onPlayMedia: (MediaItem) -> Void
 
     var body: some View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.lg) {
                 SubtitleStatusCard(viewModel: subtitleViewModel)
-                RemoteFilesView(viewModel: remoteFilesViewModel)
+                RemoteFilesView(viewModel: remoteFilesViewModel, onPlayMedia: onPlayMedia)
             }
             .padding(AppTheme.Spacing.md)
         }

@@ -3,6 +3,7 @@ import SwiftUI
 /// 远程文件浏览：连接状态、目录导航与文件列表。
 struct RemoteFilesView: View {
     let viewModel: RemoteFilesViewModel
+    let onPlayMedia: (MediaItem) -> Void
 
     @State private var showsConnectionSetup = false
 
@@ -179,7 +180,11 @@ struct RemoteFilesView: View {
             GlassEffectContainer(spacing: AppTheme.Spacing.xs) {
                 ForEach(files) { file in
                     RemoteFileRow(file: file) {
-                        Task { await viewModel.open(file) }
+                        if let media = viewModel.mediaItem(from: file) {
+                            onPlayMedia(media)
+                        } else {
+                            Task { await viewModel.open(file) }
+                        }
                     }
                 }
             }

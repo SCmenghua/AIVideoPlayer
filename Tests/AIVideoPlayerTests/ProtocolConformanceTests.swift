@@ -41,7 +41,7 @@ struct ProtocolConformanceTests {
 
         try await engine.load(item)
 
-        #expect(engine.state == .ready(item))
+        #expect(engine.state == .ready)
         #expect(engine.currentItem == item)
     }
 
@@ -132,33 +132,6 @@ private struct MockMediaExtractor: MediaExtractor {
     func extractMedia(from url: URL) async throws -> [MediaItem] {
         [MediaItem(title: "Sample", url: url, kind: .video, source: .web)]
     }
-}
-
-@MainActor
-private final class MockPlaybackEngine: PlaybackEngine {
-    private(set) var state: PlaybackState = .idle
-    private(set) var currentItem: MediaItem?
-
-    func load(_ item: MediaItem) async throws {
-        currentItem = item
-        state = .ready(item)
-    }
-
-    func play() async {
-        if case .ready(let item) = state {
-            state = .playing(item)
-        }
-    }
-
-    func pause() async {
-        if case .playing(let item) = state {
-            state = .paused(item)
-        }
-    }
-
-    func seek(to time: TimeInterval) async {}
-    func setRate(_ rate: Float) async {}
-    func setVolume(_ volume: Float) async {}
 }
 
 @MainActor

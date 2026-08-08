@@ -155,6 +155,15 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 - 全屏状态由 PlayerViewModel 持有（如 `isFullScreen`），方向控制器只响应此状态，
   播放器自身不持有全局方向状态。
 
+#### 8.1.2 调试入口（开发期专用）
+
+播放器空状态提供「播放示例媒体（调试）」按钮，加载 `MockRemoteFiles.sampleMediaItem`，
+仅用于没有远程服务器时在开发期快速验证播放器，**不属于正式功能**。
+
+- **删除方法**：移除 `PlayerView.emptyState` 中的调试按钮及对应文案即可；
+- 正式入口为「远程文件视频行 → `AppEnvironment.requestPlayback`」，与调试按钮相互独立，
+  删除调试按钮不影响播放链路。
+
 ### 8.2 WhisperKit（Phase 5）
 
 1. 新增 `AudioPipeline`（负责从 AVPlayer 或麦克风取音频）。

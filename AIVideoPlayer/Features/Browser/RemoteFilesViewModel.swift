@@ -111,6 +111,17 @@ final class RemoteFilesViewModel {
         }
     }
 
+    /// 把可播放的远程文件映射为 MediaItem（供播放器入口使用）。
+    func mediaItem(from file: RemoteFile) -> MediaItem? {
+        guard file.isPlayable else { return nil }
+        return MediaItem(
+            title: file.name,
+            url: file.url,
+            kind: file.kind == .audio ? .audio : .video,
+            source: .remote
+        )
+    }
+
     func refresh() async {
         guard let currentDirectory else { return }
         await listDirectory(at: currentDirectory, pushing: nil)
