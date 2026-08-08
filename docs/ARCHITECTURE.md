@@ -58,14 +58,14 @@ flowchart TB
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）与远程文件浏览（WebDAV 目录导航） | 2 |
 | `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
-| `Features/Subtitle/` | AI 字幕状态卡（SubtitleStatusCard + ViewModel） | 1（Mock）→ 5/6 |
+| `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | 1（Mock）→ 5/6 |
 | `Features/Settings/` | 设置页（隐私说明与后续配置占位） | 1（占位）→ 7 |
 | `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
 | `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
 | `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
 | `Core/Networking/` | WebDAV 目录浏览（PROPFIND；SMB / FTP 后续补充） | 2 |
 | `Core/Storage/` | Keychain 凭据、UserDefaults 配置/历史/收藏 | 2 |
-| `AI/Speech/` | WhisperKit 语音识别 | 5 |
+| `AI/Speech/` | WhisperKit 语音识别（超前缓冲识别） | 5 |
 | `AI/Translation/` | 可替换翻译引擎 | 7 |
 | `Services/` | 业务编排服务 | 2+ |
 | `Utilities/` | 日志等通用设施 | 1 |
@@ -76,7 +76,7 @@ flowchart TB
 |---|---|---|
 | `MediaExtractor` | 网页 / 远程目录 → `[MediaItem]` | Phase 4（HTML5 video / MP4 / HLS / M3U8） |
 | `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | Phase 3（AVPlayerPlaybackEngine） |
-| `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final） | Phase 5（WhisperKitSpeechRecognizer） |
+| `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | Phase 5（WhisperKitSpeechRecognizer） |
 | `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
 | `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
 | `RemoteFileBrowsing` | 远程文件浏览（connect / listDirectory / disconnect） | ✅ Phase 2（WebDAV；SMB / FTP 后续补充） |
@@ -176,6 +176,49 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
    `SubtitleStatusViewModel`。
 4. 隐私：音频不离开设备，模型本地加载。
 
+#### 8.2.1 超前识别（Lead-Ahead）：AI 先于播放听到音频
+
+**核心思路**：默认不做「边听边出」的逐词字幕，而是让 AI 管线领先于用户听到的播放位置
+Δ 秒（可配置，默认建议 3 秒，范围 2–10 秒）完成「听 → 转写 → 翻译」，
+字幕在句子起点一次性整句出现，不再逐词跳动。
+
+**开关与默认路径：**
+
+- 超前识别是设置页可配置开关，**默认开启**；关闭后回到原始实时路径：
+  不做 Δ 秒预缓冲，Whisper 按原样输出 partial → final，字幕逐词实时出现，
+  识别完成后即时翻译（延迟叠加在识别延迟之后，但无启动缓冲）。
+- 开关状态持久化（UserDefaults）；切换开关时需重建识别游标、丢弃已缓存的
+  partial / final，避免新旧模式数据串扰。
+- 麦克风等不可预读来源不适用超前模式：自动按原始路径处理（partial 低延迟降级），
+  不要求用户手动关闭开关。
+
+**实现方式：**
+
+1. 播放器先缓冲 Δ 秒音频再开始播放；播放过程中保持超前缓冲，保证识别游标
+   始终领先播放光标 Δ 秒（识别游标 = 播放光标 + Δ，只允许顺播）。
+2. `AudioPipeline` 从超前缓冲中取音频（AVPlayer 播放缓冲 / 解码后的 PCM 缓冲），
+   维护领先识别游标；麦克风等不可预读来源不适用本模式，走 partial 低延迟降级。
+3. Whisper 对领先窗口内的音频提前分析，以句子级 final 为主输出
+   （`SubtitleSegment` 整句），写入 `AsyncStream`。
+4. 翻译紧随识别完成（Phase 7 的 `TranslationEngine`），在用户听到该句前译文已就绪；
+   识别延迟与翻译延迟都被吸收在 Δ 秒窗口内，不叠加到用户可见延迟上。
+5. 字幕仍以播放光标为时间基准（`SubtitleEngine` 对齐），句子起点到达时
+   直接整句显示原文 + 译文。
+6. 原始路径（开关关闭）：无预缓冲，`SpeechRecognizer` 按 partial → final 输出，
+   翻译在 final 后即时执行；字幕逐词出现并最终整句稳定。
+
+**体验权衡：**
+
+- 收益：字幕整句一次出现、内容稳定；识别 + 翻译延迟被提前窗口隐藏。
+- 成本：开始播放前需先缓冲 Δ 秒；直播/实况场景字幕相对真实世界事件滞后 Δ 秒
+  （本地与普通视频中字幕仍与用户听到的声音同步）。
+- Δ 过小（<2s）整句来不及合成；过大（>10s）明显滞后画面，需用户可调。
+- seek / 缓冲卡顿时识别游标与播放光标会脱节，seek 后需重建领先窗口
+  （重算 Δ、丢弃过期 partial / final，避免旧字幕覆盖）。
+
+**状态语义：** `AIState` 的 LISTENING / TRANSCRIBING / TRANSLATING 表示领先窗口内的
+AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句子已整句就绪。
+
 ### 8.3 TranslationEngine（Phase 7）
 
 `TranslationEngine` 保持单一协议，翻译能力由多个可替换的 Provider 实现，用户可在设置页选择：
@@ -207,6 +250,11 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 3. 隐私：Fast NMT 与 Local LLM 完全本地；Cloud LLM 必须先行展示隐私提示。
 4. 上下文窗口与压缩策略由独立组件管理（如 `TranslationContextProvider`），
    禁止把大段原始字幕直接塞进请求。
+5. 超前识别模式下翻译紧随识别完成（领先播放光标）：用户听到该句前译文已就绪，
+   翻译延迟被 2–10s 超前窗口吸收（翻译耗时应 < Δ），不叠加到字幕显示延迟上。
+6. **仅 Fast NMT 也可独立支撑超前识别**：本地轻量翻译耗远小于 Δ 秒窗口，
+   即使未启用本地 / 云端 LLM，翻译也随整句识别提前完成，字幕按时整句显示；
+   LLM Provider 只提供「剧情理解润色」等增强能力，不是超前识别按时出字幕的前提。
 
 ### 8.4 远程文件与浏览器（Phase 2）
 
@@ -252,10 +300,12 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
    SMB / FTP 由后续阶段补充。
 3. **Phase 3**：AVPlayer 封装（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制）。
 4. **Phase 4**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
-5. **Phase 5**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别。
-6. **Phase 6**：SubtitleOverlay（双语、时间同步、拖动、样式）。
+5. **Phase 5**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别；超前缓冲
+   （2–10s 可配置，默认建议 3s）：播放器先缓冲、识别游标领先播放光标，Whisper 提前分析并输出整句 final。
+6. **Phase 6**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
 7. **Phase 7**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
-   （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；明确隐私提示。
+   （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；
+   在超前窗口内提前翻译（延迟被 Δ 吸收）；明确隐私提示。
 8. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

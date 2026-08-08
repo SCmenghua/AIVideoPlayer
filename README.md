@@ -5,6 +5,8 @@
 一个长期维护的个人 iOS 项目：在 iOS 26+ 上提供 App 内网页浏览、WebDAV / SMB / FTP 远程文件访问、
 自动识别媒体资源并用自有播放器播放、Whisper 本地实时语音识别与双语 AI 字幕。UI 严格遵循
 iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护。
+字幕采用「AI 先听一步」的超前识别设计：播放器先缓存 2–10 秒音频，Whisper 提前转写并翻译，
+字幕按整句一次出现（详见下文「AI 实时字幕：超前识别」）。
 
 ## 当前功能（Phase 3）
 
@@ -94,10 +96,23 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 2 | WKWebView 浏览器、WebDAV（SMB / FTP 后续补充）、Keychain 凭据 | ✅ 完成 |
 | 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ✅ 完成 |
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ⬜ 未开始 |
-| 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer） | ⬜ 未开始 |
-| 6 | SubtitleOverlay（双语、时间同步、拖动、样式） | ⬜ 未开始 |
-| 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（仅 LLM Provider，自动压缩文本）+ 隐私提示 | ⬜ 未开始 |
+| 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出） | ⬜ 未开始 |
+| 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ⬜ 未开始 |
+| 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（仅 LLM Provider，自动压缩文本）+ 隐私提示；识别后立即提前翻译，延迟被超前窗口吸收 | ⬜ 未开始 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
+
+#### AI 实时字幕：超前识别（设计提案）
+
+实时字幕默认不做「边听边出」的逐词模式，而是让 AI 管线领先播放光标 2–10 秒
+（可配置，默认建议 3 秒）：播放器先缓冲 Δ 秒音频，Whisper 提前分析领先窗口并整句转写，
+翻译紧随其后提前完成；字幕仍按播放光标对齐，句子开始时整句一次性显示原文 + 译文。
+识别与翻译延迟被吸收在超前窗口内，不叠加到用户可见延迟上。
+归属 Phase 5/6/7，详细设计见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 8.2.1。
+
+- 该功能是设置页开关，**默认开启**；关闭后回到原始实时路径：不预缓冲，
+  Whisper 输出 partial → final 逐词字幕，识别完成后即时翻译。
+- 仅启用 Fast NMT（本地 / 轻量 NMT）时也能正常工作：本地翻译耗远小于 Δ 秒窗口，
+  不依赖本地 / 云端 LLM，字幕同样按时整句出现。
 
 > 严格执行 Phase 顺序，禁止提前实现后续 Phase。详细规划见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，
 > 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
