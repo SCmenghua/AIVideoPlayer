@@ -10,7 +10,7 @@ struct MockDataTests {
         for file in MockRemoteFiles.contents {
             #expect(file.url.scheme == "https")
             #expect(file.url.host != nil)
-            #expect(file.url.absoluteString.unicodeScalars.allSatisfy(\.isASCII))
+            #expect(file.url.absoluteString.unicodeScalars.allSatisfy { $0.isASCII })
         }
     }
 
@@ -23,6 +23,6 @@ struct MockDataTests {
     @Test func mockSampleMediaItemURLIsValid() {
         let item = MockRemoteFiles.sampleMediaItem
         #expect(item.url.scheme == "https")
-        #expect(item.url.absoluteString.unicodeScalars.allSatisfy(\.isASCII))
+        #expect(item.url.absoluteString.unicodeScalars.allSatisfy { $0.isASCII })
     }
 }
