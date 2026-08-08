@@ -14,7 +14,7 @@ struct PlayerView: View {
                 Image(systemName: "play.fill")
                     .font(.system(size: 36, weight: .semibold))
                     .frame(width: 88, height: 88)
-                    .glassEffect(.regular.tint(.accent).interactive(), in: .circle)
+                    .glassEffect(.regular.tint(Color.accentColor).interactive(), in: .circle)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("播放")
