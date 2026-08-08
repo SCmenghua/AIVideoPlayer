@@ -70,19 +70,17 @@ final class WebDAVMultistatusParser: NSObject, XMLParserDelegate {
         namespaceURI: String?,
         qualifiedName qName: String?
     ) {
-        guard var resource = currentResource else { return }
-
         switch localName(elementName, qualifiedName: qName) {
         case "href":
-            resource.href = collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines)
+            currentResource?.href = collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines)
         case "displayname":
-            resource.displayName = collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines)
+            currentResource?.displayName = collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines)
         case "getcontentlength":
-            resource.contentLength = Int64(collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines))
+            currentResource?.contentLength = Int64(collectedCharacters.trimmingCharacters(in: .whitespacesAndNewlines))
         case "getlastmodified":
-            resource.lastModified = WebDAVDateParser.date(from: collectedCharacters)
+            currentResource?.lastModified = WebDAVDateParser.date(from: collectedCharacters)
         case "response":
-            if !resource.href.isEmpty {
+            if let resource = currentResource, !resource.href.isEmpty {
                 resources.append(resource.finalize())
             }
             currentResource = nil
