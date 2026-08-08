@@ -32,6 +32,11 @@
 
 - 密码只写入 Keychain；WebDAV 会话凭据在 disconnect 时从内存清除
 
+### Fixed
+
+- WebDAV Multi-Status 解析器：`didEndElement` 修改的是结构体副本导致所有资源被丢弃，
+  改为就地修改 `currentResource`（CI 测试失败修复）
+
 ## [0.1.0] - 2026-08-09
 
 ### Added（Phase 1 基础架构）

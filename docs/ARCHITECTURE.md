@@ -79,8 +79,12 @@ flowchart TB
 | `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final） | Phase 5（WhisperKitSpeechRecognizer） |
 | `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
 | `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
-| `RemoteFileBrowsing` | 远程文件列表 | Phase 2（WebDAV / SMB / FTP） |
+| `RemoteFileBrowsing` | 远程文件浏览（connect / listDirectory / disconnect） | ✅ Phase 2（WebDAV；SMB / FTP 后续补充） |
 | `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | Phase 5（WhisperKit 管线） |
+| `CredentialStoring` | 密码存取（生产实现 Keychain） | ✅ Phase 2 |
+| `RemoteServerProfileStoring` | 服务器配置存取（非敏感信息） | ✅ Phase 2 |
+| `BrowserHistoryStoring` | 浏览历史存取 | ✅ Phase 2 |
+| `BookmarkStoring` | 收藏存取 | ✅ Phase 2 |
 
 业务层只依赖协议；具体实现（AVPlayer、WhisperKit、翻译 API）在各自 Phase 通过依赖注入接入。
 
@@ -95,13 +99,21 @@ flowchart TB
 | `AISubtitleStatus` | AI 字幕子系统状态快照 |
 | `PlaybackState` | 播放状态机（idle / loading / ready / playing / paused / ended / failed） |
 | `LoadState` | 异步加载五态：loading / ready / empty / error / cancelled |
+| `RemoteCredentials` | 远程连接凭据（仅内存会话使用） |
+| `RemoteServerProfile` | 服务器配置（名称 / 根 URL / 用户名；密码走 Keychain） |
+| `BrowserHistoryEntry` | 浏览历史条目 |
+| `Bookmark` | 收藏条目 |
 
 ## 6. 依赖注入
 
 ViewModel 通过 init 接收协议实现，默认值指向 Mock，替换实现无需改动调用方：
 
 ```swift
-BrowserViewModel(browser: any RemoteFileBrowsing = MockRemoteFileBrowser())
+BrowserViewModel(historyStore: any BrowserHistoryStoring = UserDefaultsHistoryStore(),
+                 bookmarkStore: any BookmarkStoring = UserDefaultsBookmarkStore())
+RemoteFilesViewModel(browser: any RemoteFileBrowsing = WebDAVFileBrowser(),
+                     credentialStore: any CredentialStoring = KeychainCredentialStore(),
+                     profileStore: any RemoteServerProfileStoring = UserDefaultsProfileStore())
 SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStatusProvider())
 ```
 
