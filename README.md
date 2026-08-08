@@ -84,7 +84,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 |---|---|---|
 | 1 | 基础架构 / Liquid Glass / 首页 / 协议 / 测试 / CI | ✅ 完成 |
 | 2 | WKWebView 浏览器、WebDAV / SMB / FTP、Keychain 凭据 | ⬜ 未开始 |
-| 3 | AVPlayer 播放器（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制） | ⬜ 未开始 |
+| 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ⬜ 未开始 |
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ⬜ 未开始 |
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer） | ⬜ 未开始 |
 | 6 | SubtitleOverlay（双语、时间同步、拖动、样式） | ⬜ 未开始 |

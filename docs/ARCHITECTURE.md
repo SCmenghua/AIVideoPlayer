@@ -122,6 +122,27 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 2. 注入：`PlayerViewModel(engine: any PlaybackEngine)`，UI 只读 ViewModel 状态。
 3. 禁止：View 或 ViewModel 直接持有 AVPlayer / AVPlayerLayer。
 
+#### 8.1.1 全屏与方向（设计约束）
+
+播放器必须提供类 YouTube 的全屏体验，满足以下硬性要求：
+
+1. 使用 AVPlayer + SwiftUI 自定义播放器 UI，**不依赖 AVPlayerViewController**。
+2. 支持播放器内部横屏切换（视频内容横屏时，播放器可旋转为横屏）。
+3. 用户开启系统竖屏锁定时：
+   - 点击全屏仍可进入横屏播放；
+   - 退出全屏后恢复系统原方向。
+4. 全屏模式隐藏非播放器 UI（Tab Bar、Navigation Bar、状态栏）。
+5. 支持 iPad 多任务（Split View / Stage Manager）与不同尺寸类（compact / regular）适配。
+6. 横屏与方向逻辑必须封装在 Player 模块内部（如 `PlayerOrientationController`），
+   通过环境值/协议暴露给播放器 UI；**不得污染其他页面**，其他页面始终跟随系统方向。
+
+实现约束：
+
+- 方向覆盖使用受支持的系统机制（`supportedInterfaceOrientations` 委托 / Scene 级方向策略），
+  禁止使用私有 API（如 `UIDevice.setValue`）——存在 App Store 审核风险。
+- 全屏状态由 PlayerViewModel 持有（如 `isFullScreen`），方向控制器只响应此状态，
+  播放器自身不持有全局方向状态。
+
 ### 8.2 WhisperKit（Phase 5）
 
 1. 新增 `AudioPipeline`（负责从 AVPlayer 或麦克风取音频）。
