@@ -31,6 +31,18 @@ public enum PlayerOrientationController {
         requestRotation(.portrait)
     }
 
+    /// 手动请求横屏全屏（自动旋转失败时的兜底选项）。
+    public static func requestLandscape() {
+        isFullscreenLandscape = true
+        requestRotation(.landscapeRight)
+    }
+
+    /// 手动请求恢复竖屏。
+    public static func requestPortrait() {
+        isFullscreenLandscape = false
+        requestRotation(.portrait)
+    }
+
     private static func requestRotation(_ orientation: UIInterfaceOrientation) {
         let mask: UIInterfaceOrientationMask
         switch orientation {

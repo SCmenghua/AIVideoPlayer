@@ -66,6 +66,9 @@ struct PlayerViewModelTests {
 
         viewModel.setAspectMode(.fill)
         #expect(viewModel.aspectMode == .fill)
+
+        viewModel.videoScale = 1.5
+        #expect(viewModel.videoScale == 1.5)
     }
 
     @Test func progressModelNormalizes() {

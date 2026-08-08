@@ -154,6 +154,9 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
   禁止使用私有 API（如 `UIDevice.setValue`）——存在 App Store 审核风险。
 - 全屏状态由 PlayerViewModel 持有（如 `isFullScreen`），方向控制器只响应此状态，
   播放器自身不持有全局方向状态。
+- 若全屏后设备仍保持竖屏（自动旋转被系统锁定或失败），全屏控制栏提供「横屏全屏」手动按钮
+  （`PlayerOrientationController.requestLandscape`）作为兜底，并可手动恢复竖屏。
+- 控制栏提供「画面大小」滑块（0.5x...2.0x 缩放），仅影响播放画面显示，不影响布局与全屏逻辑。
 
 #### 8.1.2 调试入口（开发期专用）
 

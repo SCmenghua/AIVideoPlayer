@@ -16,6 +16,7 @@ final class PlayerViewModel {
     var isFullScreen = false
     var isSubtitleEnabled = false
     var aspectMode: VideoAspectMode = .fit
+    var videoScale: Double = 1.0
     var isControlsVisible = true
     var isScrubbing = false
     var seekTarget: TimeInterval = 0

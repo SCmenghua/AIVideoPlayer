@@ -69,6 +69,7 @@ struct PlayerView: View {
                 .ignoresSafeArea()
 
             VideoLayerView(player: viewModel.player, aspectMode: viewModel.aspectMode)
+                .scaleEffect(viewModel.videoScale)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -85,7 +86,8 @@ struct PlayerView: View {
                         onFullscreen: {
                             viewModel.isFullScreen = true
                             PlayerOrientationController.enterFullscreen()
-                        }
+                        },
+                        showsOrientationControls: false
                     )
                     .padding(AppTheme.Spacing.sm)
                 }
@@ -125,6 +127,7 @@ private struct FullscreenPlayerView: View {
                 .ignoresSafeArea()
 
             VideoLayerView(player: viewModel.player, aspectMode: viewModel.aspectMode)
+                .scaleEffect(viewModel.videoScale)
                 .ignoresSafeArea()
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -141,7 +144,8 @@ private struct FullscreenPlayerView: View {
                         onFullscreen: {
                             viewModel.isFullScreen = false
                             PlayerOrientationController.exitFullscreen()
-                        }
+                        },
+                        showsOrientationControls: true
                     )
                     .padding(AppTheme.Spacing.sm)
                 }

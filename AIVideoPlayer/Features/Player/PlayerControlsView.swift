@@ -5,6 +5,7 @@ import SwiftUI
 struct PlayerControlsView: View {
     let viewModel: PlayerViewModel
     let onFullscreen: () -> Void
+    let showsOrientationControls: Bool
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
@@ -18,14 +19,21 @@ struct PlayerControlsView: View {
             .font(.caption2.monospacedDigit())
             .foregroundStyle(.white)
 
-            HStack(spacing: AppTheme.Spacing.sm) {
-                replayButton
-                playButton
-                rateMenu
-                aspectButton
-                subtitleButton
-                volumeMenu
-                fullscreenButton
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    replayButton
+                    playButton
+                    rateMenu
+                    aspectButton
+                    subtitleButton
+                    volumeMenu
+                    sizeMenu
+                    if showsOrientationControls {
+                        landscapeButton
+                        portraitButton
+                    }
+                    fullscreenButton
+                }
             }
         }
         .padding(AppTheme.Spacing.md)
@@ -143,6 +151,58 @@ struct PlayerControlsView: View {
                 .frame(width: 40, height: 40)
                 .glassEffect(.regular.tint(.white).interactive(), in: .circle)
         }
+    }
+
+    /// 画面大小滑块（缩放 0.5x...2.0x）。
+    private var sizeMenu: some View {
+        Menu {
+            VStack(spacing: AppTheme.Spacing.xs) {
+                Text("画面大小 \(viewModel.videoScale.formatted(.number.precision(.fractionLength(1))))x")
+                    .font(.caption)
+                Slider(
+                    value: Binding(
+                        get: { viewModel.videoScale },
+                        set: { viewModel.videoScale = $0 }
+                    ),
+                    in: 0.5...2.0,
+                    step: 0.05
+                )
+                .frame(width: 160)
+            }
+            .padding(AppTheme.Spacing.xs)
+        } label: {
+            Image(systemName: "viewfinder")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
+        }
+    }
+
+    /// 手动横屏全屏（自动旋转失败时的兜底选项）。
+    private var landscapeButton: some View {
+        Button {
+            PlayerOrientationController.requestLandscape()
+        } label: {
+            Image(systemName: "rotate.right")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("横屏全屏")
+    }
+
+    private var portraitButton: some View {
+        Button {
+            PlayerOrientationController.requestPortrait()
+        } label: {
+            Image(systemName: "rotate.left")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("竖屏全屏")
     }
 
     private var fullscreenButton: some View {

@@ -100,10 +100,13 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            MainActor.assumeIsolated {
+            // 非隔离上下文只提取 Sendable 的标识，避免把 Notification 传入 MainActor。
+            let endedItemID = (notification.object as? AVPlayerItem).map(ObjectIdentifier.init)
+            Task { @MainActor in
                 guard let self,
-                      let endedItem = notification.object as? AVPlayerItem,
-                      endedItem === self.avPlayer.currentItem else {
+                      let endedItemID,
+                      let current = self.avPlayer.currentItem,
+                      ObjectIdentifier(current) == endedItemID else {
                     return
                 }
                 self.setState(.ended)
