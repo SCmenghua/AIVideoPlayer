@@ -10,7 +10,7 @@ struct RootView: View {
 
         TabView(selection: $environment.selectedTab) {
             NavigationStack {
-                HomeView()
+                BrowserView()
             }
             .tabItem { Label(AppTab.browser.title, systemImage: AppTab.browser.systemImage) }
             .tag(AppTab.browser)

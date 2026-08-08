@@ -56,15 +56,15 @@ flowchart TB
 |---|---|---|
 | `App/` | App 入口、Tab 路由、全局状态（AppEnvironment） | 1 |
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
-| `Features/Browser/` | 首页、地址栏、远程文件浏览（HomeView + BrowserViewModel） | 1（Mock）→ 2 |
+| `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）与远程文件浏览（WebDAV 目录导航） | 2 |
 | `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
 | `Features/Subtitle/` | AI 字幕状态卡（SubtitleStatusCard + ViewModel） | 1（Mock）→ 5/6 |
 | `Features/Settings/` | 设置页（隐私说明与后续配置占位） | 1（占位）→ 7 |
 | `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
 | `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
-| `Core/Mock/` | Mock 数据与 Mock 实现（Phase 1 注入物） | 1 |
-| `Core/Networking/` | WebDAV / SMB / FTP 远程协议 | 2 |
-| `Core/Storage/` | Keychain / SwiftData | 2+ |
+| `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
+| `Core/Networking/` | WebDAV 目录浏览（PROPFIND；SMB / FTP 后续补充） | 2 |
+| `Core/Storage/` | Keychain 凭据、UserDefaults 配置/历史/收藏 | 2 |
 | `AI/Speech/` | WhisperKit 语音识别 | 5 |
 | `AI/Translation/` | 可替换翻译引擎 | 7 |
 | `Services/` | 业务编排服务 | 2+ |
@@ -199,7 +199,8 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 ## 11. Phase 规划
 
 1. **Phase 1（已完成）**：App 初始化、目录、Tab/Navigation、Liquid Glass Design System、首页、Mock、核心协议、测试、CI。
-2. **Phase 2**：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV / SMB / FTP + Keychain 凭据。
+2. **Phase 2（已完成）**：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV 远程文件 + Keychain 凭据；
+   SMB / FTP 由后续阶段补充。
 3. **Phase 3**：AVPlayer 封装（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制）。
 4. **Phase 4**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
 5. **Phase 5**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别。

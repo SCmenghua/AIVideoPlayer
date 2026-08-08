@@ -11,6 +11,27 @@
 - 暂无。当前主线为 Phase 2。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 
+## [0.2.0] - 2026-08-09
+
+### Added（Phase 2 浏览器 + 远程文件）
+
+- WKWebView 浏览器：真实地址栏、前进/后退/刷新、历史、收藏
+- 远程文件：WebDAV 目录浏览（PROPFIND + XML 解析，多级目录导航、面包屑）
+- 凭据：Keychain 存储（`KeychainCredentialStore`）；服务器配置持久化（UserDefaults）
+- 协议新增：CredentialStoring / RemoteServerProfileStoring / BrowserHistoryStoring / BookmarkStoring；
+  RemoteFileBrowsing 演进为 connect / listDirectory / disconnect
+- 浏览器与远程文件 ViewModel 独立（BrowserViewModel / RemoteFilesViewModel），依赖注入
+- 网络权限声明：ATS Web 内容例外、本地网络访问、局域网使用说明
+- 单元测试：WebDAV 解析、历史/收藏/配置存储、凭据存储、浏览器 VM、远程文件 VM
+
+### Changed
+
+- Browser Tab 根视图由 HomeView 改为 BrowserView；HomeView 重构为未打开网页时的首页内容
+
+### Security
+
+- 密码只写入 Keychain；WebDAV 会话凭据在 disconnect 时从内存清除
+
 ## [0.1.0] - 2026-08-09
 
 ### Added（Phase 1 基础架构）
@@ -42,14 +63,6 @@
 ### Security
 
 - 移除全部 URL 强制解包；新增 Mock 数据 URL 有效性测试（https / host / 全 ASCII）
-
-## [0.2.0] - Phase 2（规划中）
-
-_尚未开发。_
-
-- WKWebView 浏览器：地址栏、历史、收藏
-- 远程文件：WebDAV / SMB / FTP
-- Keychain 凭据存储
 
 ## [0.3.0] - Phase 3（规划中）
 

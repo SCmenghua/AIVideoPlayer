@@ -17,13 +17,22 @@ struct ProtocolConformanceTests {
         #expect(items[0].source == .web)
     }
 
-    @Test func remoteFileBrowserReturnsMockContents() async throws {
+    @Test func remoteFileBrowserConnectsAndListsDirectory() async throws {
         let browser = MockRemoteFileBrowser()
+        let profile = RemoteServerProfile(
+            name: "NAS",
+            rootURL: try #require(URL(string: "https://nas.example.local/dav/")),
+            username: "user"
+        )
+        let credentials = RemoteCredentials(username: "user", password: "pass")
 
-        let files = try await browser.listRemoteFiles()
+        try await browser.connect(to: profile, credentials: credentials)
+        let files = try await browser.listDirectory(at: profile.rootURL)
 
         #expect(files.count == MockRemoteFiles.contents.count)
         #expect(!files.isEmpty)
+
+        await browser.disconnect()
     }
 
     @Test func playbackEngineLoadsItem() async throws {
