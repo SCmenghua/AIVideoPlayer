@@ -57,7 +57,7 @@ struct ModelsTests {
 
     private func makeRemoteFile(kind: RemoteFile.Kind) throws -> RemoteFile {
         let url = try #require(URL(string: "https://example.com/sample"))
-        RemoteFile(
+        return RemoteFile(
             name: "Sample",
             url: url,
             kind: kind,
