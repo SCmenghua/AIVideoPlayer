@@ -166,10 +166,33 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 
 ### 8.3 TranslationEngine（Phase 7）
 
-1. 实现 `AI/Translation/APITranslationEngine`（Base URL / API Key / Model / Language 可配置）与
-   `MockTranslationEngine`。
-2. 在设置页提供配置入口；启用前必须展示提示：「字幕文本将发送到你配置的翻译服务」。
-3. 字幕管线在需要翻译时调用 `TranslationEngine`，译文写入 `SubtitleSegment.translatedText`。
+`TranslationEngine` 保持单一协议，翻译能力由多个可替换的 Provider 实现，用户可在设置页选择：
+
+**Provider 类型：**
+
+1. **Fast NMT Provider（本地 / 轻量 NMT）**：基于 LibreTranslate、NLLB 等，适合极速、低消耗场景；
+   完全本地运行，文本不出设备。
+2. **Local LLM Provider（本地大模型）**：基于 Qwen、Gemma（4B 级）等本地模型，完全离线运行；
+   无网络依赖，可在上下文润色模式下提供剧情感知翻译。
+3. **Cloud LLM Provider（云端 API）**：基于 OpenAI 兼容格式（ChatCompletions API），支持用户自定义
+   `baseUrl`、`apiKey`、`modelName`（如 deepseek-chat、gpt-4o-mini、claude-3-5-haiku 等）。
+   启用前必须展示提示：「字幕文本将发送到你配置的翻译服务」。
+
+**上下文润色（可选开关）：**
+
+- 提供「剧情理解润色」开关：开启后，本地 LLM / 云端 API 会先理解当前剧情的上下文（历史字幕窗口），
+  再基于语境翻译并润色，提升连贯性与可读性。
+- 必须注意**自动压缩文本**：发送给模型的上下文需自动压缩（截断 / 摘要 / 滑动窗口），
+  控制 token 消耗与延迟，避免上下文溢出。
+
+**实现约束：**
+
+1. 每个 Provider 都实现 `TranslationEngine` 协议，通过依赖注入接入字幕管线；
+   译文写入 `SubtitleSegment.translatedText`。
+2. 设置页提供 Provider 选择与对应配置（Base URL / API Key / Model / Language）。
+3. 隐私：Fast NMT 与 Local LLM 完全本地；Cloud LLM 必须先行展示隐私提示。
+4. 上下文窗口与压缩策略由独立组件管理（如 `TranslationContextProvider`），
+   禁止把大段原始字幕直接塞进请求。
 
 ### 8.4 远程文件与浏览器（Phase 2）
 
@@ -217,7 +240,8 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 4. **Phase 4**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
 5. **Phase 5**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别。
 6. **Phase 6**：SubtitleOverlay（双语、时间同步、拖动、样式）。
-7. **Phase 7**：TranslationEngine（Base URL / API Key / Model / Language；明确隐私提示）。
+7. **Phase 7**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
+   （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；明确隐私提示。
 8. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

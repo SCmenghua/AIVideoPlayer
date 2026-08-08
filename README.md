@@ -91,7 +91,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ⬜ 未开始 |
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer） | ⬜ 未开始 |
 | 6 | SubtitleOverlay（双语、时间同步、拖动、样式） | ⬜ 未开始 |
-| 7 | TranslationEngine（Base URL / API Key / Model / Language + 隐私提示） | ⬜ 未开始 |
+| 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（自动压缩文本）+ 隐私提示 | ⬜ 未开始 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
 
 > 严格执行 Phase 顺序，禁止提前实现后续 Phase。详细规划见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，
