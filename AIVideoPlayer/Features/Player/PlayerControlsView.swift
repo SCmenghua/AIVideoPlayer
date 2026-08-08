@@ -89,7 +89,7 @@ struct PlayerControlsView: View {
 
     private var rateMenu: some View {
         Menu {
-            ForEach([0.5, 1.0, 1.25, 1.5, 2.0], id: \.self) { value in
+            ForEach([0.5 as Float, 1.0, 1.25, 1.5, 2.0], id: \.self) { value in
                 Button("\(value.formatted(.number.precision(.fractionLength(0...2))))x") {
                     Task { await viewModel.setRate(value) }
                 }

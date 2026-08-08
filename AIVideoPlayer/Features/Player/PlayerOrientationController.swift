@@ -58,8 +58,8 @@ public enum PlayerOrientationController {
         }
 
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
-            // 部分场景（如 iPad 多任务）不支持强制旋转，回退系统标准旋转请求。
-            UIViewController.attemptRotationToDeviceOrientation()
+            // 旋转请求失败（如系统锁定或 iPad 多任务）时不做强制回退；
+            // 全屏控制栏已提供手动「横屏/竖屏」按钮作为兜底。
         }
     }
 }
