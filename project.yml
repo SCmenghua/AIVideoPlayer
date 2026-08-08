@@ -1,0 +1,79 @@
+name: AIVideoPlayer
+
+options:
+  bundleIdPrefix: com.aivideoplayer
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    CODE_SIGN_STYLE: Automatic
+    CURRENT_PROJECT_VERSION: 1
+    MARKETING_VERSION: 0.1.0
+
+targets:
+  AIVideoPlayer:
+    type: application
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: AIVideoPlayer
+        excludes:
+          - "**/*.md"
+          - "**/.gitkeep"
+    info:
+      path: AIVideoPlayer/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: AI Video Player
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aivideoplayer.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+
+  AIVideoPlayerTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: Tests/AIVideoPlayerTests
+    dependencies:
+      - target: AIVideoPlayer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.aivideoplayer.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  AIVideoPlayer:
+    build:
+      targets:
+        AIVideoPlayer: all
+        AIVideoPlayerTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      gatherCoverageData: true
+      targets:
+        - AIVideoPlayerTests

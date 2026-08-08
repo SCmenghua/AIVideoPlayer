@@ -1,0 +1,71 @@
+name: Swift CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: swift-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build & Test (iOS 26)
+    runs-on: macos-15
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
+          if [ -z "$XCODE_APP" ]; then
+            echo "::error::未在 /Applications 找到 Xcode"
+            exit 1
+          fi
+          sudo xcode-select -s "$XCODE_APP"
+          xcodebuild -version
+          xcodebuild -showsdks | grep -q 'iphoneos' || {
+            echo "::error::缺少 iOS SDK"
+            exit 1
+          }
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (iOS Simulator, no signing)
+        run: |
+          xcodebuild build \
+            -project AIVideoPlayer.xcodeproj \
+            -scheme AIVideoPlayer \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Resolve test simulator
+        run: |
+          SIM_NAME=$(xcrun simctl list devices available | grep -Eo 'iPhone [^(]+' | head -n 1 | xargs)
+          if [ -z "$SIM_NAME" ]; then
+            echo "::error::没有可用的 iPhone 模拟器"
+            exit 1
+          fi
+          echo "Test simulator: $SIM_NAME"
+          echo "SIM_NAME=$SIM_NAME" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: |
+          xcodebuild test \
+            -project AIVideoPlayer.xcodeproj \
+            -scheme AIVideoPlayer \
+            -configuration Debug \
+            -destination "platform=iOS Simulator,name=$SIM_NAME" \
+            -derivedDataPath build/DerivedData \
+            CODE_SIGNING_ALLOWED=NO

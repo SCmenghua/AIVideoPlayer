@@ -1,0 +1,15 @@
+# Xcode / macOS
+xcuserdata/
+DerivedData/
+build/
+*.xcworkspace/xcuserdata/
+
+# XcodeGen output — regenerate with `xcodegen generate`
+AIVideoPlayer.xcodeproj/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# OS
+.DS_Store
