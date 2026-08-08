@@ -8,7 +8,7 @@
 
 ### 待规划
 
-- 当前主线为 Phase 3（播放器）。
+- 当前主线为 Phase 4（MediaExtractor）。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 - Phase 7 翻译引擎需求扩充已记录至架构文档：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
   剧情理解润色（自动压缩文本；Fast NMT 直接翻译、不参与上下文润色）（2026-08-09）。
@@ -38,6 +38,37 @@
 
 - WebDAV Multi-Status 解析器：`didEndElement` 修改的是结构体副本导致所有资源被丢弃，
   改为就地修改 `currentResource`（CI 测试失败修复）
+
+## [0.3.0] - 2026-08-09
+
+### Added（Phase 3 播放器）
+
+- `AVPlayerPlaybackEngine`：加载（可取消等待 ready）、播放/暂停/seek/倍速/音量，
+  状态流与进度流双观察通道（`stateStream` / `progressStream`）
+- `PlaybackEngine` 协议演进：新增 `PlaybackProgress`、只读渲染句柄 `player`；
+  `PlaybackState` 去重（当前条目由 `currentItem` 单独跟踪）
+- 自定义播放器 UI（**无 AVPlayerViewController**）：玻璃控制栏（播放/暂停、进度条 + 拖动、
+  倍速菜单、音量、比例 fit/fill、字幕开关、全屏）
+- 画面大小滑块（0.5x-2.0x）实时缩放视频画面
+- YouTube 风格全屏：fullScreenCover 隐藏 Tab Bar / 导航栏 / 状态栏；竖屏锁定时可全屏横屏；
+  全屏控制栏手动「横屏/竖屏」兜底按钮；iPad 保持多任务支持
+- 远程文件视频 → 播放器一键交接（`AppEnvironment.requestPlayback`）
+- 播放器空状态调试入口「播放示例媒体」（开发期专用，删除方法见架构文档 8.1.2）
+- 单元测试：共享 `MockPlaybackEngine` + `PlayerViewModelTests`
+
+### Changed
+
+- Player Tab 由占位页升级为完整播放器；`PlayerViewModel` 注入 `PlaybackEngine` 并消费双流
+
+### Fixed
+
+- Swift 6 数据竞争：播放结束通知闭包不再跨隔离域传递 `Notification`（改用 `ObjectIdentifier`）
+- 倍速菜单数组类型 `[Double]` → `[Float]`，匹配 `setRate(Float)`
+- 移除 iOS 16+ 弃用的 `attemptRotationToDeviceOrientation`
+
+### Security
+
+- 播放器渲染只读绑定 AVPlayerLayer，不做任何播放控制（架构红线唯一例外）
 
 ## [0.1.0] - 2026-08-09
 
@@ -70,12 +101,6 @@
 ### Security
 
 - 移除全部 URL 强制解包；新增 Mock 数据 URL 有效性测试（https / host / 全 ASCII）
-
-## [0.3.0] - Phase 3（规划中）
-
-_尚未开发。_
-
-- AVPlayer 封装：播放、暂停、进度、倍速、音量、全屏、比例调整、字幕控制
 
 ## [0.4.0] - Phase 4（规划中）
 

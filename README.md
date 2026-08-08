@@ -6,7 +6,7 @@
 自动识别媒体资源并用自有播放器播放、Whisper 本地实时语音识别与双语 AI 字幕。UI 严格遵循
 iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护。
 
-## 当前功能（Phase 2）
+## 当前功能（Phase 3）
 
 - 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
 - Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
@@ -15,7 +15,11 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 - 远程文件：WebDAV 目录浏览（PROPFIND，多级目录导航 + 面包屑），连接表单与已保存服务器一键重连
 - 凭据安全：密码只存 Keychain；服务器配置 / 历史 / 收藏持久化（UserDefaults）
 - 首页（未打开网页时）：AI 字幕状态卡（OFF → LOADING → LISTENING → READY 状态流转演示）+ 远程文件区
-- 播放器占位页（玻璃播放按钮与控制组）、设置页（隐私承诺与后续功能占位）
+- 播放器：AVPlayer 引擎（播放/暂停/进度/倍速/音量/seek）+ 自定义 SwiftUI 播放器（无 AVPlayerViewController）
+- 玻璃控制栏：进度条、倍速菜单、音量、画面比例（fit/fill）、画面大小滑块（0.5x-2.0x）、字幕开关、全屏
+- YouTube 风格全屏：隐藏 Tab Bar / 导航栏 / 状态栏；竖屏锁定时可横屏；全屏控制栏手动横屏/竖屏兜底；iPad 多任务
+- 远程文件视频 → 播放器一键交接；播放器空状态含开发期调试入口（删除方法见架构文档 8.1.2）
+- 设置页（隐私承诺与后续功能占位）
 - 核心协议层（11 个协议）与数据模型（11 个模型）；ViewModel 依赖注入；所有 Task 可取消
 - 单元测试（Swift Testing）：模型、Mock 数据、WebDAV 解析、存储、浏览器与远程文件 ViewModel、协议测试替身
 - GitHub Actions CI：`xcodegen generate` → `xcodebuild build` → `xcodebuild test`
@@ -27,7 +31,7 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 | 语言 | Swift 6（严格并发） |
 | UI | SwiftUI（iOS 26 Liquid Glass API） |
 | 并发 | Swift Concurrency / AsyncStream / Observation |
-| 媒体 | AVFoundation / AVPlayer（Phase 3 接入） |
+| 媒体 | AVFoundation / AVPlayer（已接入） |
 | 浏览器 | WKWebView（已接入） |
 | AI | WhisperKit / Core ML（本地运行，Phase 5 接入） |
 | 网络 | URLSession、WebDAV（已接入）；SMB / FTP 后续补充 |
@@ -79,7 +83,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 
 - ✅ Phase 1 完成：App 骨架、Liquid Glass Design System、首页（Mock）、核心协议与模型、单元测试、CI 通过
 - ✅ Phase 2 完成：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV 远程文件 + Keychain 凭据，CI 通过
-- ⬜ Phase 3 尚未开始：AVPlayer 播放器
+- ✅ Phase 3 完成：AVPlayer 播放器 + YouTube 风格全屏横屏（画面大小滑块、手动横屏兜底），CI 通过
+- ⬜ Phase 4 尚未开始：MediaExtractor
 
 ## 后续开发路线
 
@@ -87,7 +92,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 |---|---|---|
 | 1 | 基础架构 / Liquid Glass / 首页 / 协议 / 测试 / CI | ✅ 完成 |
 | 2 | WKWebView 浏览器、WebDAV（SMB / FTP 后续补充）、Keychain 凭据 | ✅ 完成 |
-| 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ⬜ 未开始 |
+| 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ✅ 完成 |
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ⬜ 未开始 |
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer） | ⬜ 未开始 |
 | 6 | SubtitleOverlay（双语、时间同步、拖动、样式） | ⬜ 未开始 |
@@ -102,6 +107,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 ```text
 AIVideoPlayer/
 ├── project.yml               # XcodeGen 工程定义（唯一事实来源）
+├── PROJECT_CONTEXT.md        # 项目上下文速览（Phase 状态 / 禁止事项 / 技术栈）
 ├── .github/workflows/        # GitHub Actions CI
 ├── docs/ARCHITECTURE.md      # 架构决策与 Phase 规划
 ├── AIVideoPlayer/            # App 源码
