@@ -1,70 +1,183 @@
 # AI Video Player — 架构文档
 
-## 目标
+> 本文档是项目架构的事实来源。任何代码改动都不得违背「不可违反规则」章节中的内容。
+
+## 1. 项目目标
 
 高质量、可扩展、可维护、性能稳定、符合 Apple 原生设计规范的长期 iOS 项目。
+产品形态：PotPlayer + 浏览器 + AI 实时字幕 + 远程文件浏览器的原生 iOS 视频播放器。
 
-## 分层架构
+## 2. 分层架构
 
-```text
-View ──► ViewModel ──► Service / Engine ──► Framework（AVFoundation / WhisperKit / URLSession ...）
+```mermaid
+flowchart TB
+    subgraph UI[SwiftUI 层]
+        V[View]
+    end
+    subgraph State[状态层]
+        VM[ViewModel · @MainActor @Observable]
+    end
+    subgraph Contract[契约层]
+        P[Protocol]
+    end
+    subgraph Impl[实现层]
+        S[Service / Engine]
+    end
+    subgraph FW[框架层]
+        AV[AVFoundation / AVPlayer]
+        WK[WKWebView]
+        WH[WhisperKit / Core ML]
+        NS[URLSession]
+        KC[Keychain]
+    end
+    V --> VM --> P --> S
+    S --> AV
+    S --> WK
+    S --> WH
+    S --> NS
+    S --> KC
 ```
 
-- **View**：纯展示与用户手势；不持有业务逻辑。
-- **ViewModel**：`@MainActor @Observable`；持有页面状态与协议依赖；发起可取消的 Task。
-- **Service / Engine**：实现核心协议；例如 `PlaybackEngine`（封装 AVPlayer）。
-- **Framework**：Apple / 第三方框架，业务层只通过协议接触。
+**数据流：View → ViewModel → Protocol → Service/Engine → Framework**
 
-## 模块划分
+依赖方向永远向下；UI 层不知道具体实现类型，只知道协议。
+
+| 层 | 职责 | 约束 |
+|---|---|---|
+| View | 纯展示与手势；绑定 ViewModel 状态 | 不持有业务逻辑；单文件 ≤ 300 行 |
+| ViewModel | `@MainActor @Observable`；持有页面状态与协议依赖；发起可取消 Task | 不直接接触 AVPlayer / URLSession / WhisperKit |
+| Protocol | 契约，业务与实现之间的唯一接口 | 业务层只依赖协议，不依赖具体实现 |
+| Service / Engine | 实现协议，封装框架能力 | 可替换；通过 init 注入 |
+| Framework | Apple / 第三方框架 | 只在 Service 层被触碰 |
+
+## 3. 模块职责
 
 | 目录 | 职责 | 当前 Phase |
 |---|---|---|
-| `App/` | App 入口、Tab 路由、全局状态 | 1 |
-| `DesignSystem/` | Liquid Glass 组件、Theme、通用 UI | 1 |
-| `Features/Browser/` | 首页、地址栏、远程文件浏览 | 1（Mock）→ 2 |
-| `Features/Player/` | 播放器 UI 与状态 | 1（占位）→ 3 |
-| `Features/Subtitle/` | AI 字幕状态卡 | 1（Mock）→ 5/6 |
-| `Features/Settings/` | 设置页 | 1（占位）→ 7 |
-| `Core/Protocols/` | `MediaExtractor`、`PlaybackEngine`、`SpeechRecognizer`、`TranslationEngine`、`SubtitleEngine` | 1 |
-| `Core/Models/` | `MediaItem`、`RemoteFile`、`SubtitleSegment`、`AIState`、`LoadState`、`PlaybackState` | 1 |
-| `Core/Mock/` | Phase 1 Mock 数据 | 1 |
-| `Core/Networking/` | 远程协议（WebDAV / SMB / FTP） | 2 |
+| `App/` | App 入口、Tab 路由、全局状态（AppEnvironment） | 1 |
+| `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
+| `Features/Browser/` | 首页、地址栏、远程文件浏览（HomeView + BrowserViewModel） | 1（Mock）→ 2 |
+| `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
+| `Features/Subtitle/` | AI 字幕状态卡（SubtitleStatusCard + ViewModel） | 1（Mock）→ 5/6 |
+| `Features/Settings/` | 设置页（隐私说明与后续配置占位） | 1（占位）→ 7 |
+| `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
+| `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
+| `Core/Mock/` | Mock 数据与 Mock 实现（Phase 1 注入物） | 1 |
+| `Core/Networking/` | WebDAV / SMB / FTP 远程协议 | 2 |
 | `Core/Storage/` | Keychain / SwiftData | 2+ |
 | `AI/Speech/` | WhisperKit 语音识别 | 5 |
 | `AI/Translation/` | 可替换翻译引擎 | 7 |
 | `Services/` | 业务编排服务 | 2+ |
 | `Utilities/` | 日志等通用设施 | 1 |
 
-## 核心协议
+## 4. 核心协议
 
-- `MediaExtractor`：网页 / 远程目录 → `[MediaItem]`（不绕过 DRM）。
-- `PlaybackEngine`：封装 AVPlayer 生命周期（加载、播放、暂停、seek、倍速、音量）。
-- `SpeechRecognizer`：本地实时语音识别，输出 `AsyncStream<SubtitleSegment>`（partial / final）。
-- `TranslationEngine`：可替换翻译（API / 本地模型 / Mock）。
-- `SubtitleEngine`：字幕时间线管理（双语、同步、样式由 UI 层负责）。
-- `RemoteFileBrowsing`：远程文件列表（Phase 1 Mock，Phase 2 接入 WebDAV / SMB / FTP）。
-- `SubtitleStatusProviding`：AI 字幕状态来源（Phase 1 Mock，Phase 5 由 WhisperKit 管线实现）。
+| 协议 | 职责 | 实现计划 |
+|---|---|---|
+| `MediaExtractor` | 网页 / 远程目录 → `[MediaItem]` | Phase 4（HTML5 video / MP4 / HLS / M3U8） |
+| `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | Phase 3（AVPlayerPlaybackEngine） |
+| `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final） | Phase 5（WhisperKitSpeechRecognizer） |
+| `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
+| `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
+| `RemoteFileBrowsing` | 远程文件列表 | Phase 2（WebDAV / SMB / FTP） |
+| `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | Phase 5（WhisperKit 管线） |
 
-业务层只依赖协议；具体实现（WhisperKit、AVPlayer、API 翻译）在各自 Phase 注入。
+业务层只依赖协议；具体实现（AVPlayer、WhisperKit、翻译 API）在各自 Phase 通过依赖注入接入。
 
-## AI 字幕 Pipeline（规划）
+## 5. 数据模型
 
-```text
-AVPlayer → AudioPipeline → SpeechRecognizer → SubtitleSegment → SubtitleEngine → SwiftUI Overlay
+| 模型 | 说明 |
+|---|---|
+| `MediaItem` | 可播放媒体资源（视频/音频、来源） |
+| `RemoteFile` | 远程目录条目（类型、连接协议、大小、时间） |
+| `SubtitleSegment` | 字幕行（时间区间、原文、译文、置信度、partial/final） |
+| `AIState` | AI 字幕七态：OFF / LOADING / LISTENING / TRANSCRIBING / TRANSLATING / READY / ERROR |
+| `AISubtitleStatus` | AI 字幕子系统状态快照 |
+| `PlaybackState` | 播放状态机（idle / loading / ready / playing / paused / ended / failed） |
+| `LoadState` | 异步加载五态：loading / ready / empty / error / cancelled |
+
+## 6. 依赖注入
+
+ViewModel 通过 init 接收协议实现，默认值指向 Mock，替换实现无需改动调用方：
+
+```swift
+BrowserViewModel(browser: any RemoteFileBrowsing = MockRemoteFileBrowser())
+SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStatusProvider())
 ```
 
-`AIState`：`OFF / LOADING / LISTENING / TRANSCRIBING / TRANSLATING / READY / ERROR`。
+未来真实实现以相同方式注入，业务代码零改动。
 
-## 隐私承诺
+## 7. 状态管理与取消
+
+- 所有 async Task 必须支持取消：`Task.checkCancellation()` + generation 令牌防止过期结果覆盖。
+- 状态必须显式表达：`LoadState` 五态、`AIState` 七态、`PlaybackState` 状态机。
+- 流式数据使用 `AsyncStream`（如 `SubtitleStatusProviding.statusStream`），随宿主视图 `.task` 生命周期自动取消。
+
+## 8. 未来接入方式
+
+### 8.1 AVPlayer（Phase 3）
+
+1. 实现 `PlaybackEngine`：新建 `Services/Playback/AVPlayerPlaybackEngine`（`@MainActor`），封装 AVPlayer 的
+   加载、播放、暂停、seek、倍速、音量，并暴露状态流（`AsyncStream<PlaybackState>`）供 ViewModel 消费。
+2. 注入：`PlayerViewModel(engine: any PlaybackEngine)`，UI 只读 ViewModel 状态。
+3. 禁止：View 或 ViewModel 直接持有 AVPlayer / AVPlayerLayer。
+
+### 8.2 WhisperKit（Phase 5）
+
+1. 新增 `AudioPipeline`（负责从 AVPlayer 或麦克风取音频）。
+2. 实现 `SpeechRecognizer`：`AI/Speech/WhisperKitSpeechRecognizer`，把 WhisperKit 的 partial / final 结果
+   映射为 `SubtitleSegment` 并写入 `AsyncStream`。
+3. 实现 `SubtitleStatusProviding` 的真实版本，替换 `MockSubtitleStatusProvider` 注入到
+   `SubtitleStatusViewModel`。
+4. 隐私：音频不离开设备，模型本地加载。
+
+### 8.3 TranslationEngine（Phase 7）
+
+1. 实现 `AI/Translation/APITranslationEngine`（Base URL / API Key / Model / Language 可配置）与
+   `MockTranslationEngine`。
+2. 在设置页提供配置入口；启用前必须展示提示：「字幕文本将发送到你配置的翻译服务」。
+3. 字幕管线在需要翻译时调用 `TranslationEngine`，译文写入 `SubtitleSegment.translatedText`。
+
+### 8.4 远程文件与浏览器（Phase 2）
+
+1. 实现 `RemoteFileBrowsing`（WebDAV → SMB → FTP），替换 `MockRemoteFileBrowser`。
+2. 凭据只存 Keychain（`Core/Storage/`）。
+3. `HomeView` 的 Mock 地址栏替换为真实 WKWebView 浏览器，保持 Liquid Glass 设计不变。
+
+## 9. 设计原则与不可违反规则
+
+### 设计原则
+
+- 协议先行：先定义契约，再决定实现；实现可以替换。
+- 依赖注入：View / ViewModel 通过 init 获得依赖，禁止内部 new 具体业务实现。
+- 状态显式：任何异步过程都有明确的 loading / ready / error / empty / cancelled 表现。
+- 内容优先：玻璃是漂浮在内容之上的交互层，不是覆盖内容的背景层。
+- 最小改动：每个变更只针对当前 Phase 的目标，禁止顺手实现后续功能。
+
+### 不可违反规则（红线）
+
+1. View 不能直接处理 AVPlayer、URLSession、WhisperKit、网络协议、API 调用。
+2. 禁止 Massive View：单个 View 超过 300 行必须拆分。
+3. 禁止把所有逻辑写进 `ContentView.swift`。
+4. 禁止为方便创建大量 Singleton。
+5. 所有 async Task 必须支持取消。
+6. 所有状态必须显式：Loading / Ready / Error / Empty / Cancelled。
+7. UI 禁止使用 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃；必须使用 iOS 26 原生
+   Liquid Glass API（`glassEffect` / `GlassEffectContainer` / `.glass` / `.glassProminent`）。
+8. 禁止提前实现后续 Phase；每个 Phase 完成时必须编译 + 测试 + 架构检查。
+9. 第三方库 API 不确定时先查官方文档 / Package.swift / 源码，禁止编造 API。
+10. 隐私红线：视频/音频不上传；凭据只存本机 Keychain；翻译服务启用前必须明确提示。
+
+## 10. 隐私承诺
 
 - 视频、音频默认不上传；Whisper 完全本地运行。
-- 远程凭据只存本机 Keychain。
+- 远程账号密码只保存在本机 Keychain。
 - 翻译服务启用前必须明确提示：「字幕文本将发送到你配置的翻译服务」。
 - 不收集视频、字幕、浏览历史、服务器文件列表。
 
-## Phase 规划
+## 11. Phase 规划
 
-1. **Phase 1（当前）**：App 初始化、目录、Tab/Navigation、Liquid Glass Design System 基础、首页、Mock、核心协议。
+1. **Phase 1（已完成）**：App 初始化、目录、Tab/Navigation、Liquid Glass Design System、首页、Mock、核心协议、测试、CI。
 2. **Phase 2**：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV / SMB / FTP + Keychain 凭据。
 3. **Phase 3**：AVPlayer 封装（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制）。
 4. **Phase 4**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
@@ -73,4 +186,4 @@ AVPlayer → AudioPipeline → SpeechRecognizer → SubtitleSegment → Subtitle
 7. **Phase 7**：TranslationEngine（Base URL / API Key / Model / Language；明确隐私提示）。
 8. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
 
-> 禁止提前实现后续 Phase。
+> 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

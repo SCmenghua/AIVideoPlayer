@@ -1,19 +1,49 @@
 # AI Video Player
 
-一个长期维护的个人项目：**iOS 26 原生视频播放器**，目标形态为
-「PotPlayer + 浏览器 + AI 实时字幕 + 远程文件浏览器」。
+> iOS 26 原生视频播放器 —— PotPlayer + 浏览器 + AI 实时字幕 + 远程文件浏览器
 
-技术栈：Swift 6 / SwiftUI / Swift Concurrency / AVFoundation / WhisperKit（本地）/ Core ML / URLSession / Keychain。
+一个长期维护的个人 iOS 项目：在 iOS 26+ 上提供 App 内网页浏览、WebDAV / SMB / FTP 远程文件访问、
+自动识别媒体资源并用自有播放器播放、Whisper 本地实时语音识别与双语 AI 字幕。UI 严格遵循
+iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护。
 
-## 当前状态
+## 当前功能（Phase 1）
 
-- **Phase 1 已完成**：工程骨架、Tab + Navigation 架构、Liquid Glass Design System 基础、
-  首页（Mock 远程文件列表 + Mock AI 字幕状态）、核心协议与模型、单元测试。
-- 播放器、浏览器、远程协议、Whisper、字幕、翻译等属于后续 Phase，尚未实现。
+- 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
+- Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
+  `GlassEffectContainer` / `.glassProminent`，无任何 `.blur()` / `.opacity()` 模拟玻璃）
+- 首页：Mock 地址栏、Mock 远程文件列表（文件夹 + 视频）、AI 字幕状态卡（OFF → LOADING → LISTENING → READY
+  状态流转演示）
+- 播放器占位页（玻璃播放按钮与控制组）、设置页（隐私承诺与后续功能占位）
+- 核心协议层（7 个协议）与数据模型（7 个模型）；ViewModel 依赖注入；所有 Task 可取消
+- 单元测试（Swift Testing）：模型测试、Mock 数据健壮性测试、协议测试替身
+- GitHub Actions CI：`xcodegen generate` → `xcodebuild build` → `xcodebuild test`
 
-## 构建要求
+## 技术栈
 
-本项目需要在 **macOS + Xcode 26+（iOS 26 SDK）** 上构建；Windows 无法编译 iOS 应用。
+| 类别 | 技术 |
+|---|---|
+| 语言 | Swift 6（严格并发） |
+| UI | SwiftUI（iOS 26 Liquid Glass API） |
+| 并发 | Swift Concurrency / AsyncStream / Observation |
+| 媒体 | AVFoundation / AVPlayer（Phase 3 接入） |
+| 浏览器 | WKWebView（Phase 2 接入） |
+| AI | WhisperKit / Core ML（本地运行，Phase 5 接入） |
+| 网络 | URLSession、WebDAV / SMB / FTP（Phase 2 接入） |
+| 存储 | Keychain（Phase 2 接入）；SwiftData（仅必要时） |
+| 工程 | XcodeGen（`project.yml` 生成 `.xcodeproj`） |
+| 测试 | Swift Testing |
+| CI | GitHub Actions（macOS runner） |
+
+## 环境要求
+
+- macOS（可安装 Xcode 26 的版本）
+- Xcode 26+（含 iOS 26 SDK）
+- XcodeGen（`brew install xcodegen`）
+- 可选：GitHub 账号（用于 CI）
+
+> Windows 无法编译 iOS 应用，只能用于编辑与查看源码。
+
+## 在 macOS + Xcode 运行
 
 ```bash
 # 1. 安装 XcodeGen（一次性）
@@ -22,25 +52,54 @@ brew install xcodegen
 # 2. 生成 Xcode 工程（在仓库根目录执行）
 xcodegen generate
 
-# 3. 打开并构建
+# 3. 打开工程
 open AIVideoPlayer.xcodeproj
-# 选择 AIVideoPlayer scheme，选 iOS 26 模拟器运行（Cmd+R）
 
-# 4. 运行测试（Cmd+U）
+# 4. 运行：选择 AIVideoPlayer scheme，选 iOS 26 模拟器，Cmd+R
+# 5. 测试：Cmd+U
+```
+
+命令行构建与测试：
+
+```bash
+# 构建（模拟器，免签名）
+xcodebuild build -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO
+
+# 测试
+xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
+  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' CODE_SIGNING_ALLOWED=NO
 ```
 
 > `AIVideoPlayer.xcodeproj` 由 `project.yml` 生成，不提交到版本库。
 
-## CI
+## 当前阶段状态
 
-[.github/workflows/swift-ci.yml](.github/workflows/swift-ci.yml) 在 macOS runner 上自动执行：
-`xcodegen generate` → `xcodebuild build` → `xcodebuild test`（push 到 `main` 或发起 PR 时触发）。
+- ✅ Phase 1 完成：App 骨架、Liquid Glass Design System、首页（Mock）、核心协议与模型、单元测试、CI 通过
+- ⬜ Phase 2 尚未开始：浏览器 + 远程文件
+
+## 后续开发路线
+
+| Phase | 内容 | 状态 |
+|---|---|---|
+| 1 | 基础架构 / Liquid Glass / 首页 / 协议 / 测试 / CI | ✅ 完成 |
+| 2 | WKWebView 浏览器、WebDAV / SMB / FTP、Keychain 凭据 | ⬜ 未开始 |
+| 3 | AVPlayer 播放器（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制） | ⬜ 未开始 |
+| 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ⬜ 未开始 |
+| 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer） | ⬜ 未开始 |
+| 6 | SubtitleOverlay（双语、时间同步、拖动、样式） | ⬜ 未开始 |
+| 7 | TranslationEngine（Base URL / API Key / Model / Language + 隐私提示） | ⬜ 未开始 |
+| 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
+
+> 严格执行 Phase 顺序，禁止提前实现后续 Phase。详细规划见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，
+> 变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 目录结构
 
 ```text
 AIVideoPlayer/
 ├── project.yml               # XcodeGen 工程定义（唯一事实来源）
+├── .github/workflows/        # GitHub Actions CI
 ├── docs/ARCHITECTURE.md      # 架构决策与 Phase 规划
 ├── AIVideoPlayer/            # App 源码
 │   ├── App/                  # 入口、Tab、路由、全局状态
@@ -55,10 +114,10 @@ AIVideoPlayer/
 
 ## 架构红线（摘要）
 
-- View → ViewModel → Service/Engine → Framework；View 禁止直接接触 AVPlayer、URLSession、WhisperKit。
+- View → ViewModel → Protocol → Service/Framework；View 禁止直接接触 AVPlayer、URLSession、WhisperKit。
 - 单个 View 不超过 300 行；禁止把逻辑堆进 `ContentView.swift`。
-- 所有 async Task 支持取消；状态必须显式表达 Loading / Ready / Error / Empty / Cancelled。
-- UI 严格使用 iOS 26 原生 Liquid Glass API（`glassEffect`、`GlassEffectContainer`、`.glass` 按钮样式），
-  禁止用 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃。
+- 所有 async Task 支持取消；状态显式表达 Loading / Ready / Error / Empty / Cancelled。
+- UI 严格使用 iOS 26 原生 Liquid Glass API，禁止 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃。
+- 隐私优先：视频/音频不上传、Whisper 本地运行、凭据只存本机 Keychain。
 
-详细说明见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
+详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
