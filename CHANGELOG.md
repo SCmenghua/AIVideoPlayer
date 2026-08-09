@@ -8,7 +8,7 @@
 
 ### 待规划
 
-- 当前主线为 Phase 4（MediaExtractor）。
+- 当前主线为 Phase 5（WhisperKit 实时语音识别）。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 - Phase 7 翻译引擎需求扩充已记录至架构文档：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
   剧情理解润色（自动压缩文本；Fast NMT 直接翻译、不参与上下文润色）（2026-08-09）。
@@ -108,8 +108,20 @@
 
 - 移除全部 URL 强制解包；新增 Mock 数据 URL 有效性测试（https / host / 全 ASCII）
 
-## [0.4.0] - Phase 4（规划中）
+## [0.4.0] - 2026-08-09
 
-_尚未开发。_
+### Added（Phase 4 MediaExtractor）
 
-- MediaExtractor：HTML5 video / MP4 / HLS / M3U8（不绕过 DRM）
+- `WebMediaExtractor`（Services/Media）：直链媒体（MP4 / MOV / WebM / MP3 / M4A 等）→ 单个
+  `MediaItem`（不发起网络请求）；HLS（`.m3u8` / `.m3u`）→ 视频项（AVPlayer 原生处理播放列表）；
+  HTML 页面 → 提取 `<video>` / `<source src>` / `data-src`，支持相对地址解析、HTML 实体解码与去重
+- 浏览器入口：地址栏“提取视频”按钮 + 结果列表（`MediaExtractionSheet`），点击条目经
+  `AppEnvironment.requestPlayback` 一键播放
+- 远程文件：`m3u8` / `m3u` 识别为 video，WebDAV 目录中的 HLS 可直接进入播放链路
+- 单元测试：`WebMediaExtractorTests`（直链 / HLS / HTML 提取 / 相对地址 / 去重 / DRM 跳过 /
+  错误与取消）、`BrowserViewModelTests` 提取状态与防过期、`ModelsTests` HLS 映射
+
+### Security
+
+- 不绕过 DRM：只提取普通 HTTP(S) 媒体地址；带 `encrypted` 等加密标记或非 HTTP(S) 协议的
+  资源一律跳过，不做任何解密或绕过

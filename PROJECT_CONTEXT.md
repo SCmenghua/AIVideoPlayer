@@ -13,8 +13,8 @@
 
 ## 当前Phase
 
-**Phase 3**（AVPlayer 播放器与 YouTube 风格全屏体验，实现已完成、进入收尾）。
-下一阶段：**Phase 4 —— MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM）**。
+**Phase 4**（MediaExtractor：HTML5 video / MP4 / HLS / M3U8，不绕过 DRM，实现已完成、进入收尾）。
+下一阶段：**Phase 5 —— WhisperKit AudioPipeline + SpeechRecognizer 实时识别与超前缓冲**。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -53,6 +53,10 @@
   自定义播放器 UI（**无 AVPlayerViewController**）、玻璃控制栏、画面大小滑块（0.5x-2.0x）、
   YouTube 风格全屏（隐藏 Tab/Nav/状态栏、竖屏锁定时可横屏、手动横屏兜底按钮）、
   远程文件视频 → 播放器交接、播放器空状态调试入口（开发期专用，删除说明见架构文档 8.1.2）。
+- **Phase 4**：`WebMediaExtractor`（Services/Media，直链媒体 / HLS / HTML5 video 提取，
+  相对地址解析、HTML 实体解码、去重；不绕过 DRM）、浏览器地址栏「提取视频」按钮 +
+  结果列表（`MediaExtractionSheet`）→ `AppEnvironment.requestPlayback`、远程文件 `m3u8` / `m3u`
+  识别为 video、单元测试（提取器 / 浏览器提取状态 / HLS 映射）。
 - **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
 
 ## 禁止事项
@@ -76,7 +80,7 @@
 | 语言 | Swift 6（严格并发） |
 | UI | SwiftUI（iOS 26 Liquid Glass API） |
 | 并发 | Swift Concurrency / AsyncStream / Observation |
-| 媒体 | AVFoundation / AVPlayer（已接入） |
+| 媒体 | AVFoundation / AVPlayer（已接入）；HTML5 video / HLS 提取（Phase 4 已接入） |
 | 浏览器 | WKWebView（已接入） |
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
