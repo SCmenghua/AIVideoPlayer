@@ -89,7 +89,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 1 完成：App 骨架、Liquid Glass Design System、首页（Mock）、核心协议与模型、单元测试、CI 通过
 - ✅ Phase 2 完成：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV 远程文件 + Keychain 凭据，CI 通过
 - ✅ Phase 3 完成：AVPlayer 播放器 + YouTube 风格全屏横屏（画面大小滑块、手动横屏兜底），CI 通过
-- ✅ Phase 4 完成：MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM）
+- ✅ Phase 4 完成：MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM），CI 通过
 
 ## 后续开发路线
 

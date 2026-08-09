@@ -118,8 +118,8 @@
 - 浏览器入口：地址栏“提取视频”按钮 + 结果列表（`MediaExtractionSheet`），点击条目经
   `AppEnvironment.requestPlayback` 一键播放
 - 远程文件：`m3u8` / `m3u` 识别为 video，WebDAV 目录中的 HLS 可直接进入播放链路
-- 单元测试：`WebMediaExtractorTests`（直链 / HLS / HTML 提取 / 相对地址 / 去重 / DRM 跳过 /
-  错误与取消）、`BrowserViewModelTests` 提取状态与防过期、`ModelsTests` HLS 映射
+- 单元测试：`WebMediaExtractorTests`（直链 / HLS / HTML 提取（含 data-src）/ 相对地址 / 去重 /
+  DRM 跳过 / 错误与取消）、`BrowserViewModelTests` 提取状态与防过期、`ModelsTests` HLS 映射
 
 ### Security
 
