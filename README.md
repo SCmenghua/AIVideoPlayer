@@ -123,6 +123,10 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
+**版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
+（上一次 `0.7.x` → 下一次 `0.7.(x+1)`），文档中的 Phase 编号同步递增
+（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.7，下一次打包应为 0.7.8。
+
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 
 ## 当前阶段状态
@@ -145,6 +149,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   进度/状态复位）+ 手动初始化按钮与失败重试，CI 通过
 - ✅ Phase 7.7 完成：播放器状态与进度修复（换片先暂停避免自动播放、
   状态机禁止 playing 被 ready 回退、HLS/时长未就绪时进度条兜底），CI 通过
+- 🔄 Phase 7.x 系列进行中：Phase 8 之前用 7.x 的数个小版本修好播放器功能
+  （当前基线 0.7.7 / Phase 7.7，下一次打包 0.7.8 / Phase 7.8）
 
 ## 后续开发路线
 
@@ -160,7 +166,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 7.5 | 成品 Debug + 实测反馈完善（浏览器命令修复、视频接管、内置示例视频、地址栏清空按钮、打包 action） | ✅ 完成 |
 | 7.6 | 播放器换片复位（先初始化再加载、旧加载取消 + 世代守卫）+ 手动初始化按钮 | ✅ 完成 |
 | 7.7 | 播放器状态与进度修复（播放按钮状态错乱、进度条兜底、版本 0.7.7） | ✅ 完成 |
-| 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
+| 7.8+（Phase 8 之前） | 继续用 7.x 的数个小版本修好播放器功能（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | 🔄 进行中 |
+| 8 | 修好语音识别功能与翻译功能（当前为半成品状态） | ⬜ 未开始 |
+| 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕：超前识别（设计提案）
 

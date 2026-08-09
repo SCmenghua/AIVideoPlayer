@@ -369,6 +369,9 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
    需要 iOS 26 及以上设备（deployment target 26.0）。
 4. 与主 CI（`swift-ci.yml`）职责分离：主 CI 负责编译 + 单元测试，`release-ipa.yml`
    负责分发产物；两者互不触发。
+5. 版本约定：同一 Phase 内（如 Phase 7.x 系列）每次打包 IPA 后，下一次打包版本
+   递增为上一次 `0.7.(x+1)`，文档中的 Phase 编号同步从 `7.x` 变更为 `7.(x+1)`；
+   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流的默认版本号。
 
 ### 8.8 播放器换片复位与状态机（Phase 7.6/7.7）
 
