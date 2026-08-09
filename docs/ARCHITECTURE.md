@@ -397,7 +397,7 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 5. **Phase 5（已完成）**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别；超前缓冲
    （2–10s 可配置，默认建议 3s）：播放器先缓冲、识别游标领先播放光标，Whisper 提前分析并输出整句 final。
 6. **Phase 6（已完成）**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
-7. **Phase 7**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
+7. **Phase 7（已完成）**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
    （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；
    在超前窗口内提前翻译（延迟被 Δ 吸收）；明确隐私提示。
 8. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。

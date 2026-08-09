@@ -118,6 +118,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   模型内置；超前开关与 Δ 配置），CI 通过
 - ✅ Phase 6 完成：SubtitleOverlay 双语整句字幕叠加（按播放光标对齐、拖动、样式；
   SubtitleTimeline / SubtitleDisplaySettings / 单元测试），CI 通过
+- ✅ Phase 7 完成：TranslationEngine 可替换翻译（Fast NMT（Apple 原生翻译）/ 本地 LLM
+  （MLX Swift + Gemma 4 E2B 4-bit，按需下载）/ 云端 API（OpenAI 兼容，测试连接 + 隐私提示）；
+  剧情理解润色；final 段提前翻译；设置页「翻译服务」卡片；单元测试），CI 通过
 
 ## 后续开发路线
 
@@ -129,7 +132,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ✅ 完成 |
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出；模型内置） | ✅ 完成 |
 | 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ✅ 完成 |
-| 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（仅 LLM Provider，自动压缩文本）+ 隐私提示；本地 LLM 模型按需从 Hugging Face 下载，云端 API 配置带「测试连接」按钮；识别后立即提前翻译，延迟被超前窗口吸收 | ⬜ 未开始 |
+| 7 | TranslationEngine：Fast NMT（Apple 原生翻译）/ 本地 LLM（MLX Swift + Gemma 4 E2B，按需下载）/ 云端 API（OpenAI 兼容，测试连接 + 隐私提示）+ 剧情理解润色（自动压缩文本）；识别后立即提前翻译，延迟被超前窗口吸收 | ✅ 完成 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕：超前识别（设计提案）
