@@ -81,6 +81,6 @@
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
 | AI | WhisperKit / Core ML（Phase 5 规划，本地运行；超前缓冲识别 2–10s） |
-| 翻译 | 可替换 TranslationEngine（Phase 7 规划：Fast NMT / 本地 LLM / 云端 API） |
+| 翻译 | 可替换 TranslationEngine（Phase 7 规划：Fast NMT / 本地 LLM / 云端 API）；本地 LLM 按需从 Hugging Face 下载，云端 API 带「测试连接」 |
 | 工程 | XcodeGen（project.yml 生成工程） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |
