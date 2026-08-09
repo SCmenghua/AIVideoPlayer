@@ -57,11 +57,11 @@ flowchart TB
 | `App/` | App 入口、Tab 路由、全局状态（AppEnvironment） | 1 |
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）、媒体提取入口与远程文件浏览（WebDAV 目录导航） | 2 → 4 |
-| `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
+| `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 3 → 6/7.6-7.7 |
 | `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | ✅ 5/6 |
 | `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 领先窗口）+ 后续配置占位） | 1（占位）→ 5/7 |
-| `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
-| `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
+| `Core/Protocols/` | 12 个核心协议（见第 4 节） | 1 → 7 |
+| `Core/Models/` | 12 个数据模型（见第 5 节） | 1 → 7 |
 | `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
 | `Core/Networking/` | WebDAV 目录浏览（PROPFIND；SMB / FTP 后续补充） | 2 |
 | `Core/Storage/` | Keychain 凭据、UserDefaults 配置/历史/收藏 | 2 |
@@ -85,6 +85,7 @@ flowchart TB
 | `RemoteServerProfileStoring` | 服务器配置存取（非敏感信息） | ✅ Phase 2 |
 | `BrowserHistoryStoring` | 浏览历史存取 | ✅ Phase 2 |
 | `BookmarkStoring` | 收藏存取 | ✅ Phase 2 |
+| `APIKeyStoring` | 云端翻译 API Key 存取（生产实现 Keychain） | ✅ Phase 7 |
 
 业务层只依赖协议；具体实现（AVPlayer、WhisperKit、翻译 API）在各自 Phase 通过依赖注入接入。
 
@@ -98,6 +99,7 @@ flowchart TB
 | `AIState` | AI 字幕七态：OFF / LOADING / LISTENING / TRANSCRIBING / TRANSLATING / READY / ERROR |
 | `AISubtitleStatus` | AI 字幕子系统状态快照 |
 | `PlaybackState` | 播放状态机（idle / loading / ready / playing / paused / ended / failed） |
+| `PlaybackProgress` | 播放进度快照（当前时间 / 时长 / 倍速） |
 | `LoadState` | 异步加载五态：loading / ready / empty / error / cancelled |
 | `RemoteCredentials` | 远程连接凭据（仅内存会话使用） |
 | `RemoteServerProfile` | 服务器配置（名称 / 根 URL / 用户名；密码走 Keychain） |
@@ -368,6 +370,21 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 4. 与主 CI（`swift-ci.yml`）职责分离：主 CI 负责编译 + 单元测试，`release-ipa.yml`
    负责分发产物；两者互不触发。
 
+### 8.8 播放器换片复位与状态机（Phase 7.6/7.7）
+
+- 换片加载前先 `avPlayer.pause()`，避免新条目因 rate 保持 1 自动播放，
+  导致加载完成的 `.ready` 覆盖播放态（播放按钮错乱）。
+- `PlayerViewModel.load` 先复位（进度 / 状态 / 字幕循环）再异步加载：
+  新加载取消旧加载任务 + generation 守卫，旧任务（超时/失败）结果不覆盖新状态。
+- 状态机不变量：`.playing` 不允许被 `.ready` 回退；VM 仅在仍处于 `.loading`
+  时置 ready。
+- `waitUntilReady` 检测到当前条目被替换即视为本加载失效（CancellationError），
+  避免过期加载空转 60 秒超时后污染状态。
+- 时长兜底：HLS / 时长未就绪时 `currentItemDuration` 用可 seek 范围末端近似，
+  保证进度条显示与拖动范围正确（否则 slider 范围退化为 0...1，拖动即从头播）。
+- 手动初始化：控制栏「重新初始化播放器」按钮与失败态「重试」按钮
+  调用 `PlayerViewModel.reinitialize()` 重新加载当前媒体。
+
 ## 9. 设计原则与不可违反规则
 
 ### 设计原则
@@ -417,6 +434,12 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 7. **Phase 7（已完成）**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
    （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；
    在超前窗口内提前翻译（延迟被 Δ 吸收）；明确隐私提示。
-8. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
+8. **Phase 7.5（已完成）**：成品 Debug（8 类缺陷）+ 实测反馈完善（浏览器命令修复、
+   视频接管、内置示例视频、地址栏清空按钮、打包 action）。
+9. **Phase 7.6（已完成）**：播放器换片复位（先初始化再加载、旧加载取消 +
+   generation 守卫）+ 手动初始化按钮。
+10. **Phase 7.7（已完成）**：播放器状态与进度修复（换片先暂停、状态机
+    禁止 playing 被 ready 回退、时长兜底、CMTime 编译修复）。
+11. **Phase 8-10**：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

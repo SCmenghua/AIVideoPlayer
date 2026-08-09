@@ -25,7 +25,7 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 - YouTube 风格全屏：隐藏 Tab Bar / 导航栏 / 状态栏；竖屏锁定时可横屏；全屏控制栏手动横屏/竖屏兜底；iPad 多任务
 - 远程文件视频 → 播放器一键交接；播放器空状态含开发期调试入口（删除方法见架构文档 8.1.2）
 - 设置页（隐私承诺与后续功能占位）
-- 核心协议层（11 个协议）与数据模型（11 个模型）；ViewModel 依赖注入；所有 Task 可取消
+- 核心协议层（12 个协议）与数据模型（12 个模型）；ViewModel 依赖注入；所有 Task 可取消
 - 单元测试（Swift Testing）：模型、Mock 数据、WebDAV 解析、存储、浏览器与远程文件 ViewModel、
   AI 字幕管线（PCM 缓冲游标 / 设置持久化与边界 / 超前与实时路径 / seek 重建 / 播放器联动）、协议测试替身
 - GitHub Actions CI：`xcodegen generate` → `xcodebuild build` → `xcodebuild test`
@@ -142,7 +142,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   WebDAV 凭据清理、下载取消竞态、播放器加载超时、音频 Tap 格式加固、云端隐私校验、
   CI 编译失败修复）+ 实测完善（地址栏清空按钮、浏览器视频接入内置播放器、内置示例视频）
 - ✅ Phase 7.6 完成：播放器换片复位（先初始化再加载、旧加载取消 + 世代守卫、
-  进度/状态复位）+ 手动初始化按钮与失败重试
+  进度/状态复位）+ 手动初始化按钮与失败重试，CI 通过
+- ✅ Phase 7.7 完成：播放器状态与进度修复（换片先暂停避免自动播放、
+  状态机禁止 playing 被 ready 回退、HLS/时长未就绪时进度条兜底），CI 通过
 
 ## 后续开发路线
 
@@ -155,6 +157,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出；模型内置） | ✅ 完成 |
 | 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ✅ 完成 |
 | 7 | TranslationEngine：Fast NMT（Apple 原生翻译）/ 本地 LLM（MLX Swift + Gemma 4 E2B，按需下载）/ 云端 API（OpenAI 兼容，测试连接 + 隐私提示）+ 剧情理解润色（自动压缩文本）；识别后立即提前翻译，延迟被超前窗口吸收 | ✅ 完成 |
+| 7.5 | 成品 Debug + 实测反馈完善（浏览器命令修复、视频接管、内置示例视频、地址栏清空按钮、打包 action） | ✅ 完成 |
+| 7.6 | 播放器换片复位（先初始化再加载、旧加载取消 + 世代守卫）+ 手动初始化按钮 | ✅ 完成 |
+| 7.7 | 播放器状态与进度修复（播放按钮状态错乱、进度条兜底、版本 0.7.7） | ✅ 完成 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕：超前识别（设计提案）

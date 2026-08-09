@@ -14,7 +14,8 @@
 ## 当前Phase
 
 **Phase 8-10**（规划中）：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
-上一阶段：**Phase 7.6 —— 播放器换片复位 + 手动初始化**（已完成）。
+上一阶段：**Phase 7.7 —— 播放器状态与进度修复**（已完成；Phase 7.5/7.6/7.7
+已整体收尾）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -61,9 +62,13 @@
   字幕循环）再加载，旧加载任务取消 + generation 守卫，防止换片后旧任务
   覆盖新状态（转圈/旧进度残留）；引擎换片复位进度/倍速、`waitUntilReady`
   检测到当前条目被替换即视为本加载失效；播放器控制栏新增「手动初始化」
-  按钮、失败态新增「重试」；修复换片后播放按钮状态错乱（先暂停旧播放 +
-  状态机禁止 playing 被 ready 回退）与 HLS/时长未就绪导致进度条不显示
-  （可 seek 范围兜底）；补充单测；`MARKETING_VERSION` 提升至 0.7.7。
+  按钮、失败态新增「重试」；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
+- **Phase 7.7**：播放器状态与进度修复——换片加载先 `avPlayer.pause()`
+  避免新条目因 rate 保持 1 自动播放；引擎状态机禁止 `.playing` 被 `.ready`
+  回退、VM 仅在仍处于 loading 态时置 ready；HLS / 时长未就绪时
+  `currentItemDuration` 用可 seek 范围末端兜底，修复进度条不显示与
+  拖动从 0 重播；修 `CMTime.seconds` 误用 `if let` 的 CI 编译失败；
+  `MARKETING_VERSION` 提升至 0.7.7。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
   核心协议与模型、Mock、单元测试、GitHub Actions CI。
 - **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览
