@@ -107,7 +107,10 @@ final class PlayerViewModel {
             do {
                 try await self.engine.load(item)
                 guard generation == self.loadGeneration else { return }
-                self.playbackState = .ready
+                // 仅当仍处于加载态时置为 ready：播放态 / 失败态等后续状态不被覆盖。
+                if self.playbackState == .loading {
+                    self.playbackState = .ready
+                }
             } catch is CancellationError {
                 // 已被更新的加载取代：保留新加载的状态，不覆盖。
             } catch {

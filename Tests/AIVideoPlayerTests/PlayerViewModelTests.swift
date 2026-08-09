@@ -138,6 +138,21 @@ struct PlayerViewModelTests {
         #expect(viewModel.currentItem == secondItem)
     }
 
+    @Test func loadDoesNotClobberPlayingState() async throws {
+        let engine = AutoplayPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        // 模拟换片后新条目自动开始播放（引擎只发 .playing，不发 .ready）。
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+
+        await waitUntil { viewModel.playbackState == .playing }
+        // 加载任务完成后不应把播放态打回 ready（播放按钮错乱回归）。
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(viewModel.playbackState == .playing)
+        #expect(viewModel.currentItem == MockRemoteFiles.sampleMediaItem)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @MainActor () -> Bool
@@ -206,6 +221,54 @@ private final class GatedPlaybackEngine: PlaybackEngine {
         state = .paused
         stateContinuation.yield(.paused)
     }
+
+    func seek(to time: TimeInterval) async {
+        currentTime = time
+        progressContinuation.yield(PlaybackProgress(currentTime: time, duration: duration, rate: rate))
+    }
+
+    func setRate(_ newRate: Float) async {
+        rate = newRate
+    }
+
+    func setVolume(_ volume: Float) async {}
+}
+
+/// 模拟换片后新条目自动播放的引擎：load 期间直接发出 .playing。
+@MainActor
+private final class AutoplayPlaybackEngine: PlaybackEngine {
+    private(set) var state: PlaybackState = .idle
+    private(set) var currentItem: MediaItem?
+    private(set) var currentTime: TimeInterval = 0
+    private(set) var duration: TimeInterval = 0
+    private(set) var rate: Float = 1
+
+    var player: AVPlayer? { nil }
+
+    let stateStream: AsyncStream<PlaybackState>
+    let progressStream: AsyncStream<PlaybackProgress>
+    private let stateContinuation: AsyncStream<PlaybackState>.Continuation
+    private let progressContinuation: AsyncStream<PlaybackProgress>.Continuation
+
+    init() {
+        let statePair = AsyncStream<PlaybackState>.makeStream()
+        stateStream = statePair.stream
+        stateContinuation = statePair.continuation
+
+        let progressPair = AsyncStream<PlaybackProgress>.makeStream()
+        progressStream = progressPair.stream
+        progressContinuation = progressPair.continuation
+    }
+
+    func load(_ item: MediaItem) async throws {
+        currentItem = item
+        duration = 120
+        state = .playing
+        stateContinuation.yield(.playing)
+    }
+
+    func play() async {}
+    func pause() async {}
 
     func seek(to time: TimeInterval) async {
         currentTime = time

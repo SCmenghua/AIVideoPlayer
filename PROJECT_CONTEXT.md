@@ -61,7 +61,9 @@
   字幕循环）再加载，旧加载任务取消 + generation 守卫，防止换片后旧任务
   覆盖新状态（转圈/旧进度残留）；引擎换片复位进度/倍速、`waitUntilReady`
   检测到当前条目被替换即视为本加载失效；播放器控制栏新增「手动初始化」
-  按钮、失败态新增「重试」；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
+  按钮、失败态新增「重试」；修复换片后播放按钮状态错乱（先暂停旧播放 +
+  状态机禁止 playing 被 ready 回退）与 HLS/时长未就绪导致进度条不显示
+  （可 seek 范围兜底）；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
   核心协议与模型、Mock、单元测试、GitHub Actions CI。
 - **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览

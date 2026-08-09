@@ -50,6 +50,9 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     public func load(_ item: MediaItem) async throws {
+        // 换片初始化：先暂停旧播放，避免新条目因 rate 保持 1 而自动播放，
+        // 导致状态机被「加载完成 → ready」覆盖成错误状态（播放按钮错乱）。
+        avPlayer.pause()
         let playerItem = AVPlayerItem(url: item.url)
         avPlayer.replaceCurrentItem(with: playerItem)
         currentItem = item
@@ -59,7 +62,12 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         rate = 1
         setState(.loading)
         try await waitUntilReady(playerItem)
-        setState(.ready)
+        // 防御：加载完成时若已处于播放态（异常自动播放），保持播放态。
+        if avPlayer.timeControlStatus == .playing {
+            setState(.playing)
+        } else {
+            setState(.ready)
+        }
     }
 
     public func play() async {
@@ -156,12 +164,20 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     private var currentItemDuration: TimeInterval {
-        guard let seconds = avPlayer.currentItem?.duration.seconds,
-              seconds.isFinite,
-              seconds > 0 else {
+        guard let item = avPlayer.currentItem else {
             return 0
         }
-        return seconds
+        if let seconds = item.duration.seconds, seconds.isFinite, seconds > 0 {
+            return seconds
+        }
+        // HLS / 渐进式媒体：duration 未就绪时用可 seek 范围末端近似，
+        // 保证进度条显示与拖动范围正确（否则范围退化成 0...1，拖动即从头播）。
+        if let range = item.seekableTimeRanges.last?.timeRangeValue,
+           range.end.seconds.isFinite,
+           range.end.seconds > 0 {
+            return range.end.seconds
+        }
+        return 0
     }
 
     private func waitUntilReady(_ item: AVPlayerItem) async throws {
@@ -192,6 +208,8 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
 
     private func setState(_ newState: PlaybackState) {
         guard state != newState else { return }
+        // 状态机不变量：播放中不允许被 ready 回退（换片加载完成的竞态防护）。
+        if state == .playing, newState == .ready { return }
         state = newState
         stateContinuation.yield(newState)
     }
