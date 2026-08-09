@@ -19,8 +19,8 @@ public final class SubtitleSettings {
         didSet {
             // @Observable 会把 didSet 挂到内部存储属性上，这里写回自身会再次触发
             // didSet 导致无限递归（栈溢出）；先判等，只在越界时收敛一次。
-            let clamped = Self.clamped(newValue)
-            if clamped != newValue {
+            let clamped = Self.clamped(leadAheadWindow)
+            if clamped != leadAheadWindow {
                 leadAheadWindow = clamped
             } else {
                 persist()
