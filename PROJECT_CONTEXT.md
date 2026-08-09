@@ -60,7 +60,7 @@
   相对地址解析、HTML 实体解码、去重；不绕过 DRM）、浏览器地址栏「提取视频」按钮 +
   结果列表（`MediaExtractionSheet`）→ `AppEnvironment.requestPlayback`、远程文件 `m3u8` / `m3u`
   识别为 video、单元测试（提取器 / 浏览器提取状态 / HLS 映射）。
-- **Phase 5**：WhisperKit（`argmax-oss-swift 1.0.0`）本地实时识别；模型随 App 内置
+- **Phase 5**：WhisperKit（`argmax-oss-swift from 1.0.0`，CI 解析 1.1.0）本地实时识别；模型随 App 内置
   （构建脚本打包，运行时不下载、无需用户选择）；`AudioPipeline` 三来源
   （AVAssetReader 预读 / MTAudioProcessingTap 实时 / 麦克风）、`WhisperKitSpeechRecognizer`、
   真实 `SubtitlePipeline`（替换 Mock 注入）；超前识别开关（默认开）+ 2–10s 领先窗口（默认 3s，
@@ -75,7 +75,8 @@
   必须使用 iOS 26 原生 `glassEffect` / `GlassEffectContainer` / `.glass` / `.glassProminent`。
 - **禁止跳 Phase**：严格按 Phase 顺序开发，禁止提前实现后续 Phase。
 - **纯文档内容、不涉及程序代码的部分禁止触发 CI**：CI push 触发已配置
-  `paths-ignore: *.md, docs/**`，纯文档提交可另加 `[skip ci]` 标记。
+  `paths-ignore: *.md, docs/**`，纯文档提交无需 `[skip ci]` 标记；
+  **禁止把带 `[skip ci]` 的提交与代码提交合并到同一次 push**（GitHub 会跳过整个 push 的工作流）。
 
 > 附加架构红线（详见 docs/ARCHITECTURE.md）：View 禁止直接处理 AVPlayer / URLSession / WhisperKit
 > （渲染句柄绑定 AVPlayerLayer 除外）；单个 View ≤ 300 行；禁止 URL 强制解包；

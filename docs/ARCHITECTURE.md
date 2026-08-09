@@ -59,7 +59,7 @@ flowchart TB
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）、媒体提取入口与远程文件浏览（WebDAV 目录导航） | 2 → 4 |
 | `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
 | `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | 1（Mock）→ 5/6 |
-| `Features/Settings/` | 设置页（隐私说明与后续配置占位） | 1（占位）→ 7 |
+| `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 领先窗口）+ 后续配置占位） | 1（占位）→ 5/7 |
 | `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
 | `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
 | `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
@@ -75,7 +75,7 @@ flowchart TB
 | 协议 | 职责 | 实现计划 |
 |---|---|---|
 | `MediaExtractor` | 网页 / 远程目录 → `[MediaItem]` | ✅ Phase 4（WebMediaExtractor） |
-| `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | Phase 3（AVPlayerPlaybackEngine） |
+| `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | ✅ Phase 3（AVPlayerPlaybackEngine） |
 | `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | ✅ Phase 5（WhisperKitSpeechRecognizer） |
 | `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
 | `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
@@ -170,7 +170,7 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 
 ### 8.2 WhisperKit（Phase 5）
 
-1. 依赖：SPM `argmaxinc/argmax-oss-swift 1.0.0`（产品 `WhisperKit`，iOS 16+）。
+1. 依赖：SPM `argmaxinc/argmax-oss-swift from 1.0.0`（产品 `WhisperKit`，CI 解析 1.1.0，iOS 16+）。
 2. 模型内置：`scripts/fetch-whisper-model.sh` 构建时从 HuggingFace 打包
    `openai_whisper-tiny`（可用环境变量 `WHISPER_MODEL_NAME` 更换）与配套 tokenizer 到
    `Resources/Models/whisperkit-coreml`（git 忽略，CI 缓存），`WhisperKit(modelFolder:download:false)`
