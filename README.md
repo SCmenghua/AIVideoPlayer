@@ -116,9 +116,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.5）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.6）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.5）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.6）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
@@ -141,6 +141,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 7.5 完成：整体 Debug（浏览器命令修复、换片字幕串台修复、过期字幕丢弃、
   WebDAV 凭据清理、下载取消竞态、播放器加载超时、音频 Tap 格式加固、云端隐私校验、
   CI 编译失败修复）+ 实测完善（地址栏清空按钮、浏览器视频接入内置播放器、内置示例视频）
+- ✅ Phase 7.6 完成：播放器换片复位（先初始化再加载、旧加载取消 + 世代守卫、
+  进度/状态复位）+ 手动初始化按钮与失败重试
 
 ## 后续开发路线
 

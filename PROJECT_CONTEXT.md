@@ -14,7 +14,7 @@
 ## 当前Phase
 
 **Phase 8-10**（规划中）：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
-上一阶段：**Phase 7.5 —— 成品 Debug（对 Phase 1–7 成品的静态审查与修复）**（已完成）。
+上一阶段：**Phase 7.6 —— 播放器换片复位 + 手动初始化**（已完成）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -54,11 +54,14 @@
   音频 Tap 格式强读越界风险、云端翻译绕过隐私校验、CI 编译失败（deinit 并发）等；
   完善地址栏「清空当前网址」按钮、浏览器内视频接入内置播放器
   （内联播放 + 直链拦截 + HTML5 video 桥接）、构建时内置示例视频
-  （原 googleapis 示例 URL 403 导致测试视频无法播放）、播放器换片复位
-  （先初始化再加载 + 旧加载任务取消/世代守卫）+ 手动初始化按钮；
-  同步补充单元测试；
+  （原 googleapis 示例 URL 403 导致测试视频无法播放）；同步补充单元测试；
   `MARKETING_VERSION` 提升至 0.7.5，新增 `package-ipa.yml`（未签名 IPA →
   Actions 工件 + GitHub Release，供自签测试）。
+- **Phase 7.6**：播放器换片复位——`PlayerViewModel.load` 先复位（进度/状态/
+  字幕循环）再加载，旧加载任务取消 + generation 守卫，防止换片后旧任务
+  覆盖新状态（转圈/旧进度残留）；引擎换片复位进度/倍速、`waitUntilReady`
+  检测到当前条目被替换即视为本加载失效；播放器控制栏新增「手动初始化」
+  按钮、失败态新增「重试」；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
   核心协议与模型、Mock、单元测试、GitHub Actions CI。
 - **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览

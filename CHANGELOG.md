@@ -38,12 +38,6 @@
 - 新增的 `staleSegmentsBeforePlaybackTimeAreDropped` 测试误用了另一测试文件
   的 Mock 方法：为 `SubtitlePipelineTests` 的 `MockSpeechRecognizer` 补 `emit`
 - `SubtitlePipeline.activate()` 未使用的 `engine` 绑定改为布尔判断（清警告）
-- 换片播放失败 / 转圈残留：`PlayerViewModel.load` 改为「先复位再加载」——
-  换片立即清空进度与状态、取消旧加载任务，并用 generation 守卫保证
-  旧加载（超时/失败）不会覆盖新媒体的状态；引擎换片同步复位进度与倍速，
-  `waitUntilReady` 检测到当前条目被替换即视为本加载已失效
-- 播放器控制栏新增「手动初始化」按钮（重新加载当前媒体），
-  播放失败状态新增「重试」按钮（2026-08-09）
 
 ### Fixed（Phase 7.5 成品 Debug）
 
@@ -65,6 +59,21 @@
   按 `kAudioFormatFlagIsFloat` 区分 Float / Int16，并按 `mDataByteSize` 限制读取（2026-08-09）
 - 云端翻译可在未「测试连接 + 隐私确认」时直接启用（违反隐私红线）：
   启用校验增加「测试连接成功」与「隐私确认」两个前置条件（2026-08-09）
+
+## [0.7.6] - 2026-08-09
+
+### Added（Phase 7.6 播放器换片复位）
+
+- 版本号提升至 0.7.6（Phase 7.6 播放器换片复位 + 手动初始化）
+- 播放器控制栏新增「手动初始化」按钮（重新加载当前媒体），
+  播放失败状态新增「重试」按钮
+
+### Fixed（Phase 7.6）
+
+- 换片播放失败 / 转圈残留：`PlayerViewModel.load` 改为「先复位再加载」——
+  换片立即清空进度与状态、取消旧加载任务，并用 generation 守卫保证
+  旧加载（超时/失败）不会覆盖新媒体的状态；引擎换片同步复位进度与倍速，
+  `waitUntilReady` 检测到当前条目被替换即视为本加载已失效（2026-08-09）
 
 ## [0.7.0] - 2026-08-09
 

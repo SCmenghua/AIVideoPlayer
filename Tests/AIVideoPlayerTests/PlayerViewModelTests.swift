@@ -77,7 +77,7 @@ struct PlayerViewModelTests {
         #expect(progress.progress == 0.5)
     }
 
-    // MARK: - Phase 7.5 换片复位与手动初始化
+    // MARK: - Phase 7.6 换片复位与手动初始化
 
     @Test func loadResetsProgressBeforeEngineReady() async throws {
         let engine = MockPlaybackEngine()
