@@ -53,13 +53,13 @@ public final class FastNMTTranslator: TranslationEngine {
         return result
     }
 
-    nonisolated static func systemAvailability(
+    nonisolated public static func systemAvailability(
         _ source: Locale.Language, _ target: Locale.Language
     ) async -> LanguageAvailability.Status {
         await LanguageAvailability().status(from: source, to: target)
     }
 
-    nonisolated static func systemTranslate(
+    nonisolated public static func systemTranslate(
         _ text: String, source: Locale.Language, target: Locale.Language
     ) async throws -> String {
         // iOS 26+ 支持无 UI 场景直接初始化（语言包已安装时无需用户交互）。
