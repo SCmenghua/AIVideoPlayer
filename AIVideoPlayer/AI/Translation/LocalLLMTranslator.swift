@@ -1,6 +1,6 @@
 import Foundation
 import MLXLLM
-import MLXLMCommon
+@preconcurrency import MLXLMCommon
 import Tokenizers
 
 /// 本地 LLM Provider（MLX Swift + Gemma 4 E2B 4-bit）。

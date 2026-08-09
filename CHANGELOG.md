@@ -54,6 +54,9 @@
 - `LoadState<Void>` 不满足 Equatable，设置页改用 `if case .loading` 模式匹配判断测试状态（2026-08-09）
 - `URLSession.bytes(for:)` 逐字节产出（UInt8）而非 Data 块：
   下载管理器改为 64KB 缓冲后写盘，避免逐字节 IO（2026-08-09）
+- `mlx-swift-lm` 的 `ChatSession` 非 Sendable 且未标注隔离，严格并发下调用
+  `respond` 报数据竞争：`LocalLLMTranslator` 改用 `@preconcurrency import MLXLMCommon`
+  （该模块 API 未适配并发，按迁移惯例放宽检查）（2026-08-09）
 
 ## [0.6.0] - 2026-08-09
 
