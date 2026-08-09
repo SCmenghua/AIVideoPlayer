@@ -32,6 +32,9 @@
 - 设置页「翻译服务」卡片：Provider 选择、目标语言（简体中文 / English，留多语言扩展）、
   云端配置 + 测试连接 + 隐私提示、本地模型下载管理、剧情润色开关、启用校验
 - SPM 依赖：`ml-explore/mlx-swift-lm`（3.31.3+）、`huggingface/swift-transformers`（1.3.0+）
+- GitHub Actions：新增手动触发工作流 `release-ipa.yml`——构建未签名 iphoneos Release IPA
+  并自动创建 GitHub Release（供 Sideloadly / AltStore / 爱思助手 等自签工具使用）；
+  `MARKETING_VERSION` 提升至 0.7.0
 - 单元测试：翻译设置持久化 / API Key 存储 / 云端 Provider（URLProtocol 桩：翻译、上下文、
   测试连接、HTTP 错误、空内容）/ Fast NMT（元数据、可用性门控、空结果）/ 上下文压缩 /
   下载管理器（完成、失败重试、取消、删除）/ 管线翻译集成（final 翻译、partial 透传、
