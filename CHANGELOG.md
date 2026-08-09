@@ -23,7 +23,7 @@
 
 ### Added（Phase 5 WhisperKit 实时识别 + 超前缓冲）
 
-- WhisperKit 接入：SPM 依赖 `argmaxinc/argmax-oss-swift 1.0.0`（产品 `WhisperKit`）；
+- WhisperKit 接入：SPM 依赖 `argmaxinc/argmax-oss-swift from 1.0.0`（产品 `WhisperKit`，CI 解析 1.1.0）；
   模型随 App 内置（`scripts/fetch-whisper-model.sh` 构建时从 HuggingFace 打包到
   `Resources/Models/whisperkit-coreml`，git 忽略），运行时不下载，无需用户选择；
   音频始终不离开设备
@@ -55,6 +55,16 @@
 - 模型内置脚本不再调用 HuggingFace API 列表接口（CI 环境返回 401），改为提交固化文件清单
   （`scripts/whisperkit-tiny.manifest`）逐个直链下载；修正 tokenizer 仓库名推导
   （`openai/tiny` → `openai/whisper-tiny`）
+- 适配 iOS 26 SDK：`MTAudioProcessingTap` 回调签名更新（prepare/process 参数变化、
+  上下文改经 `MTAudioProcessingTapGetStorage` 取回、`MTAudioProcessingTapCreate` 返回
+  ARC 托管对象、`MTAudioProcessingTapGetSourceAudio` 新增 `numberFramesOut` 并按实际帧数处理）；
+  音频 tap 改经 `AVMutableAudioMixInputParameters.audioTapProcessor` 挂载
+- 规避 Swift 6.2 类型推断缺陷：`withAnimation` 泛型闭包内的 `Task` 提取为实例方法；
+  三元运算符分支内的闭包字面量改为 if/else 显式赋值
+- 修复 `@Observable` + `didSet` 自我赋值导致的无限递归（栈溢出）：`leadAheadWindow`
+  边界收敛改为先判等、越界值只回写一次
+- 修复 `PCMBuffer` seek 竞态：陈旧音频块不再把时间线往回拉（先判陈旧再重置基线）；
+  完全早于捕获起点的区间 `extract` 返回 nil 而非空数组
 
 ## [0.2.0] - 2026-08-09
 

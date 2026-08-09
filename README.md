@@ -23,7 +23,8 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 - 远程文件视频 → 播放器一键交接；播放器空状态含开发期调试入口（删除方法见架构文档 8.1.2）
 - 设置页（隐私承诺与后续功能占位）
 - 核心协议层（11 个协议）与数据模型（11 个模型）；ViewModel 依赖注入；所有 Task 可取消
-- 单元测试（Swift Testing）：模型、Mock 数据、WebDAV 解析、存储、浏览器与远程文件 ViewModel、协议测试替身
+- 单元测试（Swift Testing）：模型、Mock 数据、WebDAV 解析、存储、浏览器与远程文件 ViewModel、
+  AI 字幕管线（PCM 缓冲游标 / 设置持久化与边界 / 超前与实时路径 / seek 重建 / 播放器联动）、协议测试替身
 - GitHub Actions CI：`xcodegen generate` → `xcodebuild build` → `xcodebuild test`
 - 媒体提取（Phase 4）：`WebMediaExtractor` 从网页提取 HTML5 video / MP4 / HLS / M3U8，不绕过 DRM；
   浏览器地址栏「提取视频」按钮一键列出可播放媒体并交给自有播放器

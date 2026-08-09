@@ -1,8 +1,8 @@
 import Foundation
 import Observation
 
-/// Phase 1 的 AI 字幕状态 Mock。Phase 5 接入 WhisperKit；
-/// UI 契约（AIState）与真实管线一致。所有 Task 可取消。
+/// AI 字幕状态 ViewModel：包装任意 SubtitleStatusProviding
+/// （默认 Mock；Phase 5 起由 AppEnvironment 注入真实 SubtitlePipeline）。所有 Task 可取消。
 @MainActor
 @Observable
 final class SubtitleStatusViewModel {

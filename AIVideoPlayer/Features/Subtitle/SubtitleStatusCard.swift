@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// AI 字幕状态卡：首页上的浮动玻璃交互层。
-/// 展示 Mock 管线状态，并提供玻璃开关。
+/// 展示共享字幕管线（Phase 5 起为真实 SubtitlePipeline）状态，并提供玻璃开关。
 struct SubtitleStatusCard: View {
     let viewModel: SubtitleStatusViewModel
 
