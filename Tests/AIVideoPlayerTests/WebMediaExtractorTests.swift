@@ -129,6 +129,18 @@ struct WebMediaExtractorTests {
         #expect(items[0].url.absoluteString == "https://example.com/clip.mp4")
     }
 
+    @Test func dataSrcAttributeIsExtracted() async throws {
+        let extractor = makeExtractor { _ in
+            (statusCode: 200, data: Data("<video data-src=\"/lazy.mp4\"></video>".utf8))
+        }
+        let page = try #require(URL(string: "https://example.com/watch"))
+
+        let items = try await extractor.extractMedia(from: page)
+
+        #expect(items.count == 1)
+        #expect(items[0].url.absoluteString == "https://example.com/lazy.mp4")
+    }
+
     @Test func decodesHTMLEntitiesInTitleAndSource() async throws {
         let extractor = makeExtractor { _ in
             (
