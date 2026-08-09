@@ -320,6 +320,7 @@ private final class TapBox: @unchecked Sendable {
     private var sampleRate: Double = 44_100
     private var channelsPerFrame: UInt32 = 1
     private var isInterleaved = false
+    private var isFloatFormat = true
     private var baseTime: TimeInterval = 0
     private var accumulatedFrames: Double = 0
 
@@ -332,6 +333,8 @@ private final class TapBox: @unchecked Sendable {
             sampleRate = format.mSampleRate > 0 ? format.mSampleRate : 44_100
             channelsPerFrame = max(format.mChannelsPerFrame, 1)
             isInterleaved = (format.mFormatFlags & kAudioFormatFlagIsNonInterleaved) == 0
+            // Tap 可能交付 Float32 或 Int16 PCM；按格式位判断，避免按 Float 强读越界。
+            isFloatFormat = (format.mFormatFlags & kAudioFormatFlagIsFloat) != 0
         }
     }
 
@@ -344,29 +347,48 @@ private final class TapBox: @unchecked Sendable {
 
     func process(_ bufferListPointer: UnsafeMutablePointer<AudioBufferList>, frameCount: Int) {
         guard frameCount > 0 else { return }
-        let (rate, base, accumulated, channels, interleaved) = lock.withLock {
-            (sampleRate, baseTime, accumulatedFrames, Int(channelsPerFrame), isInterleaved)
+        let (rate, base, accumulated, channels, interleaved, isFloat) = lock.withLock {
+            (sampleRate, baseTime, accumulatedFrames, Int(channelsPerFrame), isInterleaved, isFloatFormat)
         }
         guard rate > 0 else { return }
 
         let buffers = UnsafeMutableAudioBufferListPointer(bufferListPointer)
-        guard !buffers.isEmpty, let firstData = buffers[0].mData else { return }
+        guard !buffers.isEmpty else { return }
 
         var floats = [Float](repeating: 0, count: frameCount)
         if interleaved {
+            guard let firstData = buffers[0].mData else { return }
             let stride = max(channels, 1)
-            let pointer = firstData.assumingMemoryBound(to: Float.self)
-            for index in 0..<frameCount {
-                floats[index] = pointer[index * stride]
+            if isFloat {
+                let pointer = firstData.assumingMemoryBound(to: Float.self)
+                let count = min(frameCount, Int(buffers[0].mDataByteSize) / MemoryLayout<Float>.size / stride)
+                for index in 0..<count {
+                    floats[index] = pointer[index * stride]
+                }
+            } else {
+                let pointer = firstData.assumingMemoryBound(to: Int16.self)
+                let count = min(frameCount, Int(buffers[0].mDataByteSize) / MemoryLayout<Int16>.size / stride)
+                for index in 0..<count {
+                    floats[index] = Float(pointer[index * stride]) / 32_768.0
+                }
             }
         } else {
             var mixed = [Float](repeating: 0, count: frameCount)
             var activeChannels = 0
             for buffer in buffers {
                 guard let data = buffer.mData else { continue }
-                let pointer = data.assumingMemoryBound(to: Float.self)
-                for index in 0..<frameCount {
-                    mixed[index] += pointer[index]
+                if isFloat {
+                    let pointer = data.assumingMemoryBound(to: Float.self)
+                    let count = min(frameCount, Int(buffer.mDataByteSize) / MemoryLayout<Float>.size)
+                    for index in 0..<count {
+                        mixed[index] += pointer[index]
+                    }
+                } else {
+                    let pointer = data.assumingMemoryBound(to: Int16.self)
+                    let count = min(frameCount, Int(buffer.mDataByteSize) / MemoryLayout<Int16>.size)
+                    for index in 0..<count {
+                        mixed[index] += Float(pointer[index]) / 32_768.0
+                    }
                 }
                 activeChannels += 1
             }

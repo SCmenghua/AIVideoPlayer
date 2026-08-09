@@ -24,6 +24,15 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     private var statusObservation: NSKeyValueObservation?
     private var endObserver: NSObjectProtocol?
 
+    deinit {
+        if let timeObserver {
+            avPlayer.removeTimeObserver(timeObserver)
+        }
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
+    }
+
     public init() {
         let statePair = AsyncStream<PlaybackState>.makeStream()
         stateStream = statePair.stream
@@ -149,6 +158,9 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     private func waitUntilReady(_ item: AVPlayerItem) async throws {
+        // 加载超时兜底：网络不可达 / 媒体不可用且状态不前进时，
+        // 避免 load 永久卡在 loading。
+        let deadline = ContinuousClock.now + .seconds(60)
         while true {
             try Task.checkCancellation()
             switch item.status {
@@ -157,6 +169,9 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
             case .failed:
                 throw PlaybackEngineError.loadFailed(item.error?.localizedDescription ?? "媒体加载失败")
             case .unknown:
+                if ContinuousClock.now >= deadline {
+                    throw PlaybackEngineError.loadFailed("媒体加载超时")
+                }
                 try await Task.sleep(for: .milliseconds(50))
             @unknown default:
                 throw PlaybackEngineError.loadFailed("未知加载状态")

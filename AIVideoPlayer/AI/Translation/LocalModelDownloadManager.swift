@@ -65,13 +65,17 @@ public final class LocalModelDownloadManager {
     }
 
     public func cancel() {
+        // 保留引用直到任务自然结束：立即置 nil 会让「取消后马上重试」绕过
+        // currentTask 守卫，导致两个下载任务并发写同一批文件。
         currentTask?.cancel()
-        currentTask = nil
     }
 
     /// 删除已下载模型（含临时文件）。
     public func deleteModel() async throws {
         cancel()
+        // 等待进行中的下载任务结束（观察到取消后清理 .part 与任务引用），
+        // 再删除目录，避免删除与写入竞态。
+        await currentTask?.value
         let directory = directoryProvider(descriptor.id)
         if fileManager.fileExists(atPath: directory.path) {
             try fileManager.removeItem(at: directory)

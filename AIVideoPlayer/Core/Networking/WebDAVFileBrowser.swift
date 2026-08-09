@@ -15,7 +15,14 @@ public actor WebDAVFileBrowser: RemoteFileBrowsing {
         self.profile = profile
         self.credentials = credentials
         // 用根目录 PROPFIND 验证凭据；失败即视为连接失败。
-        _ = try await propfind(url: profile.rootURL)
+        do {
+            _ = try await propfind(url: profile.rootURL)
+        } catch {
+            // 连接失败时清除内存中的会话状态，避免残留凭据被后续 listDirectory 使用。
+            self.profile = nil
+            self.credentials = nil
+            throw error
+        }
     }
 
     public func listDirectory(at url: URL) async throws -> [RemoteFile] {

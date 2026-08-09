@@ -110,6 +110,37 @@ struct LocalModelDownloadManagerTests {
         #expect(!manager.isModelDownloaded)
     }
 
+    @Test func cancelThenRestartWorksWithoutConcurrentTask() async throws {
+        let directory = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [StallingURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let manager = LocalModelDownloadManager(
+            descriptor: makeDescriptor(),
+            session: session,
+            directoryProvider: { _ in directory }
+        )
+
+        manager.start()
+        try? await Task.sleep(for: .milliseconds(200))
+        manager.cancel()
+        await waitUntil { manager.phase == .cancelled }
+
+        // 取消任务自然结束后，可再次启动下载（不会残留并发任务）。
+        manager.start()
+        try? await Task.sleep(for: .milliseconds(100))
+        let isDownloading: Bool
+        if case .downloading = manager.phase {
+            isDownloading = true
+        } else {
+            isDownloading = false
+        }
+        #expect(isDownloading || manager.phase == .idle)
+        manager.cancel()
+        await waitUntil { manager.phase == .cancelled }
+    }
+
     // MARK: - 辅助
 
     private func makeDescriptor() -> LocalModelDescriptor {

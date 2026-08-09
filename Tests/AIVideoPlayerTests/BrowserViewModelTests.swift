@@ -36,6 +36,28 @@ struct BrowserViewModelTests {
         }
     }
 
+    @Test func navigationCommandsSetPendingCommandAndBumpVersion() {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore()
+        )
+
+        viewModel.goBack()
+        #expect(viewModel.pendingCommand == .goBack)
+        #expect(viewModel.commandVersion == 1)
+
+        viewModel.goForward()
+        #expect(viewModel.pendingCommand == .goForward)
+        #expect(viewModel.commandVersion == 2)
+
+        viewModel.reload()
+        #expect(viewModel.pendingCommand == .reload)
+        #expect(viewModel.commandVersion == 3)
+
+        viewModel.consumeCommand()
+        #expect(viewModel.pendingCommand == .none)
+    }
+
     @Test func recordsHistoryOnFinish() throws {
         let historyStore = MockHistoryStore()
         let viewModel = BrowserViewModel(

@@ -27,6 +27,10 @@ final class BrowserViewModel {
     private(set) var canGoBack = false
     private(set) var canGoForward = false
     private(set) var pendingCommand: WebViewCommand = .none
+    /// 命令版本号：每次设置 pendingCommand 时递增，供 WebViewRepresentable
+    /// 作为输入参数触发 `updateUIView`（SwiftUI 不会因为 class 内部属性变化
+    /// 自动刷新代表视图，必须先让 View body 观察到变化）。
+    private(set) var commandVersion = 0
     private(set) var requestedLoad: URL?
     private(set) var history: [BrowserHistoryEntry] = []
     private(set) var bookmarks: [Bookmark] = []
@@ -92,14 +96,17 @@ final class BrowserViewModel {
 
     func goBack() {
         pendingCommand = .goBack
+        commandVersion += 1
     }
 
     func goForward() {
         pendingCommand = .goForward
+        commandVersion += 1
     }
 
     func reload() {
         pendingCommand = .reload
+        commandVersion += 1
     }
 
     func consumeCommand() {

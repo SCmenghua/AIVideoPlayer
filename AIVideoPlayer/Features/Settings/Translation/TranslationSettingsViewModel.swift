@@ -51,7 +51,9 @@ final class TranslationSettingsViewModel {
         case .localLLM:
             downloadManager.isModelDownloaded
         case .cloudLLM:
-            isCloudInputComplete
+            // 隐私红线：云端 Provider 必须「测试连接成功 + 隐私确认」后才可启用，
+            // 仅填完表单不足以放行。
+            isCloudInputComplete && hasPassedCloudTest && settings.cloudPrivacyConsentAcknowledged
         }
     }
 
@@ -63,6 +65,14 @@ final class TranslationSettingsViewModel {
 
     var isCloudTesting: Bool {
         if case .loading = cloudTestState {
+            return true
+        }
+        return false
+    }
+
+    /// 本次会话中是否已通过「测试连接」。
+    private var hasPassedCloudTest: Bool {
+        if case .ready = cloudTestState {
             return true
         }
         return false

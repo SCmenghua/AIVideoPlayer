@@ -14,8 +14,7 @@
 ## 当前Phase
 
 **Phase 8-10**（规划中）：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
-上一阶段：**Phase 7 —— TranslationEngine（Fast NMT / 本地 LLM / 云端 API 三类可替换 Provider；
-识别后立即提前翻译，延迟被超前窗口吸收）**（已完成）。
+上一阶段：**Phase 7.5 —— 成品 Debug（对 Phase 1–7 成品的静态审查与修复）**（已完成）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -49,6 +48,11 @@
 
 ## 已完成
 
+- **Phase 7.5**：对 Phase 1–7 成品做整体 Debug，修复 8 类问题——浏览器
+  后退/前进/刷新命令未送达 WKWebView、换片后字幕沿用旧视频音频源、
+  seek 后过期识别结果透出、WebDAV 连接失败凭据残留、本地模型下载取消竞态、
+  播放器加载无超时、音频 Tap 格式强读越界风险、云端翻译绕过「测试连接 +
+  隐私确认」启用；同步补充单元测试（浏览器命令版本、过期字幕丢弃、下载取消后重启）。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
   核心协议与模型、Mock、单元测试、GitHub Actions CI。
 - **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览

@@ -25,6 +25,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var recognizer: (any SpeechRecognizer)?
     private var source: (any AudioPipeline)?
     private var engine: (any PlaybackEngine)?
+    /// 当前音频来源绑定的媒体 ID：用于换片检测（避免把上一部视频的
+    /// 音频识别结果写到新视频的时间线上）。
+    private var sourceItemID: UUID?
     private let buffer = PCMBuffer()
     private var generation = 0
     private var active = false
@@ -93,6 +96,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func detachPlaybackEngine() {
         engine = nil
         source = nil
+        sourceItemID = nil
     }
 
     /// 播放开始 / seek 重建 / 恢复播放前调用：确保音频管线与识别循环就绪。
@@ -104,10 +108,15 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         await recognizer?.discardPendingResults()
 
         guard let engine else { return }
+        // 换片：来源绑定的媒体与引擎当前媒体不一致时先停旧来源再重建。
+        if engine.currentItem?.id != sourceItemID {
+            await source?.stop()
+            source = nil
+            sourceItemID = engine.currentItem?.id
+        }
         if let source {
             await source.reset(to: time)
             try? await source.start(at: time)
-            self.source = source
         } else {
             self.source = await makeSource(engine: engine, at: time)
         }
@@ -211,9 +220,13 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         await source?.stop()
         recognizer = nil
         source = nil
+        sourceItemID = nil
         buffer.reset(to: playbackTime)
         setStatus(state: .off)
     }
+
+    /// 过期片段判定容差（秒）：允许轻微的时钟偏差，避免误删边界片段。
+    private static let staleSegmentTolerance: TimeInterval = 1
 
     // MARK: - 管线组装
 
@@ -263,6 +276,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         forwardTask = Task { [weak self] in
             for await segment in recognizer.segments {
                 guard let self else { return }
+                // seek / 暂停恢复后到达的过期结果（时间早于当前播放位置）直接丢弃，
+                // 避免旧字幕写入时间线（配合识别器内的 generation 门控双保险）。
+                if segment.startTime + Self.staleSegmentTolerance < self.playbackTime {
+                    continue
+                }
                 if segment.isPartial {
                     // 原始实时路径：逐词 partial 原样透出，不做翻译。
                     self.segmentsContinuation.yield(segment)

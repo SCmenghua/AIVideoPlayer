@@ -6,6 +6,8 @@ import WebKit
 /// 网页引擎由 WKWebView（框架层）提供；ViewModel 不直接接触 WKWebView。
 struct WebViewRepresentable: UIViewRepresentable {
     let viewModel: BrowserViewModel
+    /// 命令版本号：作为输入值让 SwiftUI 在命令变化时调用 `updateUIView`。
+    let commandVersion: Int
 
     func makeCoordinator() -> Coordinator {
         Coordinator(viewModel: viewModel)

@@ -6,6 +6,27 @@
 
 ## [Unreleased]
 
+### Fixed（Phase 7.5 成品 Debug，2026-08-09）
+
+- 浏览器后退 / 前进 / 刷新按钮命令未送达 WKWebView：`pendingCommand` 变化未被
+  任何 View 观察，`WebViewRepresentable.updateUIView` 不会触发。新增
+  `commandVersion` 作为代表视图输入参数，命令变化时强制刷新驱动（2026-08-09）
+- 换片后字幕管线沿用上一部视频的音频来源（旧视频字幕串到新视频时间线）：
+  `preparePlayback` 按引擎当前媒体 ID 检测换片并重建音频来源（2026-08-09）
+- seek / 停止后仍在途的 Whisper 转写结果（partial / final）仍被透出到字幕流：
+  识别器增加 generation 门控（锁保护世代计数，兼容音频线程回调）+
+  管线转发按播放位置丢弃过期片段（2026-08-09）
+- WebDAV 连接失败后内存会话残留凭据：`connect` 失败时清除 profile / credentials，
+  避免残留凭据被后续 `listDirectory` 使用（2026-08-09）
+- 本地大模型下载「取消后立即重试」会并发重复下载：`cancel` 不再立即置空任务引用，
+  保留至任务自然结束；`deleteModel` 等待任务结束后再删除目录（2026-08-09）
+- AVPlayer 媒体加载无超时（坏 URL 永久 loading）：增加 60 秒加载超时；
+  引擎 deinit 清理周期观察者与结束通知（2026-08-09）
+- `PlayerAudioPipeline` 音频 Tap 按 Float32 强读（未校验格式，存在越界读风险）：
+  按 `kAudioFormatFlagIsFloat` 区分 Float / Int16，并按 `mDataByteSize` 限制读取（2026-08-09）
+- 云端翻译可在未「测试连接 + 隐私确认」时直接启用（违反隐私红线）：
+  启用校验增加「测试连接成功」与「隐私确认」两个前置条件（2026-08-09）
+
 ### 待规划
 
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。

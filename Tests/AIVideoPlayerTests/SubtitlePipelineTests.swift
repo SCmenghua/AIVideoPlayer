@@ -111,6 +111,39 @@ struct SubtitlePipelineTests {
         #expect(recognizer.state == .off)
     }
 
+    @Test func staleSegmentsBeforePlaybackTimeAreDropped() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline(canReadAhead: true)
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 30)
+
+        let collect = Task { () -> SubtitleSegment? in
+            for await segment in pipeline.segments {
+                if Task.isCancelled { return nil }
+                return segment
+            }
+            return nil
+        }
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "stale",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+        collect.cancel()
+        #expect(await collect.value == nil)
+    }
+
     @Test func micSourceAlwaysUsesRawPath() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)

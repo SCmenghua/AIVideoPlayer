@@ -132,6 +132,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 7 完成：TranslationEngine 可替换翻译（Fast NMT（Apple 原生翻译）/ 本地 LLM
   （MLX Swift + Gemma 4 E2B 4-bit，按需下载）/ 云端 API（OpenAI 兼容，测试连接 + 隐私提示）；
   剧情理解润色；final 段提前翻译；设置页「翻译服务」卡片；单元测试），CI 通过
+- ✅ Phase 7.5 完成：整体 Debug（浏览器命令修复、换片字幕串台修复、过期字幕丢弃、
+  WebDAV 凭据清理、下载取消竞态、播放器加载超时、音频 Tap 格式加固、云端隐私校验）
 
 ## 后续开发路线
 

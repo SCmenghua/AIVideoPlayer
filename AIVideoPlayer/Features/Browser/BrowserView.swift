@@ -57,7 +57,10 @@ struct BrowserView: View {
                 onPlayMedia: { environment.requestPlayback(of: $0) }
             )
         case .loading, .ready:
-            WebViewRepresentable(viewModel: webViewModel)
+            WebViewRepresentable(
+                viewModel: webViewModel,
+                commandVersion: webViewModel.commandVersion
+            )
                 .ignoresSafeArea(edges: .bottom)
         case .failed(let url, let message):
             VStack(spacing: AppTheme.Spacing.md) {

@@ -26,7 +26,10 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
     private let modelFolderName: String
     private let modelFolderSubdirectory: String?
     private var whisperKit: WhisperKit?
-    private var generation: Int = 0
+    /// 转写窗口世代计数器：discard / stop / cancel 时递增。
+    /// 用锁保护的盒子（而非 MainActor 存储属性）是为了让 WhisperKit 的
+    /// @Sendable streaming 回调（音频线程）也能读取当前世代。
+    private let generationBox = GenerationBox()
 
     public init(
         modelFolderName: String = "whisperkit-coreml",
@@ -65,19 +68,19 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
     }
 
     public func stop() async {
-        generation += 1
+        generationBox.increment()
         whisperKit = nil
         state = .off
     }
 
     public func cancel() async {
-        generation += 1
+        generationBox.increment()
         whisperKit = nil
         state = .off
     }
 
     public func discardPendingResults() async {
-        generation += 1
+        generationBox.increment()
     }
 
     public func transcribe(
@@ -88,6 +91,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         emitPartial: Bool
     ) async throws -> RecognitionOutcome {
         try Task.checkCancellation()
+        let windowGeneration = generationBox.current()
         guard let whisperKit else {
             throw CancellationError()
         }
@@ -117,9 +121,12 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         // 原始路径：透出 Whisper 的 streaming partial。
         // 注意：TranscriptionCallback 是 @Sendable，只捕获 Sendable 值。
         let continuation = self.continuation
+        let generationBox = self.generationBox
         let callback: TranscriptionCallback?
         if emitPartial {
             callback = { progress in
+                // seek / 停止后仍在途的 partial 直接丢弃。
+                guard generationBox.current() == windowGeneration else { return nil }
                 let text = Self.cleanedText(progress.text)
                 guard !text.isEmpty else { return nil }
                 continuation.yield(
@@ -144,6 +151,10 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         )
 
         try Task.checkCancellation()
+        // seek / 停止发生在转写期间时，丢弃本次窗口的 final 结果。
+        guard generationBox.current() == windowGeneration else {
+            return RecognitionOutcome(language: nil, segmentCount: 0)
+        }
         var segmentCount = 0
         var language: String?
         for result in results {
@@ -189,5 +200,19 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
     nonisolated private static func confidence(from avgLogprob: Float?) -> Double {
         guard let avgLogprob else { return 0 }
         return min(max(1.0 + Double(avgLogprob), 0.0), 1.0)
+    }
+}
+
+/// 线程安全的世代计数器（音频回调线程写入/读取）。
+private final class GenerationBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = 0
+
+    func current() -> Int {
+        lock.withLock { value }
+    }
+
+    func increment() {
+        lock.withLock { value += 1 }
     }
 }
