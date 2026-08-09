@@ -49,6 +49,8 @@
 - `FastNMTTranslator` 默认参数引用 `private` 静态方法导致编译失败：
   默认参数值在调用点求值；public init 的默认参数必须引用 public 符号，
   静态方法最终改为 public（2026-08-09）
+- `TranslationSettingsViewModel.statusMessage` setter 对设置卡片不可见导致编译失败：
+  `private(set)` 改为 internal（ViewModel 为 internal，仅 UI 使用）（2026-08-09）
 
 ## [0.6.0] - 2026-08-09
 

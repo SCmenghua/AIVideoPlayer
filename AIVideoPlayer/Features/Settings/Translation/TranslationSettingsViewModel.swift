@@ -16,7 +16,7 @@ final class TranslationSettingsViewModel {
     var cloudAPIKeyInput: String
 
     private(set) var cloudTestState: LoadState<Void> = .empty
-    private(set) var statusMessage: String?
+    var statusMessage: String?
     private(set) var showConsentPrompt = false
 
     private let apiKeyStore: any APIKeyStoring
