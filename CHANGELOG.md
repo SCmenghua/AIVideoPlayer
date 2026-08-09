@@ -44,6 +44,11 @@
 - `SubtitlePipeline` 构造增加翻译设置 / Provider 工厂 / 上下文提供者注入
 - `AppEnvironment` 新增 `translationSettings` 与 `localModelDownloadManager` 全局共享
 
+### Fixed
+
+- `FastNMTTranslator` 默认参数引用 `private` 静态方法导致编译失败：
+  默认参数值在调用点求值，只能引用 internal 及以上符号，改为 internal（2026-08-09）
+
 ## [0.6.0] - 2026-08-09
 
 ### Added（Phase 6 SubtitleOverlay 双语整句字幕叠加）
