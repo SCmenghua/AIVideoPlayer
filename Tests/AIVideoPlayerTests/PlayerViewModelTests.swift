@@ -1,3 +1,4 @@
+import AVFoundation
 import Foundation
 import Testing
 @testable import AIVideoPlayer
@@ -10,7 +11,7 @@ struct PlayerViewModelTests {
         let viewModel = PlayerViewModel(engine: engine)
         viewModel.startObserving()
 
-        await viewModel.load(MockRemoteFiles.sampleMediaItem)
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
         await waitUntil { viewModel.playbackState == .ready }
 
         #expect(viewModel.currentItem == MockRemoteFiles.sampleMediaItem)
@@ -22,7 +23,7 @@ struct PlayerViewModelTests {
         let viewModel = PlayerViewModel(engine: engine)
         viewModel.startObserving()
 
-        await viewModel.load(MockRemoteFiles.sampleMediaItem)
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
         await waitUntil { viewModel.playbackState == .ready }
 
         await viewModel.togglePlayPause()
@@ -76,6 +77,67 @@ struct PlayerViewModelTests {
         #expect(progress.progress == 0.5)
     }
 
+    // MARK: - Phase 7.5 换片复位与手动初始化
+
+    @Test func loadResetsProgressBeforeEngineReady() async throws {
+        let engine = MockPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        // 先模拟第一条视频播放到一半。
+        engine.emitProgress(PlaybackProgress(currentTime: 60, duration: 120, rate: 1))
+        await waitUntil { viewModel.currentTime == 60 }
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+
+        // 换片立即复位：不残留旧进度，进入 loading 态。
+        #expect(viewModel.currentTime == 0)
+        #expect(viewModel.duration == 0)
+        #expect(viewModel.playbackState == .loading)
+        #expect(viewModel.currentItem == MockRemoteFiles.sampleMediaItem)
+
+        await waitUntil { viewModel.playbackState == .ready }
+    }
+
+    @Test func reinitializeReloadsCurrentItem() async throws {
+        let engine = MockPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        await waitUntil { viewModel.playbackState == .ready }
+        #expect(engine.loadCount == 1)
+
+        viewModel.reinitialize()
+        await waitUntil { engine.loadCount == 2 }
+        await waitUntil { viewModel.playbackState == .ready }
+        #expect(viewModel.currentItem == MockRemoteFiles.sampleMediaItem)
+    }
+
+    @Test func secondLoadSupersedesFirstWithoutClobberingState() async throws {
+        let engine = GatedPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        // 第一条加载停在闸门上。
+        await waitUntil { engine.pendingLoadCount == 1 }
+
+        let secondItem = MediaItem(
+            title: "Second",
+            url: try #require(URL(string: "https://example.com/second.mp4")),
+            kind: .video,
+            source: .web
+        )
+        viewModel.load(secondItem)
+        await waitUntil { viewModel.playbackState == .ready }
+        #expect(viewModel.currentItem == secondItem)
+
+        // 放行第一条加载：它的结果不得覆盖第二条的状态。
+        engine.releaseFirstLoad()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(viewModel.playbackState == .ready)
+        #expect(viewModel.currentItem == secondItem)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @MainActor () -> Bool
@@ -86,4 +148,73 @@ struct PlayerViewModelTests {
             try? await Task.sleep(for: .milliseconds(20))
         }
     }
+}
+
+/// 可手动放行的播放引擎：第一条 load 停在闸门上，后续 load 立即完成。
+@MainActor
+private final class GatedPlaybackEngine: PlaybackEngine {
+    private(set) var state: PlaybackState = .idle
+    private(set) var currentItem: MediaItem?
+    private(set) var currentTime: TimeInterval = 0
+    private(set) var duration: TimeInterval = 0
+    private(set) var rate: Float = 1
+
+    var player: AVPlayer? { nil }
+
+    let stateStream: AsyncStream<PlaybackState>
+    let progressStream: AsyncStream<PlaybackProgress>
+    private let stateContinuation: AsyncStream<PlaybackState>.Continuation
+    private let progressContinuation: AsyncStream<PlaybackProgress>.Continuation
+
+    private(set) var pendingLoadCount = 0
+    private var firstLoadGate: CheckedContinuation<Void, Never>?
+
+    init() {
+        let statePair = AsyncStream<PlaybackState>.makeStream()
+        stateStream = statePair.stream
+        stateContinuation = statePair.continuation
+
+        let progressPair = AsyncStream<PlaybackProgress>.makeStream()
+        progressStream = progressPair.stream
+        progressContinuation = progressPair.continuation
+    }
+
+    func load(_ item: MediaItem) async throws {
+        if firstLoadGate == nil {
+            pendingLoadCount += 1
+            await withCheckedContinuation { continuation in
+                firstLoadGate = continuation
+            }
+            firstLoadGate = nil
+        }
+        currentItem = item
+        duration = 120
+        state = .ready
+        stateContinuation.yield(.ready)
+    }
+
+    func releaseFirstLoad() {
+        firstLoadGate?.resume()
+    }
+
+    func play() async {
+        state = .playing
+        stateContinuation.yield(.playing)
+    }
+
+    func pause() async {
+        state = .paused
+        stateContinuation.yield(.paused)
+    }
+
+    func seek(to time: TimeInterval) async {
+        currentTime = time
+        progressContinuation.yield(PlaybackProgress(currentTime: time, duration: duration, rate: rate))
+    }
+
+    func setRate(_ newRate: Float) async {
+        rate = newRate
+    }
+
+    func setVolume(_ volume: Float) async {}
 }

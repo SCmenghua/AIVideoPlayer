@@ -12,7 +12,7 @@ struct PlayerViewModelSubtitleTests {
         viewModel.attachSubtitlePipeline(pipeline)
         viewModel.startObserving()
 
-        await viewModel.load(MockRemoteFiles.sampleMediaItem)
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
         await waitUntil { viewModel.playbackState == .ready }
 
         await viewModel.togglePlayPause()
@@ -40,7 +40,7 @@ struct PlayerViewModelSubtitleTests {
         viewModel.attachSubtitlePipeline(pipeline)
         viewModel.startObserving()
 
-        await viewModel.load(MockRemoteFiles.sampleMediaItem)
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
         await waitUntil { viewModel.playbackState == .ready }
         await viewModel.togglePlayPause()
         await waitUntil { viewModel.isPlaying }

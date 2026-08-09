@@ -25,6 +25,11 @@ final class PlayerViewModel {
     private var subtitlePipeline: SubtitlePipeline?
     private var stateTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
+    /// 当前加载任务：新加载会取消旧任务，避免并发加载互相覆盖状态。
+    private var loadTask: Task<Void, Never>?
+    /// 加载世代：旧任务完成时若世代不匹配则丢弃结果，防止过期加载
+    /// 覆盖新媒体的状态（换片后旧任务超时把状态打成 failed 等）。
+    private var loadGeneration = 0
 
     init(
         engine: any PlaybackEngine = AVPlayerPlaybackEngine(),
@@ -80,14 +85,42 @@ final class PlayerViewModel {
 
     // MARK: - 播放控制
 
-    func load(_ item: MediaItem) async {
-        currentItem = item
+    /// 加载新媒体：先复位播放器（进度 / 状态 / 字幕循环），再异步加载。
+    /// 换片时旧加载任务会被取消，且旧任务的结果不会覆盖新状态（generation 守卫）。
+    func load(_ item: MediaItem) {
+        loadGeneration += 1
+        let generation = loadGeneration
+        loadTask?.cancel()
+        loadTask = nil
+
+        // 换片复位：清空旧视频的进度与状态，避免残留旧进度条 / 转圈。
         playbackState = .loading
-        do {
-            try await engine.load(item)
-        } catch {
-            playbackState = .failed(error.localizedDescription)
+        currentItem = item
+        currentTime = 0
+        duration = 0
+        isScrubbing = false
+        seekTarget = 0
+        subtitlePipeline?.handlePlaybackEnded()
+
+        loadTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.engine.load(item)
+                guard generation == self.loadGeneration else { return }
+                self.playbackState = .ready
+            } catch is CancellationError {
+                // 已被更新的加载取代：保留新加载的状态，不覆盖。
+            } catch {
+                guard generation == self.loadGeneration else { return }
+                self.playbackState = .failed(error.localizedDescription)
+            }
         }
+    }
+
+    /// 手动初始化：重新加载当前媒体（清理卡住的转圈 / 状态异常，恢复播放）。
+    func reinitialize() {
+        guard let item = currentItem else { return }
+        load(item)
     }
 
     /// 注入共享 AI 字幕管线（PlayerView 从 AppEnvironment 获取）。

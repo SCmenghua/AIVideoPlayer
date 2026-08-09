@@ -28,6 +28,7 @@ struct PlayerControlsView: View {
                     subtitleButton
                     volumeMenu
                     sizeMenu
+                    reinitializeButton
                     if showsOrientationControls {
                         landscapeButton
                         portraitButton
@@ -216,6 +217,20 @@ struct PlayerControlsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(viewModel.isFullScreen ? "退出全屏" : "全屏")
+    }
+
+    /// 手动初始化：重新加载当前媒体（换片卡转圈 / 状态异常时手动恢复）。
+    private var reinitializeButton: some View {
+        Button {
+            viewModel.reinitialize()
+        } label: {
+            Image(systemName: "arrow.clockwise.circle")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("重新初始化播放器")
     }
 
     private func formatTime(_ time: TimeInterval) -> String {

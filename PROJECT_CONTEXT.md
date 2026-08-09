@@ -54,7 +54,9 @@
   音频 Tap 格式强读越界风险、云端翻译绕过隐私校验、CI 编译失败（deinit 并发）等；
   完善地址栏「清空当前网址」按钮、浏览器内视频接入内置播放器
   （内联播放 + 直链拦截 + HTML5 video 桥接）、构建时内置示例视频
-  （原 googleapis 示例 URL 403 导致测试视频无法播放）；同步补充单元测试；
+  （原 googleapis 示例 URL 403 导致测试视频无法播放）、播放器换片复位
+  （先初始化再加载 + 旧加载任务取消/世代守卫）+ 手动初始化按钮；
+  同步补充单元测试；
   `MARKETING_VERSION` 提升至 0.7.5，新增 `package-ipa.yml`（未签名 IPA →
   Actions 工件 + GitHub Release，供自签测试）。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、

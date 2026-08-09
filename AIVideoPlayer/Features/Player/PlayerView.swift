@@ -43,13 +43,13 @@ struct PlayerView: View {
             // 字幕流消费与播放加载并行；宿主视图消失时二者都被取消。
             async let consumeSubtitles: Void = overlay.consume()
             if let pending = environment.consumePendingPlayback() {
-                await viewModel.load(pending)
+                viewModel.load(pending)
             }
             await consumeSubtitles
         }
         .onChange(of: environment.pendingPlayback) { _, _ in
             if let pending = environment.consumePendingPlayback() {
-                Task { await viewModel.load(pending) }
+                viewModel.load(pending)
             }
         }
         .onChange(of: viewModel.currentItem) { _, _ in
@@ -83,7 +83,7 @@ struct PlayerView: View {
             // 正式入口为「远程文件视频行 → AppEnvironment.requestPlayback」，
             // 与本按钮无关，删除不影响播放链路。
             GlassProminentButton(title: "播放示例媒体（调试）", systemImage: "play.circle") {
-                Task { await viewModel.load(MockRemoteFiles.sampleMediaItem) }
+                viewModel.load(MockRemoteFiles.sampleMediaItem)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -142,6 +142,9 @@ struct PlayerView: View {
                         .font(.caption)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                    GlassIconButton(systemImage: "arrow.clockwise", title: "重试", tint: .red) {
+                        viewModel.reinitialize()
+                    }
                 }
                 .padding(AppTheme.Spacing.lg)
             }

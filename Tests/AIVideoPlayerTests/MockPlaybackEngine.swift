@@ -10,6 +10,7 @@ final class MockPlaybackEngine: PlaybackEngine {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var rate: Float = 1
+    private(set) var loadCount = 0
 
     var player: AVPlayer? { nil }
 
@@ -29,6 +30,7 @@ final class MockPlaybackEngine: PlaybackEngine {
     }
 
     func load(_ item: MediaItem) async throws {
+        loadCount += 1
         currentItem = item
         duration = 120
         state = .ready

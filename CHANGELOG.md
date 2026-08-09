@@ -38,6 +38,12 @@
 - 新增的 `staleSegmentsBeforePlaybackTimeAreDropped` 测试误用了另一测试文件
   的 Mock 方法：为 `SubtitlePipelineTests` 的 `MockSpeechRecognizer` 补 `emit`
 - `SubtitlePipeline.activate()` 未使用的 `engine` 绑定改为布尔判断（清警告）
+- 换片播放失败 / 转圈残留：`PlayerViewModel.load` 改为「先复位再加载」——
+  换片立即清空进度与状态、取消旧加载任务，并用 generation 守卫保证
+  旧加载（超时/失败）不会覆盖新媒体的状态；引擎换片同步复位进度与倍速，
+  `waitUntilReady` 检测到当前条目被替换即视为本加载已失效
+- 播放器控制栏新增「手动初始化」按钮（重新加载当前媒体），
+  播放失败状态新增「重试」按钮（2026-08-09）
 
 ### Fixed（Phase 7.5 成品 Debug）
 

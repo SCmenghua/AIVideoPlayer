@@ -53,6 +53,10 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         let playerItem = AVPlayerItem(url: item.url)
         avPlayer.replaceCurrentItem(with: playerItem)
         currentItem = item
+        // 换片复位：清空旧媒体的进度/倍速，避免 UI 显示残留。
+        currentTime = 0
+        duration = 0
+        rate = 1
         setState(.loading)
         try await waitUntilReady(playerItem)
         setState(.ready)
@@ -166,6 +170,10 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         let deadline = ContinuousClock.now + .seconds(60)
         while true {
             try Task.checkCancellation()
+            // 加载期间当前条目被替换（新的加载已开始）：本加载已失效。
+            guard avPlayer.currentItem === item else {
+                throw CancellationError()
+            }
             switch item.status {
             case .readyToPlay:
                 return
