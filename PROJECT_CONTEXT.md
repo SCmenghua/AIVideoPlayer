@@ -84,6 +84,10 @@
 - **禁止使用 `AVPlayerViewController`**：播放器必须使用 AVPlayer + SwiftUI 自定义 UI。
 - **禁止伪 Liquid Glass**：禁止用 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃；
   必须使用 iOS 26 原生 `glassEffect` / `GlassEffectContainer` / `.glass` / `.glassProminent`。
+- **Liquid Glass 实现必须遵循 `liquid-glass-design` skill**：所有玻璃组件、交互与变形过渡
+  按 `D:\code\CodeX\.agents\skills\liquid-glass-design\SKILL.md` 编写；
+  新增或修改玻璃 UI 前先阅读该 skill（多玻璃元素放入 `GlassEffectContainer`、
+  仅交互元素加 `.interactive()`、变形过渡用 `@Namespace` + `glassEffectID` 等）。
 - **禁止跳 Phase**：严格按 Phase 顺序开发，禁止提前实现后续 Phase。
 - **纯文档内容、不涉及程序代码的部分禁止触发 CI**：CI push 触发已配置
   `paths-ignore: *.md, docs/**`，纯文档提交无需 `[skip ci]` 标记；

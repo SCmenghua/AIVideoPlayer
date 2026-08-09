@@ -359,6 +359,7 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 - 依赖注入：View / ViewModel 通过 init 获得依赖，禁止内部 new 具体业务实现。
 - 状态显式：任何异步过程都有明确的 loading / ready / error / empty / cancelled 表现。
 - 内容优先：玻璃是漂浮在内容之上的交互层，不是覆盖内容的背景层。
+- Liquid Glass 以 `liquid-glass-design` skill 为设计依据（见红线 11）。
 - 最小改动：每个变更只针对当前 Phase 的目标，禁止顺手实现后续功能。
 
 ### 不可违反规则（红线）
@@ -374,6 +375,10 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 8. 禁止提前实现后续 Phase；每个 Phase 完成时必须编译 + 测试 + 架构检查。
 9. 第三方库 API 不确定时先查官方文档 / Package.swift / 源码，禁止编造 API。
 10. 隐私红线：视频/音频不上传；凭据只存本机 Keychain；翻译服务启用前必须明确提示。
+11. Liquid Glass UI 必须遵循 `liquid-glass-design` skill
+    （`D:\code\CodeX\.agents\skills\liquid-glass-design\SKILL.md`）：多玻璃元素放入
+    `GlassEffectContainer`；仅交互元素使用 `.interactive()`；变形过渡使用
+    `@Namespace` + `glassEffectID` + `withAnimation`；禁止脱离该 skill 自创玻璃写法。
 
 ## 10. 隐私承诺
 

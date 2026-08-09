@@ -174,7 +174,9 @@ AIVideoPlayer/
 - View → ViewModel → Protocol → Service/Framework；View 禁止直接接触 AVPlayer、URLSession、WhisperKit。
 - 单个 View 不超过 300 行；禁止把逻辑堆进 `ContentView.swift`。
 - 所有 async Task 支持取消；状态显式表达 Loading / Ready / Error / Empty / Cancelled。
-- UI 严格使用 iOS 26 原生 Liquid Glass API，禁止 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃。
+- UI 严格使用 iOS 26 原生 Liquid Glass API，禁止 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃；
+  Liquid Glass 实现遵循 `liquid-glass-design` skill
+  （`.agents/skills/liquid-glass-design/SKILL.md`：GlassEffectContainer / 交互 / 变形过渡等）。
 - 隐私优先：视频/音频不上传、Whisper 本地运行、凭据只存本机 Keychain。
 
 详见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。
