@@ -278,27 +278,31 @@ public final class PlayerAudioPipeline: AudioPipeline {
         tapStorageOut.pointee = clientInfo
     }
 
-    private static let tapFinalize: MTAudioProcessingTapFinalizeCallback = { _, _ in }
+    private static let tapFinalize: MTAudioProcessingTapFinalizeCallback = { _ in }
 
-    private static let tapPrepare: MTAudioProcessingTapPrepareCallback = { _, clientInfo, formatOut in
-        guard let clientInfo else { return }
-        Unmanaged<TapBox>.fromOpaque(clientInfo).takeUnretainedValue()
+    /// iOS 26 SDK：prepare 不再传 clientInfo，上下文通过 MTAudioProcessingTapGetStorage 取回。
+    private static let tapPrepare: MTAudioProcessingTapPrepareCallback = { tap, _, formatOut in
+        guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+        Unmanaged<TapBox>.fromOpaque(storage).takeUnretainedValue()
             .updateFormat(formatOut.pointee)
     }
 
-    private static let tapUnprepare: MTAudioProcessingTapUnprepareCallback = { _, _ in }
+    private static let tapUnprepare: MTAudioProcessingTapUnprepareCallback = { _ in }
 
-    private static let tapProcess: MTAudioProcessingTapProcessCallback = { tap, clientInfo, _, _, numberOfFrames, bufferListInOut, _, flagsOut in
+    /// iOS 26 SDK：process 回调签名为
+    /// (tap, numberOfFrames, flags, bufferListInOut, numberFramesOut, flagsOut)。
+    private static let tapProcess: MTAudioProcessingTapProcessCallback = { tap, numberOfFrames, _, bufferListInOut, numberFramesOut, flagsOut in
         var timeRange = CMTimeRange()
         MTAudioProcessingTapGetSourceAudio(
             tap,
             numberOfFrames,
             bufferListInOut,
             flagsOut,
-            &timeRange
+            &timeRange,
+            numberFramesOut
         )
-        guard let clientInfo else { return }
-        Unmanaged<TapBox>.fromOpaque(clientInfo).takeUnretainedValue()
+        guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+        Unmanaged<TapBox>.fromOpaque(storage).takeUnretainedValue()
             .process(bufferListInOut, frameCount: numberOfFrames)
     }
 }
