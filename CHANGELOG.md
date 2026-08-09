@@ -46,6 +46,11 @@
 
 - 播放器叠加字幕层接入普通与全屏两个播放场景；设置页「关于」版本说明更新为 Phase 6
 
+### Fixed
+
+- `SubtitleOverlayViewModelTests` 补 `uniqueSuiteName()` 辅助函数（此前遗漏导致
+  CI 测试目标编译失败，并级联产生 `.large` 类型推断错误）（2026-08-09）
+
 ## [0.5.0] - 2026-08-09
 
 ### Added（Phase 5 WhisperKit 实时识别 + 超前缓冲）
