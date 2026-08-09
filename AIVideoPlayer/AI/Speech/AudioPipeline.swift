@@ -247,21 +247,23 @@ public final class PlayerAudioPipeline: AudioPipeline {
             process: Self.tapProcess
         )
 
-        var tapRef: Unmanaged<MTAudioProcessingTap>?
+        var tapRef: MTAudioProcessingTap?
         let status = MTAudioProcessingTapCreate(
             kCFAllocatorDefault,
             &callbacks,
             kMTAudioProcessingTapCreationFlag_PostEffects,
             &tapRef
         )
-        guard status == noErr, let tapRef else {
+        guard status == noErr, let tap = tapRef else {
             throw AudioPipelineError.captureUnavailable("无法创建音频采集 Tap")
         }
 
-        let tap = tapRef.takeRetainedValue()
         captureTap = tap
+        let inputParams = AVMutableAudioMixInputParameters()
+        inputParams.trackID = kCMPersistentTrackID_Invalid
+        inputParams.audioTapProcessor = tap
         let mix = AVMutableAudioMix()
-        mix.audioTapProcessors = [tap]
+        mix.inputParameters = [inputParams]
         item.audioMix = mix
     }
 
@@ -293,7 +295,7 @@ public final class PlayerAudioPipeline: AudioPipeline {
     /// (tap, numberOfFrames, flags, bufferListInOut, numberFramesOut, flagsOut)。
     private static let tapProcess: MTAudioProcessingTapProcessCallback = { tap, numberOfFrames, _, bufferListInOut, numberFramesOut, flagsOut in
         var timeRange = CMTimeRange()
-        MTAudioProcessingTapGetSourceAudio(
+        let status = MTAudioProcessingTapGetSourceAudio(
             tap,
             numberOfFrames,
             bufferListInOut,
@@ -301,9 +303,13 @@ public final class PlayerAudioPipeline: AudioPipeline {
             &timeRange,
             numberFramesOut
         )
+        guard status == noErr else { return }
+        // 只处理实际取到的帧数，避免轨道末尾读到无效数据。
+        let framesToProcess = min(numberOfFrames, numberFramesOut.pointee)
+        guard framesToProcess > 0 else { return }
         let storage = MTAudioProcessingTapGetStorage(tap)
         Unmanaged<TapBox>.fromOpaque(storage).takeUnretainedValue()
-            .process(bufferListInOut, frameCount: numberOfFrames)
+            .process(bufferListInOut, frameCount: framesToProcess)
     }
 }
 
