@@ -91,11 +91,15 @@ struct SubtitleOverlayViewModelTests {
         let overlay = makeOverlay(stream: emptyStream(), displaySettings: settings)
 
         #expect(overlay.fontSize == .medium)
-        settings.fontSize = .large
-        #expect(overlay.fontSize == .large)
+        settings.fontSize = SubtitleFontSize.large
+        #expect(overlay.fontSize == SubtitleFontSize.large)
     }
 
     // MARK: - 辅助
+
+    private func uniqueSuiteName() -> String {
+        "subtitle-overlay.\(UUID().uuidString)"
+    }
 
     private func makeOverlay(
         stream: AsyncStream<SubtitleSegment>,
