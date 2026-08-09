@@ -153,6 +153,73 @@ struct PlayerViewModelTests {
         #expect(viewModel.currentItem == MockRemoteFiles.sampleMediaItem)
     }
 
+    // MARK: - Phase 7.8 流未送达兜底
+
+    @Test func togglePlayPauseWorksEvenWhenStateStreamIsSilent() async throws {
+        let engine = SilentPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        await waitUntil { viewModel.playbackState == .ready }
+
+        await viewModel.togglePlayPause()
+        #expect(viewModel.isPlaying)
+
+        await viewModel.togglePlayPause()
+        #expect(!viewModel.isPlaying)
+    }
+
+    @Test func refreshStateAndProgressPullsFromEngine() async throws {
+        let engine = SilentPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        await waitUntil { viewModel.playbackState == .ready }
+
+        engine.simulateProgress(currentTime: 30, duration: 120)
+        viewModel.refreshStateAndProgress()
+
+        #expect(viewModel.currentTime == 30)
+        #expect(viewModel.duration == 120)
+        #expect(viewModel.currentProgress > 0.2)
+    }
+
+    @Test func seekRefreshesTimeAndDurationFromEngine() async throws {
+        let engine = SilentPlaybackEngine()
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        await waitUntil { viewModel.playbackState == .ready }
+
+        await viewModel.seek(to: 42)
+
+        #expect(engine.currentTime == 42)
+        #expect(viewModel.currentTime == 42)
+        #expect(viewModel.duration == 120)
+    }
+
+    @Test func failedLoadIsNotRegressedByRefresh() async throws {
+        let engine = SilentPlaybackEngine()
+        engine.failNextLoad = true
+        let viewModel = PlayerViewModel(engine: engine)
+        viewModel.startObserving()
+
+        viewModel.load(MockRemoteFiles.sampleMediaItem)
+        await waitUntil {
+            if case .failed = viewModel.playbackState { return true }
+            return false
+        }
+
+        viewModel.refreshStateAndProgress()
+
+        var isFailed = false
+        if case .failed = viewModel.playbackState { isFailed = true }
+        #expect(isFailed)
+    }
+
     private func waitUntil(
         timeout: Duration = .seconds(2),
         _ condition: @MainActor () -> Bool
@@ -232,6 +299,68 @@ private final class GatedPlaybackEngine: PlaybackEngine {
     }
 
     func setVolume(_ volume: Float) async {}
+}
+
+/// 静默播放引擎：play/pause/load/seek 更新内部状态但不 yield 流，
+/// 验证 ViewModel 不依赖流也能同步播放器状态与进度（设备端流丢失兜底）。
+@MainActor
+private final class SilentPlaybackEngine: PlaybackEngine {
+    private(set) var state: PlaybackState = .idle
+    private(set) var currentItem: MediaItem?
+    private(set) var currentTime: TimeInterval = 0
+    private(set) var duration: TimeInterval = 0
+    private(set) var rate: Float = 1
+    var failNextLoad = false
+
+    var player: AVPlayer? { nil }
+
+    let stateStream: AsyncStream<PlaybackState>
+    let progressStream: AsyncStream<PlaybackProgress>
+    private let stateContinuation: AsyncStream<PlaybackState>.Continuation
+    private let progressContinuation: AsyncStream<PlaybackProgress>.Continuation
+
+    init() {
+        let statePair = AsyncStream<PlaybackState>.makeStream()
+        stateStream = statePair.stream
+        stateContinuation = statePair.continuation
+
+        let progressPair = AsyncStream<PlaybackProgress>.makeStream()
+        progressStream = progressPair.stream
+        progressContinuation = progressPair.continuation
+    }
+
+    func load(_ item: MediaItem) async throws {
+        if failNextLoad {
+            state = .failed("加载失败")
+            throw PlaybackEngineError.loadFailed("加载失败")
+        }
+        currentItem = item
+        duration = 120
+        state = .ready
+    }
+
+    func play() async {
+        state = .playing
+    }
+
+    func pause() async {
+        state = .paused
+    }
+
+    func seek(to time: TimeInterval) async {
+        currentTime = time
+    }
+
+    func setRate(_ newRate: Float) async {
+        rate = newRate
+    }
+
+    func setVolume(_ volume: Float) async {}
+
+    func simulateProgress(currentTime: TimeInterval, duration: TimeInterval) {
+        self.currentTime = currentTime
+        self.duration = duration
+    }
 }
 
 /// 模拟换片后新条目自动播放的引擎：load 期间直接发出 .playing。

@@ -14,7 +14,7 @@ struct PlayerControlsView: View {
             HStack {
                 Text(formatTime(viewModel.isScrubbing ? viewModel.seekTarget : viewModel.currentTime))
                 Spacer()
-                Text(formatTime(viewModel.duration))
+                Text(viewModel.duration > 0 ? formatTime(viewModel.duration) : "--:--")
             }
             .font(.caption2.monospacedDigit())
             .foregroundStyle(.white)
@@ -58,6 +58,9 @@ struct PlayerControlsView: View {
             }
         )
         .tint(.white)
+        // 时长未知（未就绪 / HLS 未填充 seek 范围）时禁止拖动，
+        // 避免 0...1 退化范围把任意拖动变成「从头重播」。
+        .disabled(viewModel.duration <= 0)
     }
 
     // MARK: - 按钮

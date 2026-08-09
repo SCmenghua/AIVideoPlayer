@@ -26,8 +26,12 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     nonisolated(unsafe) private var timeObserver: Any?
     private var statusObservation: NSKeyValueObservation?
     nonisolated(unsafe) private var endObserver: NSObjectProtocol?
+    /// 进度/状态兜底节拍器：周期读取 AVPlayer 当前时间并推送进度，
+    /// 即使周期观察者回调未送达也能驱动 UI 时间与进度条。
+    nonisolated(unsafe) private var tickerTask: Task<Void, Never>?
 
     deinit {
+        tickerTask?.cancel()
         if let timeObserver {
             avPlayer.removeTimeObserver(timeObserver)
         }
@@ -47,6 +51,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
 
         avPlayer = AVPlayer()
         addObservers()
+        startTicker()
     }
 
     public func load(_ item: MediaItem) async throws {
@@ -61,7 +66,18 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         duration = 0
         rate = 1
         setState(.loading)
-        try await waitUntilReady(playerItem)
+        do {
+            try await waitUntilReady(playerItem)
+        } catch is CancellationError {
+            // 换片 / 取消：本加载已失效，状态由新加载负责，不打 failed。
+            throw CancellationError()
+        } catch {
+            // 引擎状态同步标记失败，避免停留在 loading 让 UI 无法恢复。
+            setState(.failed(error.localizedDescription))
+            throw error
+        }
+        // 加载完成后立即推送一次进度（0s + 已知时长），让进度条范围尽快就绪。
+        emitProgress(at: 0)
         // 防御：加载完成时若已处于播放态（异常自动播放），保持播放态。
         if avPlayer.timeControlStatus == .playing {
             setState(.playing)
@@ -71,17 +87,30 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     public func play() async {
+        // 失败态只能走重试（重新加载），不允许直接播放。
+        guard state != .failed else { return }
         avPlayer.play()
+        // 立即同步状态：即使 timeControlStatus KVO 回调未送达，
+        // 播放按钮也能马上切到暂停态。
+        setState(.playing)
     }
 
     public func pause() async {
         avPlayer.pause()
+        // 立即同步状态：即使 KVO 回调未送达，播放按钮也能马上切回播放态。
+        // 播放结束态保留给 replay 逻辑（从 0 重播），不被 pause 覆盖。
+        if state != .ended {
+            setState(.paused)
+        }
     }
 
     public func seek(to time: TimeInterval) async {
-        let target = CMTime(seconds: time, preferredTimescale: 600)
+        // 已知时长时把目标收敛到 [0, duration]，避免进度条拖动越界。
+        let duration = currentItemDuration
+        let clamped = duration > 0 ? min(max(time, 0), duration) : max(time, 0)
+        let target = CMTime(seconds: clamped, preferredTimescale: 600)
         await avPlayer.seek(to: target, toleranceBefore: .zero, toleranceAfter: .zero)
-        emitProgress(at: time)
+        emitProgress(at: clamped)
     }
 
     public func setRate(_ newRate: Float) async {
@@ -97,6 +126,22 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     // MARK: - Private
+
+    /// 进度/状态兜底节拍器：每 0.5s 读取一次 AVPlayer 当前时间/时长/状态并推送。
+    /// 与 KVO / 周期观察者双通道并存：
+    /// 1) 周期观察者回调异常未送达时，时间与进度仍能驱动 UI；
+    /// 2) timeControlStatus KVO 未送达时，状态也能在下一拍收敛。
+    private func startTicker() {
+        tickerTask?.cancel()
+        tickerTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(500))
+                guard let self else { return }
+                self.emitProgress(at: self.avPlayer.currentTime().seconds)
+                self.handleTimeControlStatus(self.avPlayer.timeControlStatus)
+            }
+        }
+    }
 
     private func addObservers() {
         // 播放/暂停状态（KVO 回调在主线程，Swift 6 下显式回到 MainActor）。
@@ -155,11 +200,13 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     }
 
     private func emitProgress(at seconds: TimeInterval) {
-        currentTime = seconds
+        // 无媒体 / 时间不可用时回退 0，避免 NaN 污染 UI（进度条/时间标签）。
+        let safeSeconds = seconds.isFinite ? seconds : 0
+        currentTime = safeSeconds
         duration = currentItemDuration
         rate = avPlayer.rate
         progressContinuation.yield(
-            PlaybackProgress(currentTime: seconds, duration: currentItemDuration, rate: avPlayer.rate)
+            PlaybackProgress(currentTime: safeSeconds, duration: currentItemDuration, rate: avPlayer.rate)
         )
     }
 

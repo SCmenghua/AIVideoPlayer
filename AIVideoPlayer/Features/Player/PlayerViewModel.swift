@@ -25,6 +25,9 @@ final class PlayerViewModel {
     private var subtitlePipeline: SubtitlePipeline?
     private var stateTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
+    /// 状态/进度兜底刷新：即使引擎的流未送达，也能周期同步
+    /// engine.currentTime / duration / rate / state 到 UI。
+    private var refreshTask: Task<Void, Never>?
     /// 当前加载任务：新加载会取消旧任务，避免并发加载互相覆盖状态。
     private var loadTask: Task<Void, Never>?
     /// 加载世代：旧任务完成时若世代不匹配则丢弃结果，防止过期加载
@@ -74,13 +77,24 @@ final class PlayerViewModel {
                 self.rate = progress.rate
             }
         }
+
+        // 兜底双通道：流未送达时，周期直接读取引擎的同步属性（值一致，幂等）。
+        refreshTask = Task { [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                self.refreshStateAndProgress()
+                try? await Task.sleep(for: .milliseconds(500))
+            }
+        }
     }
 
     func stopObserving() {
         stateTask?.cancel()
         progressTask?.cancel()
+        refreshTask?.cancel()
         stateTask = nil
         progressTask = nil
+        refreshTask = nil
     }
 
     // MARK: - 播放控制
@@ -107,10 +121,8 @@ final class PlayerViewModel {
             do {
                 try await self.engine.load(item)
                 guard generation == self.loadGeneration else { return }
-                // 仅当仍处于加载态时置为 ready：播放态 / 失败态等后续状态不被覆盖。
-                if self.playbackState == .loading {
-                    self.playbackState = .ready
-                }
+                // 以引擎权威状态为准同步；播放态不被 ready 回退由引擎状态机保证。
+                self.playbackState = self.engine.state
             } catch is CancellationError {
                 // 已被更新的加载取代：保留新加载的状态，不覆盖。
             } catch {
@@ -138,6 +150,7 @@ final class PlayerViewModel {
             await play()
         } else if isPlaying {
             await engine.pause()
+            playbackState = engine.state
             subtitlePipeline?.handlePlaybackPaused()
         } else {
             await play()
@@ -146,9 +159,12 @@ final class PlayerViewModel {
 
     func seek(to time: TimeInterval) async {
         await engine.seek(to: time)
-        await subtitlePipeline?.handleSeek(to: time)
+        playbackState = engine.state
+        currentTime = engine.currentTime
+        duration = engine.duration
+        await subtitlePipeline?.handleSeek(to: currentTime)
         if isPlaying {
-            await prepareAIForPlayback(from: time)
+            await prepareAIForPlayback(from: currentTime)
         }
     }
 
@@ -176,6 +192,25 @@ final class PlayerViewModel {
     private func play() async {
         await prepareAIForPlayback(from: currentTime)
         await engine.play()
+        playbackState = engine.state
+    }
+
+    /// 从引擎同步状态/进度到 UI：与 stateStream / progressStream 双通道并存，
+    /// 流正常时二者值一致（重复赋值幂等），流异常时保证 UI 仍能反映真实状态。
+    func refreshStateAndProgress() {
+        currentTime = engine.currentTime
+        duration = engine.duration
+        rate = engine.rate
+        // .loading 是加载任务拥有的瞬态：不在此同步，避免 loadTask 开始前
+        // 把 .loading 闪回旧状态，或加载失败后把 .failed 打回 .loading。
+        let newState = engine.state
+        guard newState != .loading else { return }
+        if newState != playbackState {
+            playbackState = newState
+            if newState == .ended {
+                subtitlePipeline?.handlePlaybackEnded()
+            }
+        }
     }
 
     /// 播放前准备音频管线：重建/启动来源，超前模式下先等 Δ 秒预读完成再出声。
