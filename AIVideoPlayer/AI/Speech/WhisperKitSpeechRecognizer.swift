@@ -117,8 +117,9 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         // 原始路径：透出 Whisper 的 streaming partial。
         // 注意：TranscriptionCallback 是 @Sendable，只捕获 Sendable 值。
         let continuation = self.continuation
-        let callback: TranscriptionCallback? = emitPartial
-            ? { progress in
+        let callback: TranscriptionCallback?
+        if emitPartial {
+            callback = { progress in
                 let text = Self.cleanedText(progress.text)
                 guard !text.isEmpty else { return nil }
                 continuation.yield(
@@ -132,7 +133,9 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                 )
                 return nil
             }
-            : nil
+        } else {
+            callback = nil
+        }
 
         let results = try await whisperKit.transcribe(
             audioArray: resampled,

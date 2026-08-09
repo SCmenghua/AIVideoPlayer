@@ -67,7 +67,7 @@ struct SettingsView: View {
                         tint: .blue
                     ) {
                         withAnimation(.snappy) {
-                            Task { await environment.subtitlePipeline.toggle() }
+                            Task<Void, Never> { await environment.subtitlePipeline.toggle() }
                         }
                     }
                 }
