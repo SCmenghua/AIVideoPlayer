@@ -57,6 +57,8 @@
 - `mlx-swift-lm` 的 `ChatSession` 非 Sendable 且未标注隔离，严格并发下调用
   `respond` 报数据竞争：`LocalLLMTranslator` 改用 `@preconcurrency import MLXLMCommon`
   （该模块 API 未适配并发，按迁移惯例放宽检查）（2026-08-09）
+- 测试桩 `StubURLProtocol.handler` 声明中 `?` 误绑定到返回元组，导致静态存储属性
+  无初始值编译失败：函数类型整体加括号后再标可选（2026-08-09）
 
 ## [0.6.0] - 2026-08-09
 

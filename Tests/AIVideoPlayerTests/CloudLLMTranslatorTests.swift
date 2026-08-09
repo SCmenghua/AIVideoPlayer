@@ -204,7 +204,7 @@ private final class InMemoryAPIKeyStore: APIKeyStoring, @unchecked Sendable {
 
 private final class StubURLProtocol: URLProtocol {
     nonisolated(unsafe) static var handler:
-        @Sendable (URLRequest) throws -> (HTTPURLResponse, Data)?
+        (@Sendable (URLRequest) throws -> (HTTPURLResponse, Data))? = nil
     nonisolated(unsafe) static var lastRequest: URLRequest?
     nonisolated(unsafe) static var lastBody: String?
 
@@ -217,10 +217,7 @@ private final class StubURLProtocol: URLProtocol {
             return
         }
         do {
-            guard let (response, data) = try handler(request) else {
-                client?.urlProtocol(self, didFailWithError: URLError(.badServerResponse))
-                return
-            }
+            let (response, data) = try handler(request)
             Self.lastRequest = request
             if let body = request.httpBody {
                 Self.lastBody = String(data: body, encoding: .utf8)
