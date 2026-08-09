@@ -55,7 +55,7 @@ extension RemoteFile.Kind {
     static func infer(isCollection: Bool, url: URL) -> RemoteFile.Kind {
         if isCollection { return .folder }
         switch url.pathExtension.lowercased() {
-        case "mp4", "mov", "m4v", "mkv", "avi", "webm":
+        case "mp4", "mov", "m4v", "mkv", "avi", "webm", "m3u8", "m3u":
             return .video
         case "mp3", "m4a", "wav", "aac", "flac":
             return .audio

@@ -30,16 +30,23 @@ final class BrowserViewModel {
     private(set) var requestedLoad: URL?
     private(set) var history: [BrowserHistoryEntry] = []
     private(set) var bookmarks: [Bookmark] = []
+    private(set) var extractedMedia: LoadState<[MediaItem]> = .loading
 
     private let historyStore: any BrowserHistoryStoring
     private let bookmarkStore: any BookmarkStoring
+    private let mediaExtractor: any MediaExtractor
+
+    private var extractionGeneration = 0
+    private var extractionTask: Task<Void, Never>?
 
     init(
         historyStore: any BrowserHistoryStoring = UserDefaultsHistoryStore(),
-        bookmarkStore: any BookmarkStoring = UserDefaultsBookmarkStore()
+        bookmarkStore: any BookmarkStoring = UserDefaultsBookmarkStore(),
+        mediaExtractor: any MediaExtractor = WebMediaExtractor()
     ) {
         self.historyStore = historyStore
         self.bookmarkStore = bookmarkStore
+        self.mediaExtractor = mediaExtractor
         self.history = historyStore.loadEntries()
         self.bookmarks = bookmarkStore.loadBookmarks()
     }
@@ -169,6 +176,33 @@ final class BrowserViewModel {
     func clearHistory() {
         try? historyStore.clear()
         history = historyStore.loadEntries()
+    }
+
+    // MARK: - 媒体提取（Phase 4）
+
+    /// 提取当前页面 / 直链媒体并更新 `extractedMedia`（五态）。
+    /// 新提取会取消旧任务；generation 防止过期结果覆盖当前页面。
+    func extractMediaFromCurrentPage() async {
+        guard let url = currentURL else { return }
+        extractionGeneration += 1
+        let currentGeneration = extractionGeneration
+        extractionTask?.cancel()
+        extractedMedia = .loading
+
+        let task = Task { [weak self] in
+            guard let self else { return }
+            do {
+                let items = try await self.mediaExtractor.extractMedia(from: url)
+                try Task.checkCancellation()
+                guard currentGeneration == self.extractionGeneration else { return }
+                self.extractedMedia = items.isEmpty ? .empty : .ready(items)
+            } catch {
+                guard currentGeneration == self.extractionGeneration else { return }
+                self.extractedMedia = Task.isCancelled ? .cancelled : .error(error.localizedDescription)
+            }
+        }
+        extractionTask = task
+        await task.value
     }
 
     private func recordHistory(url: URL, title: String?) {

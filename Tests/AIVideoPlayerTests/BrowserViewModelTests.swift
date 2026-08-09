@@ -68,6 +68,125 @@ struct BrowserViewModelTests {
         #expect(!viewModel.isCurrentPageBookmarked)
         #expect(viewModel.bookmarks.isEmpty)
     }
+
+    // MARK: - Phase 4 媒体提取
+
+    @Test func extractMediaPublishesReadyState() async throws {
+        let item = try makeMediaItem(title: "Movie", urlString: "https://example.com/movie.mp4")
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            mediaExtractor: StaticMediaExtractor(result: .success([item]))
+        )
+        let url = try #require(URL(string: "https://example.com/watch"))
+        viewModel.load(url)
+
+        await viewModel.extractMediaFromCurrentPage()
+
+        #expect(viewModel.extractedMedia == .ready([item]))
+    }
+
+    @Test func extractMediaPublishesEmpty() async throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            mediaExtractor: StaticMediaExtractor(result: .success([]))
+        )
+        let url = try #require(URL(string: "https://example.com/watch"))
+        viewModel.load(url)
+
+        await viewModel.extractMediaFromCurrentPage()
+
+        #expect(viewModel.extractedMedia == .empty)
+    }
+
+    @Test func extractMediaPublishesError() async throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            mediaExtractor: StaticMediaExtractor(result: .failure(TestExtractionError()))
+        )
+        let url = try #require(URL(string: "https://example.com/watch"))
+        viewModel.load(url)
+
+        await viewModel.extractMediaFromCurrentPage()
+
+        guard case .error(let message) = viewModel.extractedMedia else {
+            Issue.record("期望 error 状态，实际为 \(viewModel.extractedMedia)")
+            return
+        }
+        #expect(message == "boom")
+    }
+
+    @Test func staleExtractionResultIsDiscarded() async throws {
+        let itemB = try makeMediaItem(title: "Second", urlString: "https://example.com/second.mp4")
+        let extractor = GatedMediaExtractor(result: [itemB])
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            mediaExtractor: extractor
+        )
+        let urlA = try #require(URL(string: "https://example.com/first"))
+        let urlB = try #require(URL(string: "https://example.com/second"))
+        viewModel.load(urlA)
+
+        let firstExtraction = Task { await viewModel.extractMediaFromCurrentPage() }
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(viewModel.extractedMedia == .loading)
+
+        viewModel.load(urlB)
+        await viewModel.extractMediaFromCurrentPage()
+        #expect(viewModel.extractedMedia == .ready([itemB]))
+
+        extractor.openGate()
+        await firstExtraction.value
+        #expect(viewModel.extractedMedia == .ready([itemB]))
+    }
+
+    private func makeMediaItem(title: String, urlString: String) throws -> MediaItem {
+        MediaItem(
+            title: title,
+            url: try #require(URL(string: urlString)),
+            kind: .video,
+            source: .web
+        )
+    }
+}
+
+private struct StaticMediaExtractor: MediaExtractor {
+    let result: Result<[MediaItem], TestExtractionError>
+
+    func extractMedia(from url: URL) async throws -> [MediaItem] {
+        try result.get()
+    }
+}
+
+private struct TestExtractionError: LocalizedError, Sendable {
+    var errorDescription: String? { "boom" }
+}
+
+/// 第一次调用阻塞在闸门上，供过期结果测试使用；后续调用立即返回。
+private final class GatedMediaExtractor: MediaExtractor, @unchecked Sendable {
+    private let result: [MediaItem]
+    private var isGated = true
+    private var gate: CheckedContinuation<Void, Never>?
+
+    init(result: [MediaItem]) {
+        self.result = result
+    }
+
+    func openGate() {
+        gate?.resume()
+        gate = nil
+    }
+
+    func extractMedia(from url: URL) async throws -> [MediaItem] {
+        if isGated {
+            isGated = false
+            await withCheckedContinuation { gate = $0 }
+        }
+        return result
+    }
 }
 
 private final class MockHistoryStore: BrowserHistoryStoring, @unchecked Sendable {

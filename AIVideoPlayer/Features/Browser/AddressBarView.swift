@@ -5,6 +5,7 @@ struct AddressBarView: View {
     @Bindable var viewModel: BrowserViewModel
     let onShowHistory: () -> Void
     let onShowBookmarks: () -> Void
+    let onExtractMedia: () -> Void
 
     var body: some View {
         HStack(spacing: AppTheme.Spacing.xs) {
@@ -63,6 +64,15 @@ struct AddressBarView: View {
                     .foregroundStyle(viewModel.isCurrentPageBookmarked ? .yellow : .secondary)
             }
             .disabled(viewModel.currentURL == nil)
+            .buttonStyle(.plain)
+
+            Button {
+                onExtractMedia()
+            } label: {
+                Image(systemName: "film")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .disabled(!viewModel.isWebContentVisible)
             .buttonStyle(.plain)
 
             Menu {

@@ -11,13 +11,18 @@ struct BrowserView: View {
 
     @State private var showsHistory = false
     @State private var showsBookmarks = false
+    @State private var showsMediaExtraction = false
 
     var body: some View {
         VStack(spacing: 0) {
             AddressBarView(
                 viewModel: webViewModel,
                 onShowHistory: { showsHistory = true },
-                onShowBookmarks: { showsBookmarks = true }
+                onShowBookmarks: { showsBookmarks = true },
+                onExtractMedia: {
+                    showsMediaExtraction = true
+                    Task { await webViewModel.extractMediaFromCurrentPage() }
+                }
             )
 
             content
@@ -29,6 +34,11 @@ struct BrowserView: View {
         }
         .sheet(isPresented: $showsBookmarks) {
             BookmarksView(viewModel: webViewModel)
+        }
+        .sheet(isPresented: $showsMediaExtraction) {
+            MediaExtractionSheet(viewModel: webViewModel) { media in
+                environment.requestPlayback(of: media)
+            }
         }
         .task { await subtitleViewModel.observe() }
     }

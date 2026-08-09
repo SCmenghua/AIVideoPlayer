@@ -55,6 +55,14 @@ struct ModelsTests {
         #expect(decoded.source == .remote)
     }
 
+    @Test func remoteFileInfersHLSAsVideo() throws {
+        let m3u8 = try #require(URL(string: "https://example.com/stream.m3u8"))
+        #expect(RemoteFile.Kind.infer(isCollection: false, url: m3u8) == .video)
+
+        let m3u = try #require(URL(string: "https://example.com/playlist.m3u"))
+        #expect(RemoteFile.Kind.infer(isCollection: false, url: m3u) == .video)
+    }
+
     private func makeRemoteFile(kind: RemoteFile.Kind) throws -> RemoteFile {
         let url = try #require(URL(string: "https://example.com/sample"))
         return RemoteFile(
