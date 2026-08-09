@@ -187,6 +187,42 @@ final class BrowserViewModel {
 
     // MARK: - 媒体提取（Phase 4）
 
+    /// 判断直链是否可由内置 AVPlayer 直接播放（用于浏览器内视频接管）。
+    /// 与 `WebMediaExtractor` 的提取列表一致，但排除 AVPlayer 无法解码的
+    /// 容器（webm / mkv / avi），避免把无法播放的链接接入播放器。
+    static func isDirectlyPlayable(url: URL) -> Bool {
+        guard let scheme = url.scheme?.lowercased(),
+              scheme == "http" || scheme == "https" else {
+            return false
+        }
+        switch url.pathExtension.lowercased() {
+        case "mp4", "mov", "m4v", "m3u8", "m3u", "mp3", "m4a", "wav", "aac", "flac":
+            return true
+        default:
+            return false
+        }
+    }
+
+    /// 把浏览器内检测到的视频 URL 映射为可播放媒体（供内置播放器接管）。
+    /// 不可直接播放的地址（blob: / data: / 非媒体扩展名）返回 nil。
+    func mediaItemForDetectedVideo(url: URL, title: String?) -> MediaItem? {
+        guard Self.isDirectlyPlayable(url: url) else { return nil }
+        let fallbackName = url.deletingPathExtension().lastPathComponent
+            .removingPercentEncoding ?? url.absoluteString
+        let trimmedTitle = title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let resolvedTitle = trimmedTitle.isEmpty ? fallbackName : trimmedTitle
+        let kind: MediaItem.Kind = Self.audioExtensions.contains(url.pathExtension.lowercased())
+            ? .audio : .video
+        return MediaItem(
+            title: resolvedTitle,
+            url: url,
+            kind: kind,
+            source: .web
+        )
+    }
+
+    private static let audioExtensions: Set<String> = ["mp3", "m4a", "wav", "aac", "flac"]
+
     /// 提取当前页面 / 直链媒体并更新 `extractedMedia`（五态）。
     /// 新提取会取消旧任务；generation 防止过期结果覆盖当前页面。
     func extractMediaFromCurrentPage() async {

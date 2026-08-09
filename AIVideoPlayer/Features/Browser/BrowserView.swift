@@ -59,7 +59,14 @@ struct BrowserView: View {
         case .loading, .ready:
             WebViewRepresentable(
                 viewModel: webViewModel,
-                commandVersion: webViewModel.commandVersion
+                commandVersion: webViewModel.commandVersion,
+                onVideoDetected: { url, title in
+                    guard let media = webViewModel.mediaItemForDetectedVideo(
+                        url: url,
+                        title: title
+                    ) else { return }
+                    environment.requestPlayback(of: media)
+                }
             )
                 .ignoresSafeArea(edges: .bottom)
         case .failed(let url, let message):

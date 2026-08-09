@@ -6,6 +6,25 @@
 
 ## [Unreleased]
 
+### Added（Phase 7.5 完善，2026-08-09）
+
+- 浏览器地址栏右侧新增「清空当前网址」按钮（×），一键清空输入
+- 浏览器内视频接入内置播放器：
+  - WKWebView 开启内联播放（blob: 等不可直连流在页面内播放，不再跳转系统全屏播放器）；
+  - 点击 .mp4 / .m3u8 / 音频等直链时拦截导航，转交内置播放器；
+  - 注入桥接脚本：页面内 HTML5 `<video>` 播放可直连媒体时上报 App，
+    由内置播放器接管（标题取 video title / aria-label / 页面标题）
+- 示例视频内置：`scripts/fetch-sample-video.sh` 构建时从 CDN 下载约 1 MB MP4
+  （test-videos.co.uk Big Buck Bunny 10 秒，可用 `SAMPLE_VIDEO_URL` 更换），
+  运行时优先加载内置文件（离线可播）；修复原 googleapis 示例 URL 返回 403
+  导致「测试视频无法播放」的问题
+
+### Fixed（Phase 7.5 续，2026-08-09）
+
+- `AVPlayerPlaybackEngine.deinit` 在 Swift 6 严格并发下无法访问非 Sendable
+  观察者属性，导致 CI 编译失败：观察者属性标记 `nonisolated(unsafe)`
+  （仅 MainActor 与 deinit 访问，deinit 时对象不再被并发访问）
+
 ### Fixed（Phase 7.5 成品 Debug，2026-08-09）
 
 - 浏览器后退 / 前进 / 刷新按钮命令未送达 WKWebView：`pendingCommand` 变化未被

@@ -58,6 +58,62 @@ struct BrowserViewModelTests {
         #expect(viewModel.pendingCommand == .none)
     }
 
+    // MARK: - Phase 7.5 浏览器视频接管
+
+    @Test func directVideoURLProducesPlayableMediaItem() throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore()
+        )
+        let url = try #require(URL(string: "https://example.com/video.mp4"))
+
+        let media = viewModel.mediaItemForDetectedVideo(url: url, title: "示例视频")
+
+        #expect(media != nil)
+        #expect(media?.url == url)
+        #expect(media?.kind == .video)
+        #expect(media?.source == .web)
+        #expect(media?.title == "示例视频")
+    }
+
+    @Test func audioURLProducesAudioMediaItem() throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore()
+        )
+        let url = try #require(URL(string: "https://example.com/audio.mp3"))
+
+        let media = viewModel.mediaItemForDetectedVideo(url: url, title: "歌曲")
+
+        #expect(media?.kind == .audio)
+    }
+
+    @Test func blobOrPageURLIsRejectedForDirectPlayback() throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore()
+        )
+        let blobURL = try #require(URL(string: "blob:https://example.com/1a2b"))
+        let pageURL = try #require(URL(string: "https://example.com/watch"))
+
+        #expect(viewModel.mediaItemForDetectedVideo(url: blobURL, title: nil) == nil)
+        #expect(viewModel.mediaItemForDetectedVideo(url: pageURL, title: nil) == nil)
+    }
+
+    @Test func directPlayabilityClassification() throws {
+        let mp4 = try #require(URL(string: "https://example.com/a.mp4"))
+        let m3u8 = try #require(URL(string: "https://example.com/live.m3u8"))
+        let audio = try #require(URL(string: "http://example.com/a.m4a"))
+        let webm = try #require(URL(string: "https://example.com/a.webm"))
+        let blobURL = try #require(URL(string: "blob:https://example.com/xyz"))
+
+        #expect(BrowserViewModel.isDirectlyPlayable(url: mp4))
+        #expect(BrowserViewModel.isDirectlyPlayable(url: m3u8))
+        #expect(BrowserViewModel.isDirectlyPlayable(url: audio))
+        #expect(!BrowserViewModel.isDirectlyPlayable(url: webm))
+        #expect(!BrowserViewModel.isDirectlyPlayable(url: blobURL))
+    }
+
     @Test func recordsHistoryOnFinish() throws {
         let historyStore = MockHistoryStore()
         let viewModel = BrowserViewModel(

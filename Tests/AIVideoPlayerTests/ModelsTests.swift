@@ -52,7 +52,7 @@ struct ModelsTests {
 
         #expect(decoded == item)
         #expect(decoded.kind == .video)
-        #expect(decoded.source == .remote)
+        #expect(decoded.source == item.source)
     }
 
     @Test func remoteFileInfersHLSAsVideo() throws {

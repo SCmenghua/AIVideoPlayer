@@ -46,7 +46,11 @@ targets:
           - "**/*.md"
           - "**/.gitkeep"
           - "Resources/Models/**"
+          - "Resources/Samples/**"
       - path: AIVideoPlayer/Resources/Models
+        type: folder
+        buildPhase: resources
+      - path: AIVideoPlayer/Resources/Samples
         type: folder
         buildPhase: resources
     preBuildScripts:
@@ -54,6 +58,10 @@ targets:
         basedOnDependencyAnalysis: false
         script: |
           bash "${SRCROOT}/scripts/fetch-whisper-model.sh"
+      - name: Bundle sample video
+        basedOnDependencyAnalysis: false
+        script: |
+          bash "${SRCROOT}/scripts/fetch-sample-video.sh"
     info:
       path: AIVideoPlayer/Resources/Info.plist
       properties:

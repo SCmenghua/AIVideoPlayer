@@ -51,12 +51,27 @@ public enum MockRemoteFiles {
     ]
 
     /// 播放器占位页使用的示例媒体。
-    public static let sampleMediaItem = MediaItem(
-        title: "Big Buck Bunny",
-        url: makeURL("https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"),
-        kind: .video,
-        source: .remote
-    )
+    /// 优先使用构建时内置的小体积示例视频（离线可播）；未内置时回退到远程示例。
+    public static let sampleMediaItem: MediaItem = {
+        if let bundledURL = Bundle.main.url(
+            forResource: "sample",
+            withExtension: "mp4",
+            subdirectory: "Samples"
+        ) {
+            return MediaItem(
+                title: "示例视频（内置）",
+                url: bundledURL,
+                kind: .video,
+                source: .local
+            )
+        }
+        return MediaItem(
+            title: "Big Buck Bunny",
+            url: makeURL("https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4"),
+            kind: .video,
+            source: .remote
+        )
+    }()
 
     private static func date(daysAgo: Int) -> Date {
         Calendar.current.date(byAdding: .day, value: -daysAgo, to: .now) ?? .now

@@ -164,6 +164,11 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 播放器空状态提供「播放示例媒体（调试）」按钮，加载 `MockRemoteFiles.sampleMediaItem`，
 仅用于没有远程服务器时在开发期快速验证播放器，**不属于正式功能**。
 
+示例媒体优先使用构建时内置的小体积 MP4（`scripts/fetch-sample-video.sh` 从 CDN 下载，
+约 1 MB，存于 `Resources/Samples/`，git 忽略；可用环境变量 `SAMPLE_VIDEO_URL` 更换源），
+离线可播；未内置时回退到远程示例 URL（原 googleapis 链接已返回 403，回退改用
+test-videos.co.uk）。
+
 - **删除方法**：移除 `PlayerView.emptyState` 中的调试按钮及对应文案即可；
 - 正式入口为「远程文件视频行 → `AppEnvironment.requestPlayback`」，与调试按钮相互独立，
   删除调试按钮不影响播放链路。

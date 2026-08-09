@@ -22,7 +22,8 @@ struct MockDataTests {
 
     @Test func mockSampleMediaItemURLIsValid() {
         let item = MockRemoteFiles.sampleMediaItem
-        #expect(item.url.scheme == "https")
+        // 优先内置本地示例（file://）；未内置时回退远程 https 示例。
+        #expect(item.url.scheme == "file" || item.url.scheme == "https")
         #expect(item.url.absoluteString.unicodeScalars.allSatisfy { $0.isASCII })
     }
 }

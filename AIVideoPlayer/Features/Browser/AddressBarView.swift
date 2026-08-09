@@ -51,6 +51,17 @@ struct AddressBarView: View {
                     ProgressView()
                         .controlSize(.small)
                 }
+                if !viewModel.addressText.isEmpty {
+                    Button {
+                        viewModel.addressText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("清空地址")
+                }
             }
             .padding(.horizontal, AppTheme.Spacing.sm)
             .padding(.vertical, 8)

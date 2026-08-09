@@ -18,5 +18,10 @@ AIVideoPlayer/Resources/Models/*
 AIVideoPlayer/Resources/Models/whisperkit-coreml/*
 !AIVideoPlayer/Resources/Models/whisperkit-coreml/.gitkeep
 
+# Bundled sample video (fetched by scripts/fetch-sample-video.sh at build time)
+# 保留 .gitkeep 占位，确保 XcodeGen 生成工程时目录存在。
+AIVideoPlayer/Resources/Samples/*
+!AIVideoPlayer/Resources/Samples/.gitkeep
+
 # OS
 .DS_Store

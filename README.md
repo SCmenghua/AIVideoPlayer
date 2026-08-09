@@ -14,6 +14,9 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 - Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
   `GlassEffectContainer` / `.glassProminent`，无任何 `.blur()` / `.opacity()` 模拟玻璃）
 - 浏览器：真实玻璃地址栏（前进/后退/刷新）、WKWebView 网页浏览、历史（去重 + 上限）、收藏
+- 浏览器地址栏：右侧「清空当前网址」按钮，一键清空输入
+- 浏览器视频接管：视频默认内联播放（不跳转系统全屏播放器）；点击直链媒体
+  （mp4 / m3u8 / 音频）或播放页面内 HTML5 视频时，由内置播放器接管
 - 远程文件：WebDAV 目录浏览（PROPFIND，多级目录导航 + 面包屑），连接表单与已保存服务器一键重连
 - 凭据安全：密码只存 Keychain；服务器配置 / 历史 / 收藏持久化（UserDefaults）
 - 首页（未打开网页时）：AI 字幕状态卡（OFF → LOADING → LISTENING → READY 状态流转演示）+ 远程文件区
@@ -133,7 +136,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   （MLX Swift + Gemma 4 E2B 4-bit，按需下载）/ 云端 API（OpenAI 兼容，测试连接 + 隐私提示）；
   剧情理解润色；final 段提前翻译；设置页「翻译服务」卡片；单元测试），CI 通过
 - ✅ Phase 7.5 完成：整体 Debug（浏览器命令修复、换片字幕串台修复、过期字幕丢弃、
-  WebDAV 凭据清理、下载取消竞态、播放器加载超时、音频 Tap 格式加固、云端隐私校验）
+  WebDAV 凭据清理、下载取消竞态、播放器加载超时、音频 Tap 格式加固、云端隐私校验、
+  CI 编译失败修复）+ 实测完善（地址栏清空按钮、浏览器视频接入内置播放器、内置示例视频）
 
 ## 后续开发路线
 

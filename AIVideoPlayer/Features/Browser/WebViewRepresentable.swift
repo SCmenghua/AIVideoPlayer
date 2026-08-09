@@ -8,13 +8,23 @@ struct WebViewRepresentable: UIViewRepresentable {
     let viewModel: BrowserViewModel
     /// 命令版本号：作为输入值让 SwiftUI 在命令变化时调用 `updateUIView`。
     let commandVersion: Int
+    /// 网页内检测到可直接播放的视频时回调（直链导航 / HTML5 video 播放）。
+    var onVideoDetected: (URL, String?) -> Void = { _, _ in }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(viewModel: viewModel)
+        Coordinator(viewModel: viewModel, onVideoDetected: onVideoDetected)
     }
 
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        // 视频默认在页面内联播放，避免跳转到系统全屏播放器；
+        // 可直连的媒体由桥接脚本 / 导航拦截转交给内置播放器。
+        configuration.allowsInlineMediaPlayback = true
+        configuration.allowsPictureInPictureMediaPlayback = false
+        configuration.userContentController.add(context.coordinator, name: "aiVideoPlay")
+        configuration.userContentController.addUserScript(Self.videoBridgeScript)
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         context.coordinator.webView = webView
@@ -40,12 +50,14 @@ struct WebViewRepresentable: UIViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         weak var webView: WKWebView?
         private let viewModel: BrowserViewModel
+        private let onVideoDetected: (URL, String?) -> Void
 
-        init(viewModel: BrowserViewModel) {
+        init(viewModel: BrowserViewModel, onVideoDetected: @escaping (URL, String?) -> Void) {
             self.viewModel = viewModel
+            self.onVideoDetected = onVideoDetected
             super.init()
         }
 
@@ -70,6 +82,39 @@ struct WebViewRepresentable: UIViewRepresentable {
             viewModel.webViewDidFailNavigation(url: webView.url, error: error)
         }
 
+        /// 拦截直接媒体链接（.mp4 / .m3u8 / 音频等）：取消网页内系统播放，
+        /// 转交给内置播放器；其余导航照常放行。
+        func webView(
+            _ webView: WKWebView,
+            decidePolicyFor navigationAction: WKNavigationAction,
+            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+        ) {
+            if navigationAction.navigationType == .linkActivated,
+               let url = navigationAction.request.url,
+               BrowserViewModel.isDirectlyPlayable(url: url) {
+                onVideoDetected(url, nil)
+                decisionHandler(.cancel)
+                return
+            }
+            decisionHandler(.allow)
+        }
+
+        /// HTML5 video 播放桥接：页面内 `<video>` 尝试播放可直连媒体时，
+        /// 由脚本上报 URL，此处转交给内置播放器。
+        func userContentController(
+            _ userContentController: WKUserContentController,
+            didReceive message: WKScriptMessage
+        ) {
+            guard message.name == "aiVideoPlay",
+                  let body = message.body as? [String: Any],
+                  let urlString = body["url"] as? String,
+                  let url = URL(string: urlString) else {
+                return
+            }
+            let title = body["title"] as? String
+            onVideoDetected(url, title)
+        }
+
         func webView(
             _ webView: WKWebView,
             createWebViewWith configuration: WKWebViewConfiguration,
@@ -83,4 +128,63 @@ struct WebViewRepresentable: UIViewRepresentable {
             return nil
         }
     }
+
+    /// 注入页面：拦截可直连媒体的 HTML5 video 播放，上报 App 由内置播放器接管；
+    /// blob: / data: 等不可直连来源保持页面内联播放（`allowsInlineMediaPlayback`）。
+    private static let videoBridgeScript = WKUserScript(
+        source: """
+        (function () {
+          if (window.__aiVideoPlayerBridgeInstalled) { return; }
+          window.__aiVideoPlayerBridgeInstalled = true;
+
+          var gesture = false;
+          document.addEventListener('click', function () {
+            gesture = true;
+            setTimeout(function () { gesture = false; }, 100);
+          }, true);
+
+          function report(element) {
+            var src = element.currentSrc || element.src || '';
+            if (!/^https?:\\/\\//i.test(src)) { return false; }
+            var title = element.getAttribute('title') ||
+                        element.getAttribute('aria-label') || '';
+            if (!title && element.closest) {
+              var link = element.closest('a');
+              if (link) { title = link.getAttribute('title') || title; }
+            }
+            if (!title) { title = document.title || ''; }
+            try {
+              window.webkit.messageHandlers.aiVideoPlay.postMessage({
+                url: src,
+                title: title
+              });
+              return true;
+            } catch (e) {
+              return false;
+            }
+          }
+
+          var originalPlay = HTMLMediaElement.prototype.play;
+          HTMLMediaElement.prototype.play = function () {
+            if (this.tagName === 'VIDEO' &&
+                (gesture || this.controls) &&
+                report(this)) {
+              return Promise.resolve();
+            }
+            return originalPlay.apply(this, arguments);
+          };
+
+          document.addEventListener('click', function (event) {
+            var element = event.target;
+            var video = (element && element.closest) ? element.closest('video') : null;
+            if (video && video.paused && report(video)) {
+              event.preventDefault();
+              event.stopPropagation();
+            }
+          }, true);
+        })();
+        """,
+        injectionTime: .atDocumentEnd,
+        forMainFrameOnly: false
+    )
 }
