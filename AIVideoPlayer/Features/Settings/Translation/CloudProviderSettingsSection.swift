@@ -22,15 +22,15 @@ struct CloudProviderSettingsSection: View {
                 viewModel.testCloudConnection()
             } label: {
                 HStack(spacing: AppTheme.Spacing.xs) {
-                    if viewModel.cloudTestState == .loading {
+                    if viewModel.isCloudTesting {
                         ProgressView()
                             .controlSize(.small)
                     }
-                    Text(viewModel.cloudTestState == .loading ? "测试中…" : "测试连接")
+                    Text(viewModel.isCloudTesting ? "测试中…" : "测试连接")
                     Spacer()
                 }
             }
-            .disabled(!viewModel.isCloudInputComplete || viewModel.cloudTestState == .loading)
+            .disabled(!viewModel.isCloudInputComplete || viewModel.isCloudTesting)
             .tint(.orange)
 
             testResult

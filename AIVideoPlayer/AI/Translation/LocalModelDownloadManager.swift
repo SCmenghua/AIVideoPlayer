@@ -106,17 +106,27 @@ public final class LocalModelDownloadManager {
                 fileManager.createFile(atPath: temp.path, contents: nil)
                 let handle = try FileHandle(forWritingTo: temp)
                 var received: Int64 = 0
+                var buffer = Data()
+                buffer.reserveCapacity(64 * 1024)
                 do {
-                    for try await chunk in bytes {
+                    // URLSession.AsyncBytes 逐字节产出，按 64KB 缓冲后再写盘。
+                    for try await byte in bytes {
                         try Task.checkCancellation()
-                        try handle.write(contentsOf: chunk)
-                        received += Int64(chunk.count)
-                        if expected > 0 {
-                            phase = .downloading(
-                                file: file,
-                                fraction: min(max(Double(received) / Double(expected), 0), 1)
-                            )
+                        buffer.append(byte)
+                        received += 1
+                        if buffer.count >= 64 * 1024 {
+                            try handle.write(contentsOf: buffer)
+                            buffer.removeAll(keepingCapacity: true)
+                            if expected > 0 {
+                                phase = .downloading(
+                                    file: file,
+                                    fraction: min(max(Double(received) / Double(expected), 0), 1)
+                                )
+                            }
                         }
+                    }
+                    if !buffer.isEmpty {
+                        try handle.write(contentsOf: buffer)
                     }
                 } catch {
                     try? handle.close()

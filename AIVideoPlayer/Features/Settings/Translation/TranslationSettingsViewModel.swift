@@ -61,6 +61,13 @@ final class TranslationSettingsViewModel {
             && !cloudAPIKeyInput.isEmpty
     }
 
+    var isCloudTesting: Bool {
+        if case .loading = cloudTestState {
+            return true
+        }
+        return false
+    }
+
     var consentPromptPresented: Binding<Bool> {
         Binding(
             get: { self.showConsentPrompt },

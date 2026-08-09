@@ -51,6 +51,9 @@
   静态方法最终改为 public（2026-08-09）
 - `TranslationSettingsViewModel.statusMessage` setter 对设置卡片不可见导致编译失败：
   `private(set)` 改为 internal（ViewModel 为 internal，仅 UI 使用）（2026-08-09）
+- `LoadState<Void>` 不满足 Equatable，设置页改用 `if case .loading` 模式匹配判断测试状态（2026-08-09）
+- `URLSession.bytes(for:)` 逐字节产出（UInt8）而非 Data 块：
+  下载管理器改为 64KB 缓冲后写盘，避免逐字节 IO（2026-08-09）
 
 ## [0.6.0] - 2026-08-09
 
