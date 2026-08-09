@@ -15,8 +15,8 @@
 ### Added（Phase 7.5 完善）
 
 - 版本号提升至 0.7.5（Phase 7.5 修复与完善）
-- 新增 `package-ipa.yml` 工作流：构建未签名 IPA 并上传为 Actions 工件
-  （运行页直接下载，默认版本 0.7.5；`release-ipa.yml` 默认版本同步更新）
+- 新增 `package-ipa.yml` 工作流：构建未签名 IPA，上传为 Actions 工件并发布
+  GitHub Release（默认版本 0.7.5；`release-ipa.yml` 默认版本同步更新）
 - 浏览器地址栏右侧新增「清空当前网址」按钮（×），一键清空输入
 - 浏览器内视频接入内置播放器：
   - WKWebView 开启内联播放（blob: 等不可直连流在页面内播放，不再跳转系统全屏播放器）；

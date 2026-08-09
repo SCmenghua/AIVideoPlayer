@@ -56,7 +56,7 @@
   （内联播放 + 直链拦截 + HTML5 video 桥接）、构建时内置示例视频
   （原 googleapis 示例 URL 403 导致测试视频无法播放）；同步补充单元测试；
   `MARKETING_VERSION` 提升至 0.7.5，新增 `package-ipa.yml`（未签名 IPA →
-  Actions 工件，供自签测试）。
+  Actions 工件 + GitHub Release，供自签测试）。
 - **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
   核心协议与模型、Mock、单元测试、GitHub Actions CI。
 - **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览
