@@ -159,6 +159,18 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         state = .off
     }
 
+    func discardPendingResults() async {}
+
+    func transcribe(
+        samples: [Float],
+        sampleRate: Double,
+        windowStart: TimeInterval,
+        windowDuration: TimeInterval,
+        emitPartial: Bool
+    ) async throws -> RecognitionOutcome {
+        RecognitionOutcome(language: nil, segmentCount: 0)
+    }
+
     func emit(_ segment: SubtitleSegment) {
         continuation.yield(segment)
     }

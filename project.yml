@@ -15,16 +15,33 @@ settings:
     CURRENT_PROJECT_VERSION: 1
     MARKETING_VERSION: 0.1.0
 
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/argmax-oss-swift
+    from: 1.0.0
+
 targets:
   AIVideoPlayer:
     type: application
     platform: iOS
     deploymentTarget: "26.0"
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
     sources:
       - path: AIVideoPlayer
         excludes:
           - "**/*.md"
           - "**/.gitkeep"
+          - "Resources/Models/**"
+      - path: AIVideoPlayer/Resources/Models
+        type: folder
+        buildPhase: resources
+    preBuildScripts:
+      - name: Bundle Whisper model
+        basedOnDependencyAnalysis: false
+        script: |
+          bash "${SRCROOT}/scripts/fetch-whisper-model.sh"
     info:
       path: AIVideoPlayer/Resources/Info.plist
       properties:
@@ -35,6 +52,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
           NSAllowsLocalNetworking: true
+        NSMicrophoneUsageDescription: 用于麦克风实时语音识别（超前模式自动降级为实时路径）。
         NSLocalNetworkUsageDescription: 用于连接局域网内的 WebDAV 文件服务器。
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:

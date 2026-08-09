@@ -30,7 +30,7 @@ struct SubtitleStatusCard: View {
 
                 if viewModel.isActive {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("识别引擎：WhisperKit（Phase 5 接入）")
+                        Text("识别引擎：WhisperKit（本地内置）")
                         Text("模型状态：\(viewModel.status.isModelLoaded ? "已加载" : "未加载")")
                         if let language = viewModel.status.language {
                             Text("识别语言：\(language)")

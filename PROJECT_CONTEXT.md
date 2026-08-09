@@ -13,8 +13,8 @@
 
 ## 当前Phase
 
-**Phase 4**（MediaExtractor：HTML5 video / MP4 / HLS / M3U8，不绕过 DRM，实现已完成、进入收尾）。
-下一阶段：**Phase 5 —— WhisperKit AudioPipeline + SpeechRecognizer 实时识别与超前缓冲**。
+**Phase 6**（SubtitleOverlay：双语、整句按播放光标对齐一次性出现、拖动、样式）。
+上一阶段：**Phase 5 —— WhisperKit AudioPipeline + SpeechRecognizer 实时识别与超前缓冲**（已完成）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -60,6 +60,12 @@
   相对地址解析、HTML 实体解码、去重；不绕过 DRM）、浏览器地址栏「提取视频」按钮 +
   结果列表（`MediaExtractionSheet`）→ `AppEnvironment.requestPlayback`、远程文件 `m3u8` / `m3u`
   识别为 video、单元测试（提取器 / 浏览器提取状态 / HLS 映射）。
+- **Phase 5**：WhisperKit（`argmax-oss-swift 1.0.0`）本地实时识别；模型随 App 内置
+  （构建脚本打包，运行时不下载、无需用户选择）；`AudioPipeline` 三来源
+  （AVAssetReader 预读 / MTAudioProcessingTap 实时 / 麦克风）、`WhisperKitSpeechRecognizer`、
+  真实 `SubtitlePipeline`（替换 Mock 注入）；超前识别开关（默认开）+ 2–10s 领先窗口（默认 3s，
+  UserDefaults 持久化）；播放器播放前预读 Δ 秒、seek 重建领先窗口、识别游标只进不退；
+  状态卡与设置页接入真实管线；单元测试（设置 / 缓冲 / 管线 / 播放器联动）。
 - **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
 
 ## 禁止事项
@@ -87,7 +93,7 @@
 | 浏览器 | WKWebView（已接入） |
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
-| AI | WhisperKit / Core ML（Phase 5 规划，本地运行；超前缓冲识别 2–10s） |
+| AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；超前缓冲识别 2–10s） |
 | 翻译 | 可替换 TranslationEngine（Phase 7 规划：Fast NMT / 本地 LLM / 云端 API）；本地 LLM 按需从 Hugging Face 下载，云端 API 带「测试连接」 |
 | 工程 | XcodeGen（project.yml 生成工程） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |

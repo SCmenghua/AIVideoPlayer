@@ -7,7 +7,7 @@ struct BrowserView: View {
 
     @State private var webViewModel = BrowserViewModel()
     @State private var remoteFilesViewModel = RemoteFilesViewModel()
-    @State private var subtitleViewModel = SubtitleStatusViewModel()
+    @State private var subtitleViewModel: SubtitleStatusViewModel?
 
     @State private var showsHistory = false
     @State private var showsBookmarks = false
@@ -40,7 +40,11 @@ struct BrowserView: View {
                 environment.requestPlayback(of: media)
             }
         }
-        .task { await subtitleViewModel.observe() }
+        .task {
+            let viewModel = SubtitleStatusViewModel(provider: environment.subtitlePipeline)
+            subtitleViewModel = viewModel
+            await viewModel.observe()
+        }
     }
 
     @ViewBuilder

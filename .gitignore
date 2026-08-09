@@ -11,5 +11,12 @@ AIVideoPlayer.xcodeproj/
 .build/
 .swiftpm/
 
+# Bundled Whisper model (fetched by scripts/fetch-whisper-model.sh at build time)
+# 保留 .gitkeep 占位，确保 XcodeGen 生成工程时目录存在。
+AIVideoPlayer/Resources/Models/*
+!AIVideoPlayer/Resources/Models/whisperkit-coreml/
+AIVideoPlayer/Resources/Models/whisperkit-coreml/*
+!AIVideoPlayer/Resources/Models/whisperkit-coreml/.gitkeep
+
 # OS
 .DS_Store

@@ -8,7 +8,7 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 字幕采用「AI 先听一步」的超前识别设计：播放器先缓存 2–10 秒音频，Whisper 提前转写并翻译，
 字幕按整句一次出现（详见下文「AI 实时字幕：超前识别」）。
 
-## 当前功能（Phase 4）
+## 当前功能（Phase 5）
 
 - 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
 - Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
@@ -28,6 +28,13 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 - 媒体提取（Phase 4）：`WebMediaExtractor` 从网页提取 HTML5 video / MP4 / HLS / M3U8，不绕过 DRM；
   浏览器地址栏「提取视频」按钮一键列出可播放媒体并交给自有播放器
 - 远程 HLS：WebDAV 目录中的 `.m3u8` / `.m3u` 识别为视频，可直接播放
+- AI 实时字幕（Phase 5）：WhisperKit 本地实时识别，模型随 App 内置（构建时打包，运行时不下载、
+  无需用户选择——只有 Phase 7 翻译用的大模型才由用户选择下载）；音频永不离开设备
+- 超前识别（Lead-Ahead）：设置页开关（默认开启）+ 领先窗口 2–10s（默认 3s）；
+  播放前先预读 Δ 秒音频，Whisper 提前整句转写；关闭后回到 partial → final 逐词实时路径；
+  HLS / 麦克风等不可预读来源自动降级为实时路径
+- 播放器联动：播放前预读等待、暂停停止识别、seek 重建领先窗口、识别游标只进不退；
+  浏览器首页 AI 状态卡与播放器共用同一管线
 
 ## 技术栈
 
@@ -38,7 +45,7 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 | 并发 | Swift Concurrency / AsyncStream / Observation |
 | 媒体 | AVFoundation / AVPlayer（已接入）；HTML5 video / HLS 提取（Phase 4 已接入） |
 | 浏览器 | WKWebView（已接入） |
-| AI | WhisperKit / Core ML（本地运行，Phase 5 接入） |
+| AI | WhisperKit / Core ML（本地运行，Phase 5 已接入；模型内置，运行时不下载） |
 | 网络 | URLSession、WebDAV（已接入）；SMB / FTP 后续补充 |
 | 存储 | Keychain 凭据（已接入）、UserDefaults 配置/历史/收藏；SwiftData（仅必要时） |
 | 工程 | XcodeGen（`project.yml` 生成 `.xcodeproj`） |
@@ -90,6 +97,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 2 完成：WKWebView 浏览器（地址栏/历史/收藏）+ WebDAV 远程文件 + Keychain 凭据，CI 通过
 - ✅ Phase 3 完成：AVPlayer 播放器 + YouTube 风格全屏横屏（画面大小滑块、手动横屏兜底），CI 通过
 - ✅ Phase 4 完成：MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM），CI 通过
+- ✅ Phase 5 完成：WhisperKit 实时识别 + 超前缓冲（AudioPipeline / SpeechRecognizer / 真实状态管线；
+  模型内置；超前开关与 Δ 配置），CI 通过
 
 ## 后续开发路线
 
@@ -99,7 +108,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 2 | WKWebView 浏览器、WebDAV（SMB / FTP 后续补充）、Keychain 凭据 | ✅ 完成 |
 | 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ✅ 完成 |
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ✅ 完成 |
-| 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出） | ⬜ 未开始 |
+| 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出；模型内置） | ✅ 完成 |
 | 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ⬜ 未开始 |
 | 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（仅 LLM Provider，自动压缩文本）+ 隐私提示；本地 LLM 模型按需从 Hugging Face 下载，云端 API 配置带「测试连接」按钮；识别后立即提前翻译，延迟被超前窗口吸收 | ⬜ 未开始 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
@@ -116,6 +125,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   Whisper 输出 partial → final 逐词字幕，识别完成后即时翻译。
 - 仅启用 Fast NMT（本地 / 轻量 NMT）时也能正常工作：本地翻译耗远小于 Δ 秒窗口，
   不依赖本地 / 云端 LLM，字幕同样按时整句出现。
+- Whisper 模型随 App 内置（构建脚本从 HuggingFace 打包，git 忽略，CI 有缓存）；
+  应用内没有任何模型下载 / 选择步骤。
 
 > 严格执行 Phase 顺序，禁止提前实现后续 Phase。详细规划见 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)，
 > 变更记录见 [CHANGELOG.md](CHANGELOG.md)。

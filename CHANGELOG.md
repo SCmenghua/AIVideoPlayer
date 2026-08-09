@@ -8,7 +8,7 @@
 
 ### 待规划
 
-- 当前主线为 Phase 5（WhisperKit 实时语音识别）。
+- 当前主线为 Phase 6（SubtitleOverlay：双语、整句按播放光标对齐一次性出现、拖动、样式）。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 - Phase 7 翻译引擎需求扩充已记录至架构文档：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
   剧情理解润色（自动压缩文本；Fast NMT 直接翻译、不参与上下文润色）（2026-08-09）。
@@ -18,6 +18,37 @@
   仅启用 Fast NMT Provider 时也能提前翻译、按时整句显示字幕，不依赖本地 / 云端 LLM（2026-08-09）。
 - Phase 7 翻译引擎需求补充：本地 LLM 模型不随 App 预置，由用户选择并从 Hugging Face 按需下载，
   下载完成后可用；云端 API 填入 key 后提供「测试连接」按钮（2026-08-09）。
+
+## [0.5.0] - 2026-08-09
+
+### Added（Phase 5 WhisperKit 实时识别 + 超前缓冲）
+
+- WhisperKit 接入：SPM 依赖 `argmaxinc/argmax-oss-swift 1.0.0`（产品 `WhisperKit`）；
+  模型随 App 内置（`scripts/fetch-whisper-model.sh` 构建时从 HuggingFace 打包到
+  `Resources/Models/whisperkit-coreml`，git 忽略），运行时不下载，无需用户选择；
+  音频始终不离开设备
+- `AudioPipeline`（AI/Speech）：`AssetReaderAudioPipeline`（AVAssetReader 预读解码，可领先播放光标）、
+  `PlayerAudioPipeline`（MTAudioProcessingTap 实时 PCM 捕获，HLS/实时流降级）、
+  `MicrophoneAudioPipeline`（WhisperKit AudioProcessor，不可预读，自动走原始实时路径）
+- `WhisperKitSpeechRecognizer`：实现 `SpeechRecognizer`，partial / final → `SubtitleSegment` 流；
+  窗口转写（重采样 16kHz、special token 清理、置信度近似映射、语言检测）
+- `SubtitlePipeline`：真实 `SubtitleStatusProviding`（替换 Mock 注入），七态语义
+  LISTENING / TRANSCRIBING / READY / ERROR；领先识别游标只进不退；seek / 设置变更重建窗口并
+  丢弃过期 partial / final
+- 超前识别设置：开关（默认开启）+ 领先窗口 2–10s（默认 3s），UserDefaults 持久化；
+  设置页提供开关与滑块；开启时播放前先预读 Δ 秒音频，Whisper 提前整句转写
+- 播放器联动：`PlayerViewModel` 注入共享管线，播放前预读等待、暂停停止识别、seek 重建、
+  播放结束停止识别
+- 全局共享：`AppEnvironment` 持有 `SubtitleSettings` + `SubtitlePipeline`；
+  浏览器首页状态卡与播放器共用同一管线
+- 单元测试：设置持久化与边界、PCM 缓冲游标语义、管线状态流转（超前 / 原始 / seek /
+  设置变更 / 关闭 / 麦克风降级）、播放器-管线联动探针
+
+### Changed
+
+- `SpeechRecognizer` 协议演进：新增 `discardPendingResults()` 与窗口转写
+  `transcribe(samples:sampleRate:windowStart:windowDuration:emitPartial:)`
+- `SubtitleStatusCard` 文案更新为「本地内置」；CI 增加 Whisper 模型缓存（避免每次重新下载）
 
 ## [0.2.0] - 2026-08-09
 

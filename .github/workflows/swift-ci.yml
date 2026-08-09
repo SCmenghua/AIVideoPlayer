@@ -43,6 +43,12 @@ jobs:
       - name: Generate Xcode project
         run: xcodegen generate
 
+      - name: Cache bundled Whisper model
+        uses: actions/cache@v4
+        with:
+          path: AIVideoPlayer/Resources/Models
+          key: whisper-model-${{ hashFiles('scripts/fetch-whisper-model.sh') }}
+
       - name: Build (iOS Simulator, no signing)
         run: |
           xcodebuild build \

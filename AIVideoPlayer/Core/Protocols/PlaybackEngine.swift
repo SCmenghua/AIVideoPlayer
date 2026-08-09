@@ -12,7 +12,8 @@ public protocol PlaybackEngine: AnyObject {
     var duration: TimeInterval { get }
     var rate: Float { get }
 
-    /// 渲染句柄（只读）：仅供 VideoLayerView 绑定 AVPlayerLayer。
+    /// 渲染句柄（只读）：仅供 VideoLayerView 绑定 AVPlayerLayer；
+    /// Phase 5 起亦供 PlayerAudioPipeline 读取音频输出（Service 层，非播放控制）。
     var player: AVPlayer? { get }
 
     /// 播放状态变化流（idle / loading / ready / playing / paused / ended / failed）。

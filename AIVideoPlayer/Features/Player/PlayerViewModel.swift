@@ -22,11 +22,16 @@ final class PlayerViewModel {
     var seekTarget: TimeInterval = 0
 
     private let engine: any PlaybackEngine
+    private var subtitlePipeline: SubtitlePipeline?
     private var stateTask: Task<Void, Never>?
     private var progressTask: Task<Void, Never>?
 
-    init(engine: any PlaybackEngine = AVPlayerPlaybackEngine()) {
+    init(
+        engine: any PlaybackEngine = AVPlayerPlaybackEngine(),
+        subtitlePipeline: SubtitlePipeline? = nil
+    ) {
         self.engine = engine
+        self.subtitlePipeline = subtitlePipeline
     }
 
     var isPlaying: Bool { playbackState == .playing }
@@ -49,6 +54,9 @@ final class PlayerViewModel {
             guard let self else { return }
             for await state in stateStream {
                 self.playbackState = state
+                if state == .ended {
+                    self.subtitlePipeline?.handlePlaybackEnded()
+                }
             }
         }
 
@@ -82,19 +90,30 @@ final class PlayerViewModel {
         }
     }
 
+    /// 注入共享 AI 字幕管线（PlayerView 从 AppEnvironment 获取）。
+    func attachSubtitlePipeline(_ pipeline: SubtitlePipeline) {
+        subtitlePipeline = pipeline
+        pipeline.attach(playbackEngine: engine)
+    }
+
     func togglePlayPause() async {
         if playbackState == .ended {
             await engine.seek(to: 0)
-            await engine.play()
+            await play()
         } else if isPlaying {
             await engine.pause()
+            subtitlePipeline?.handlePlaybackPaused()
         } else {
-            await engine.play()
+            await play()
         }
     }
 
     func seek(to time: TimeInterval) async {
         await engine.seek(to: time)
+        await subtitlePipeline?.handleSeek(to: time)
+        if isPlaying {
+            await prepareAIForPlayback(from: time)
+        }
     }
 
     func setRate(_ newRate: Float) async {
@@ -114,5 +133,23 @@ final class PlayerViewModel {
 
     func setAspectMode(_ mode: VideoAspectMode) {
         aspectMode = mode
+    }
+
+    // MARK: - AI 超前识别
+
+    private func play() async {
+        await prepareAIForPlayback(from: currentTime)
+        await engine.play()
+    }
+
+    /// 播放前准备音频管线：重建/启动来源，超前模式下先等 Δ 秒预读完成再出声。
+    private func prepareAIForPlayback(from time: TimeInterval) async {
+        guard let subtitlePipeline else { return }
+        await subtitlePipeline.preparePlayback(from: time)
+        guard subtitlePipeline.shouldUseLeadAhead else { return }
+        _ = await subtitlePipeline.waitUntilLeadCaptured(
+            delta: subtitlePipeline.leadAheadWindow,
+            timeout: 4
+        )
     }
 }

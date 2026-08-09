@@ -65,7 +65,7 @@ flowchart TB
 | `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
 | `Core/Networking/` | WebDAV 目录浏览（PROPFIND；SMB / FTP 后续补充） | 2 |
 | `Core/Storage/` | Keychain 凭据、UserDefaults 配置/历史/收藏 | 2 |
-| `AI/Speech/` | WhisperKit 语音识别（超前缓冲识别） | 5 |
+| `AI/Speech/` | WhisperKit 语音识别（超前缓冲识别）；AudioPipeline / WhisperKitSpeechRecognizer / SubtitlePipeline / SubtitleSettings | ✅ 5 |
 | `AI/Translation/` | 可替换翻译引擎 | 7 |
 | `Services/` | 业务服务（Playback / MediaExtractor） | 3-4 |
 | `Utilities/` | 日志等通用设施 | 1 |
@@ -76,11 +76,11 @@ flowchart TB
 |---|---|---|
 | `MediaExtractor` | 网页 / 远程目录 → `[MediaItem]` | ✅ Phase 4（WebMediaExtractor） |
 | `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | Phase 3（AVPlayerPlaybackEngine） |
-| `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | Phase 5（WhisperKitSpeechRecognizer） |
+| `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | ✅ Phase 5（WhisperKitSpeechRecognizer） |
 | `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
 | `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
 | `RemoteFileBrowsing` | 远程文件浏览（connect / listDirectory / disconnect） | ✅ Phase 2（WebDAV；SMB / FTP 后续补充） |
-| `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | Phase 5（WhisperKit 管线） |
+| `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | ✅ Phase 5（SubtitlePipeline） |
 | `CredentialStoring` | 密码存取（生产实现 Keychain） | ✅ Phase 2 |
 | `RemoteServerProfileStoring` | 服务器配置存取（非敏感信息） | ✅ Phase 2 |
 | `BrowserHistoryStoring` | 浏览历史存取 | ✅ Phase 2 |
@@ -117,7 +117,8 @@ RemoteFilesViewModel(browser: any RemoteFileBrowsing = WebDAVFileBrowser(),
 SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStatusProvider())
 ```
 
-未来真实实现以相同方式注入，业务代码零改动。
+真实实现（Phase 5）以相同方式注入：`SubtitlePipeline` 通过 `AppEnvironment` 全局共享，
+浏览器首页状态卡与播放器使用同一实例；Mock 保留作为测试 / 预览兜底。
 
 ## 7. 状态管理与取消
 
@@ -169,12 +170,27 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 
 ### 8.2 WhisperKit（Phase 5）
 
-1. 新增 `AudioPipeline`（负责从 AVPlayer 或麦克风取音频）。
-2. 实现 `SpeechRecognizer`：`AI/Speech/WhisperKitSpeechRecognizer`，把 WhisperKit 的 partial / final 结果
-   映射为 `SubtitleSegment` 并写入 `AsyncStream`。
-3. 实现 `SubtitleStatusProviding` 的真实版本，替换 `MockSubtitleStatusProvider` 注入到
-   `SubtitleStatusViewModel`。
-4. 隐私：音频不离开设备，模型本地加载。
+1. 依赖：SPM `argmaxinc/argmax-oss-swift 1.0.0`（产品 `WhisperKit`，iOS 16+）。
+2. 模型内置：`scripts/fetch-whisper-model.sh` 构建时从 HuggingFace 打包
+   `openai_whisper-tiny`（可用环境变量 `WHISPER_MODEL_NAME` 更换）与配套 tokenizer 到
+   `Resources/Models/whisperkit-coreml`（git 忽略，CI 缓存），`WhisperKit(modelFolder:download:false)`
+   从 App 内置资源加载；应用内没有模型下载 / 选择步骤（只有 Phase 7 翻译 LLM 才需用户选择下载）。
+3. `AudioPipeline`（AI/Speech，负责从播放器或麦克风取音频）：
+   - `AssetReaderAudioPipeline`：AVAssetReader 以高于实时的速度解码 PCM（16kHz 单声道），
+     可预读，支撑领先识别；本地 / 渐进式媒体适用；
+   - `PlayerAudioPipeline`：MTAudioProcessingTap 挂到当前 AVPlayerItem 的 audioMix 实时捕获 PCM，
+     不可预读；HLS / 读取器不可用时的降级路径；
+   - `MicrophoneAudioPipeline`：WhisperKit AudioProcessor 实时采集，不可预读，自动走原始实时路径。
+4. `SpeechRecognizer` 实现：`AI/Speech/WhisperKitSpeechRecognizer`，把 WhisperKit 的 partial / final
+   映射为 `SubtitleSegment` 并写入 `AsyncStream`；窗口转写自动重采样到 16kHz、
+   清理 special token、置信度近似映射、语言检测。
+5. `SubtitleStatusProviding` 真实实现：`AI/Speech/SubtitlePipeline`，通过 `AppEnvironment`
+   全局共享，替换 Mock 注入到 `SubtitleStatusViewModel`；状态语义按 8.2.1。
+6. 超前设置：`SubtitleSettings`（UserDefaults），开关默认开启 + Δ（2–10s，默认 3s）；
+   设置页提供开关与滑块；切换时重建识别游标、丢弃已缓存的 partial / final。
+7. 播放器联动：`PlayerViewModel` 注入共享管线——播放前先预读 Δ 秒、暂停停止识别循环、
+   seek 重建领先窗口、播放结束停止识别。
+8. 隐私：音频不离开设备，模型本地内置加载。
 
 #### 8.2.1 超前识别（Lead-Ahead）：AI 先于播放听到音频
 
@@ -194,18 +210,26 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 
 **实现方式：**
 
-1. 播放器先缓冲 Δ 秒音频再开始播放；播放过程中保持超前缓冲，保证识别游标
-   始终领先播放光标 Δ 秒（识别游标 = 播放光标 + Δ，只允许顺播）。
-2. `AudioPipeline` 从超前缓冲中取音频（AVPlayer 播放缓冲 / 解码后的 PCM 缓冲），
-   维护领先识别游标；麦克风等不可预读来源不适用本模式，走 partial 低延迟降级。
+1. 播放器播放前先预读 Δ 秒音频（`AssetReaderAudioPipeline` 预读解码；播放器等待
+   `waitUntilLeadCaptured` 满足 Δ 后才开始出声）。
+2. `AudioPipeline` 从超前缓冲中取音频（解码后的 PCM 缓冲），维护领先识别游标；
+   麦克风 / MTAudioProcessingTap 等不可预读来源不适用本模式，自动走 partial 低延迟降级。
 3. Whisper 对领先窗口内的音频提前分析，以句子级 final 为主输出
    （`SubtitleSegment` 整句），写入 `AsyncStream`。
 4. 翻译紧随识别完成（Phase 7 的 `TranslationEngine`），在用户听到该句前译文已就绪；
    识别延迟与翻译延迟都被吸收在 Δ 秒窗口内，不叠加到用户可见延迟上。
-5. 字幕仍以播放光标为时间基准（`SubtitleEngine` 对齐），句子起点到达时
+5. 字幕仍以播放光标为时间基准（Phase 6 `SubtitleEngine` 对齐），句子起点到达时
    直接整句显示原文 + 译文。
 6. 原始路径（开关关闭）：无预缓冲，`SpeechRecognizer` 按 partial → final 输出，
    翻译在 final 后即时执行；字幕逐词出现并最终整句稳定。
+
+**实现要点（Phase 5 落地）：**
+
+- 识别游标 = 播放光标 + Δ，只允许顺播；seek 后重建（游标回到新位置、丢弃过期 partial / final）。
+- 状态语义：`AIState` 的 LISTENING / TRANSCRIBING / TRANSLATING 表示领先窗口内的管线状态，
+  READY 表示当前播放位置的句子已整句就绪（窗口转写完成后进入 READY，下一窗口开始时回到 TRANSCRIBING）。
+- 窗口长度：超前模式取 `max(Δ, 5)` 秒，原始路径固定 5 秒；单个窗口失败只跳过该窗口，不中断整条管线。
+- HLS / 直播等 AVAssetReader 无法预读的来源，自动降级为 MTAudioProcessingTap 实时路径（无 Δ 领先）。
 
 **体验权衡：**
 
@@ -329,7 +353,7 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
    SMB / FTP 由后续阶段补充。
 3. **Phase 3（已完成）**：AVPlayer 封装（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制）。
 4. **Phase 4（已完成）**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
-5. **Phase 5**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别；超前缓冲
+5. **Phase 5（已完成）**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别；超前缓冲
    （2–10s 可配置，默认建议 3s）：播放器先缓冲、识别游标领先播放光标，Whisper 提前分析并输出整句 final。
 6. **Phase 6**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
 7. **Phase 7**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider

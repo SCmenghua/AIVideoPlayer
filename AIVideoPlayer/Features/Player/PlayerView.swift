@@ -24,6 +24,7 @@ struct PlayerView: View {
         .navigationTitle("播放器")
         .navigationBarTitleDisplayMode(.inline)
         .task {
+            viewModel.attachSubtitlePipeline(environment.subtitlePipeline)
             viewModel.startObserving()
             if let pending = environment.consumePendingPlayback() {
                 await viewModel.load(pending)
