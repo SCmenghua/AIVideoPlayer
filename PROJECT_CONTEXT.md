@@ -76,7 +76,8 @@
   本地 LLM（MLX Swift + Gemma 4 E2B 4-bit，按需下载 + 进度 / 取消 / 重试 / 删除）/ 云端 API
   （OpenAI 兼容，测试连接 + 隐私提示，API Key 存 Keychain）；剧情理解润色（上下文压缩）；
   final 段提前翻译写入 `SubtitleSegment.translatedText`，翻译期间 `.translating` 状态；
-  设置页「翻译服务」卡片；单元测试。
+  设置页「翻译服务」卡片；单元测试；`release-ipa.yml` 打包未签名 IPA 发布到 GitHub Release
+  （自签安装，首次产出 `AIVideoPlayer-0.7.0-unsigned.ipa`）。
 - **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
 
 ## 禁止事项
@@ -111,5 +112,5 @@
 | 安全存储 | Keychain（已接入）、UserDefaults |
 | AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；超前缓冲识别 2–10s） |
 | 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain） |
-| 工程 | XcodeGen（project.yml 生成工程） |
+| 工程 | XcodeGen（project.yml 生成工程）；GitHub Actions：主 CI（build/test）+ release-ipa（unsigned IPA → GitHub Release） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |

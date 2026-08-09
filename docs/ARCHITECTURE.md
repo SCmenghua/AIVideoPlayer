@@ -351,6 +351,18 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 6. 原始实时路径（超前开关关闭）不受影响：partial 逐词出现、final 到达后由时间线
    final 优先语义收敛为整句，不改变 Phase 5 管线行为。
 
+### 8.7 打包与分发（Release IPA / 自签）
+
+1. `release-ipa.yml`（手动触发）：macOS runner 上 `xcodebuild build -sdk iphoneos
+   -configuration Release` 以 `CODE_SIGNING_ALLOWED=NO` 产出**未签名** `.app`，
+   复制为 `Payload/` 后用 `zip` 打包为标准 IPA。
+2. 用 `gh`（`GITHUB_TOKEN`，`contents: write`）创建/更新 GitHub Release，
+   上传 `AIVideoPlayer-<版本>-unsigned.ipa`；同名 tag 已存在时仅覆盖上传资产。
+3. IPA 未签名：用户用自签工具（Sideloadly / AltStore / 爱思助手）以自己 Apple ID 重签安装；
+   需要 iOS 26 及以上设备（deployment target 26.0）。
+4. 与主 CI（`swift-ci.yml`）职责分离：主 CI 负责编译 + 单元测试，`release-ipa.yml`
+   负责分发产物；两者互不触发。
+
 ## 9. 设计原则与不可违反规则
 
 ### 设计原则

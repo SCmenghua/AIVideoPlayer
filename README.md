@@ -108,6 +108,17 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 
 > `AIVideoPlayer.xcodeproj` 由 `project.yml` 生成，不提交到版本库。
 
+## 打包 IPA（自签安装）
+
+仓库提供 GitHub Actions 手动工作流 `release-ipa.yml`：
+
+1. 打开仓库 Actions → 选择 **Build & Release IPA** → **Run workflow**（可填版本号，默认 0.7.0）；
+2. 工作流构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
+3. 自动创建 GitHub Release 并上传 `AIVideoPlayer-<版本>-unsigned.ipa`；
+4. 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
+
+> IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
+
 ## 当前阶段状态
 
 - ✅ Phase 1 完成：App 骨架、Liquid Glass Design System、首页（Mock）、核心协议与模型、单元测试、CI 通过
