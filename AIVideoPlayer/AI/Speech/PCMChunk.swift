@@ -43,12 +43,13 @@ final class PCMBuffer: @unchecked Sendable {
 
     func append(_ chunk: PCMChunk) {
         lock.withLock {
+            // 只接受时间轴上向后的数据；旧数据（seek 竞态）直接丢弃。
+            // 注意：必须在重置基线之前判定，否则陈旧块会把时间线往回拉。
+            guard chunk.endTime > capturedEndLocked() - 0.01 else { return }
             if samples.isEmpty {
                 baseTime = chunk.startTime
                 sampleRate = chunk.sampleRate
             }
-            // 只接受时间轴上向后的数据；旧数据（seek 竞态）直接丢弃。
-            guard chunk.endTime > capturedEndLocked() - 0.01 else { return }
             samples.append(contentsOf: chunk.samples)
             trimFrontLocked()
         }
@@ -57,6 +58,8 @@ final class PCMBuffer: @unchecked Sendable {
     /// 提取 [start, end) 区间的采样；数据未完全缓冲时返回 nil。
     func extract(from start: TimeInterval, to end: TimeInterval) -> [Float]? {
         lock.withLock {
+            // 范围整体早于捕获起点：数据永远不可能补齐，视为未缓冲。
+            guard end > baseTime - 0.01 else { return nil }
             guard end <= capturedEndLocked() + 0.01 else { return nil }
             let rate = sampleRate
             let startIndex = max(0, Int(((start - baseTime) * rate).rounded(.down)))

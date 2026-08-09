@@ -45,6 +45,8 @@ struct PlayerViewModelSubtitleTests {
         await viewModel.togglePlayPause()
         await waitUntil { viewModel.isPlaying }
         await viewModel.togglePlayPause()
+        // 播放状态由引擎状态流异步驱动，需等状态落定再断言。
+        await waitUntil { !viewModel.isPlaying }
 
         #expect(pipeline.pauseCount >= 1)
         #expect(!viewModel.isPlaying)

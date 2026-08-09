@@ -17,8 +17,14 @@ public final class SubtitleSettings {
     /// 领先窗口 Δ 秒，范围 2–10，自动收敛到边界内。
     public var leadAheadWindow: TimeInterval {
         didSet {
-            leadAheadWindow = Self.clamped(leadAheadWindow)
-            persist()
+            // @Observable 会把 didSet 挂到内部存储属性上，这里写回自身会再次触发
+            // didSet 导致无限递归（栈溢出）；先判等，只在越界时收敛一次。
+            let clamped = Self.clamped(newValue)
+            if clamped != newValue {
+                leadAheadWindow = clamped
+            } else {
+                persist()
+            }
         }
     }
 

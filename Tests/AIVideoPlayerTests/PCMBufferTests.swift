@@ -40,9 +40,10 @@ struct PCMBufferTests {
         let buffer = PCMBuffer()
         buffer.append(PCMChunk(samples: [Float](repeating: 0, count: 16_000), sampleRate: 16_000, startTime: 0))
         buffer.reset(to: 10)
+        // 早于 seek 点的旧数据必须被丢弃，时间线保持 reset 后的位置。
         buffer.append(PCMChunk(samples: [Float](repeating: 0, count: 16_000), sampleRate: 16_000, startTime: 5))
 
-        #expect(buffer.capturedEnd == 11)
+        #expect(buffer.capturedEnd == 10)
     }
 
     @Test func discardTrimsFrontAndKeepsTimeline() {
