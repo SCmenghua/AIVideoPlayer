@@ -282,7 +282,7 @@ public final class PlayerAudioPipeline: AudioPipeline {
 
     /// iOS 26 SDK：prepare 不再传 clientInfo，上下文通过 MTAudioProcessingTapGetStorage 取回。
     private static let tapPrepare: MTAudioProcessingTapPrepareCallback = { tap, _, formatOut in
-        guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+        let storage = MTAudioProcessingTapGetStorage(tap)
         Unmanaged<TapBox>.fromOpaque(storage).takeUnretainedValue()
             .updateFormat(formatOut.pointee)
     }
@@ -301,7 +301,7 @@ public final class PlayerAudioPipeline: AudioPipeline {
             &timeRange,
             numberFramesOut
         )
-        guard let storage = MTAudioProcessingTapGetStorage(tap) else { return }
+        let storage = MTAudioProcessingTapGetStorage(tap)
         Unmanaged<TapBox>.fromOpaque(storage).takeUnretainedValue()
             .process(bufferListInOut, frameCount: numberOfFrames)
     }
