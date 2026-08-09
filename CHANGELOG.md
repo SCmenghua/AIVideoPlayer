@@ -80,6 +80,8 @@
 - 进度条不显示当前视频数据 / 拖动进度条从 0 重新播放：HLS 或时长未就绪时
   `currentItemDuration` 用可 seek 范围末端近似时长（否则 slider 范围退化为
   0...1，拖动即视为 seek 到开头）（2026-08-09）
+- `CMTime.seconds` 是非可选 `Double`，`currentItemDuration` 误用 `if let`
+  导致 CI 编译失败：改为直接取值后判等（2026-08-09）
 
 ## [0.7.0] - 2026-08-09
 

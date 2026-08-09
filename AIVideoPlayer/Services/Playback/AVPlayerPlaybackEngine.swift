@@ -167,7 +167,9 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         guard let item = avPlayer.currentItem else {
             return 0
         }
-        if let seconds = item.duration.seconds, seconds.isFinite, seconds > 0 {
+        // CMTime.seconds 是非可选 Double；不可用 if let 解包。
+        let seconds = item.duration.seconds
+        if seconds.isFinite, seconds > 0 {
             return seconds
         }
         // HLS / 渐进式媒体：duration 未就绪时用可 seek 范围末端近似，
