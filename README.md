@@ -116,9 +116,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.6）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.7）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.6）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.7）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
