@@ -47,7 +47,12 @@ struct LocalModelDownloadManagerTests {
         let manager = makeManager(descriptor: descriptor, directory: directory)
 
         manager.start()
-        await waitUntil { manager.phase == .failed }
+        await waitUntil {
+            if case .failed = manager.phase {
+                return true
+            }
+            return false
+        }
 
         StubURLProtocol.handler = { request in
             let http = HTTPURLResponse(
