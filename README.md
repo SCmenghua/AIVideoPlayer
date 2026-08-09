@@ -113,12 +113,15 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 
 ## 打包 IPA（自签安装）
 
-仓库提供 GitHub Actions 手动工作流 `release-ipa.yml`：
+仓库提供两个 GitHub Actions 手动工作流：
 
-1. 打开仓库 Actions → 选择 **Build & Release IPA** → **Run workflow**（可填版本号，默认 0.7.0）；
-2. 工作流构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
-3. 自动创建 GitHub Release 并上传 `AIVideoPlayer-<版本>-unsigned.ipa`；
-4. 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
+1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA 并上传为
+   Actions 工件，运行页直接下载（可填版本号，默认 0.7.5）；
+2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.5）。
+
+两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
+用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 

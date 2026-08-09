@@ -6,8 +6,17 @@
 
 ## [Unreleased]
 
-### Added（Phase 7.5 完善，2026-08-09）
+### 待规划
 
+- Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
+
+## [0.7.5] - 2026-08-09
+
+### Added（Phase 7.5 完善）
+
+- 版本号提升至 0.7.5（Phase 7.5 修复与完善）
+- 新增 `package-ipa.yml` 工作流：构建未签名 IPA 并上传为 Actions 工件
+  （运行页直接下载，默认版本 0.7.5；`release-ipa.yml` 默认版本同步更新）
 - 浏览器地址栏右侧新增「清空当前网址」按钮（×），一键清空输入
 - 浏览器内视频接入内置播放器：
   - WKWebView 开启内联播放（blob: 等不可直连流在页面内播放，不再跳转系统全屏播放器）；
@@ -19,7 +28,7 @@
   运行时优先加载内置文件（离线可播）；修复原 googleapis 示例 URL 返回 403
   导致「测试视频无法播放」的问题
 
-### Fixed（Phase 7.5 续，2026-08-09）
+### Fixed（Phase 7.5 续）
 
 - `AVPlayerPlaybackEngine.deinit` 在 Swift 6 严格并发下无法访问非 Sendable
   观察者属性，导致 CI 编译失败：观察者属性标记 `nonisolated(unsafe)`
@@ -30,7 +39,7 @@
   的 Mock 方法：为 `SubtitlePipelineTests` 的 `MockSpeechRecognizer` 补 `emit`
 - `SubtitlePipeline.activate()` 未使用的 `engine` 绑定改为布尔判断（清警告）
 
-### Fixed（Phase 7.5 成品 Debug，2026-08-09）
+### Fixed（Phase 7.5 成品 Debug）
 
 - 浏览器后退 / 前进 / 刷新按钮命令未送达 WKWebView：`pendingCommand` 变化未被
   任何 View 观察，`WebViewRepresentable.updateUIView` 不会触发。新增
@@ -50,10 +59,6 @@
   按 `kAudioFormatFlagIsFloat` 区分 Float / Int16，并按 `mDataByteSize` 限制读取（2026-08-09）
 - 云端翻译可在未「测试连接 + 隐私确认」时直接启用（违反隐私红线）：
   启用校验增加「测试连接成功」与「隐私确认」两个前置条件（2026-08-09）
-
-### 待规划
-
-- Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 
 ## [0.7.0] - 2026-08-09
 
