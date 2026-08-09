@@ -145,7 +145,8 @@ struct SubtitlePipelineTranslationTests {
         )
         let first = await firstSegment(from: pipeline)
         #expect(first?.translatedText == "译文")
-        #expect(translator.lastContext?.isEmpty == true)
+        // 首句翻译时还没有历史上下文，context 应为 nil。
+        #expect(translator.lastContext == nil)
 
         recognizer.emit(
             SubtitleSegment(

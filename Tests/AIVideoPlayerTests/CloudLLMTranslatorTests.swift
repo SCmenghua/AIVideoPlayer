@@ -219,15 +219,33 @@ private final class StubURLProtocol: URLProtocol {
         do {
             let (response, data) = try handler(request)
             Self.lastRequest = request
-            if let body = request.httpBody {
-                Self.lastBody = String(data: body, encoding: .utf8)
-            }
+            Self.lastBody = Self.readBody(of: request)
             client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)
             client?.urlProtocolDidFinishLoading(self)
         } catch {
             client?.urlProtocol(self, didFailWithError: error)
         }
+    }
+
+    private static func readBody(of request: URLRequest) -> String? {
+        if let body = request.httpBody {
+            return String(data: body, encoding: .utf8)
+        }
+        // URLSession 可能把 httpBody 转为 httpBodyStream 再交给 URLProtocol。
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let bufferSize = 4096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: bufferSize)
+            if read <= 0 { break }
+            data.append(buffer, count: read)
+        }
+        return String(data: data, encoding: .utf8)
     }
 
     override func stopLoading() {}

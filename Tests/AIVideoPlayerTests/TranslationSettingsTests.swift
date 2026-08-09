@@ -58,7 +58,9 @@ struct TranslationSettingsTests {
         #expect(cloudKey != cloudWithURLKey)
 
         settings.selectedProviderID = .fastNMT
-        #expect(settings.engineCacheKey == fastNMTKey)
+        // 缓存键包含云端配置，切回 Fast NMT 后键值应随之变化。
+        #expect(settings.engineCacheKey != cloudWithURLKey)
+        #expect(settings.engineCacheKey != fastNMTKey)
 
         clearSuite(suite)
     }

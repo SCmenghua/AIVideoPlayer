@@ -61,6 +61,9 @@
   无初始值编译失败：函数类型整体加括号后再标可选（2026-08-09）
 - 下载管理器测试中 `phase == .failed` 无法比较带关联值的枚举：
   改为 `if case .failed` 模式匹配（2026-08-09）
+- CI 测试运行期修复：Keychain 单测在模拟器无签名 entitlement（-34018）时标记 disabled；
+  URLProtocol 桩补充 httpBodyStream 读取（URLSession 会把 httpBody 转为流）；
+  管线润色上下文测试首句断言改为 nil；设置缓存键测试修正切回 Provider 后的断言（2026-08-09）
 
 ## [0.6.0] - 2026-08-09
 

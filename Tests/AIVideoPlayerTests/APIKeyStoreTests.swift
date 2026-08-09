@@ -4,7 +4,10 @@ import Testing
 
 struct APIKeyStoreTests {
 
-    @Test func keychainRoundTrip() throws {
+    @Test(
+        .disabled("Keychain 写入需要 App 签名 entitlement（errSecMissingEntitlement -34018），CI 模拟器不可用；与 KeychainCredentialStore 一致不在 CI 直测")
+    )
+    func keychainRoundTrip() throws {
         let store = KeychainAPIKeyStore()
         try store.deleteAPIKey()
 
@@ -18,7 +21,10 @@ struct APIKeyStoreTests {
         #expect(try store.loadAPIKey() == nil)
     }
 
-    @Test func deletingMissingKeyDoesNotThrow() throws {
+    @Test(
+        .disabled("Keychain 写入需要 App 签名 entitlement（errSecMissingEntitlement -34018），CI 模拟器不可用")
+    )
+    func deletingMissingKeyDoesNotThrow() throws {
         let store = KeychainAPIKeyStore()
         try store.deleteAPIKey()
         try store.deleteAPIKey()
