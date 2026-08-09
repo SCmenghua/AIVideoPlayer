@@ -6,9 +6,9 @@
 自动识别媒体资源并用自有播放器播放、Whisper 本地实时语音识别与双语 AI 字幕。UI 严格遵循
 iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护。
 字幕采用「AI 先听一步」的超前识别设计：播放器先缓存 2–10 秒音频，Whisper 提前转写并翻译，
-字幕按整句一次出现（详见下文「AI 实时字幕：超前识别」）。
+字幕按整句一次出现，并支持拖动与样式调整（详见下文「AI 实时字幕：超前识别」）。
 
-## 当前功能（Phase 5）
+## 当前功能（Phase 6）
 
 - 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
 - Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
@@ -36,6 +36,11 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
   HLS / 麦克风等不可预读来源自动降级为实时路径
 - 播放器联动：播放前预读等待、暂停停止识别、seek 重建领先窗口、识别游标只进不退；
   浏览器首页 AI 状态卡与播放器共用同一管线
+- 字幕叠加层（Phase 6）：双语整句字幕（原文 + 译文，译文缺失只显示原文），
+  按播放光标对齐一次性出现；原生 Liquid Glass 玻璃条；DragGesture 拖动调整位置
+  （归一化坐标持久化）；字号小 / 中 / 大三档；设置页「字幕显示」卡片可调字号与重置位置
+- 字幕时间线（Phase 6）：`SubtitleTimeline` 实现 `SubtitleEngine`——final 优先于
+  partial、final 到达自动收敛逐词残留、500 条内存上限；普通播放与全屏播放共享同一叠加层
 
 ## 技术栈
 
@@ -100,6 +105,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 4 完成：MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM），CI 通过
 - ✅ Phase 5 完成：WhisperKit 实时识别 + 超前缓冲（AudioPipeline / SpeechRecognizer / 真实状态管线；
   模型内置；超前开关与 Δ 配置），CI 通过
+- ✅ Phase 6 完成：SubtitleOverlay 双语整句字幕叠加（按播放光标对齐、拖动、样式；
+  SubtitleTimeline / SubtitleDisplaySettings / 单元测试），CI 通过
 
 ## 后续开发路线
 
@@ -110,7 +117,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 3 | AVPlayer 播放器 + YouTube 风格全屏横屏体验（不依赖 AVPlayerViewController，系统竖屏锁定时仍可全屏横屏） | ✅ 完成 |
 | 4 | MediaExtractor（HTML5 video / MP4 / HLS / M3U8，不绕过 DRM） | ✅ 完成 |
 | 5 | WhisperKit 本地实时识别（AudioPipeline + SpeechRecognizer；播放器缓存 2–10s，AI 领先转写，整句输出；模型内置） | ✅ 完成 |
-| 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ⬜ 未开始 |
+| 6 | SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式） | ✅ 完成 |
 | 7 | TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider + 剧情理解润色（仅 LLM Provider，自动压缩文本）+ 隐私提示；本地 LLM 模型按需从 Hugging Face 下载，云端 API 配置带「测试连接」按钮；识别后立即提前翻译，延迟被超前窗口吸收 | ⬜ 未开始 |
 | 8-10 | Liquid Glass 深化、性能优化、测试与错误处理 | ⬜ 未开始 |
 

@@ -9,6 +9,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
+                subtitleDisplayCard
                 sectionCard(
                     icon: "globe",
                     tint: .orange,
@@ -32,7 +33,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 5（WhisperKit 实时识别）",
+                        "AI Video Player · Phase 6（SubtitleOverlay 双语字幕）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
@@ -141,5 +142,52 @@ struct SettingsView: View {
                 Spacer(minLength: 0)
             }
         }
+    }
+
+    // MARK: - 字幕显示（Phase 6）
+
+    private var subtitleDisplayCard: some View {
+        GlassCard(tint: .cyan) {
+            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    Image(systemName: "captions.bubble")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.cyan)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("字幕显示")
+                            .font(.headline)
+                        Text("播放器叠加层：字号与位置")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                }
+
+                Picker("字号", selection: fontSizeBinding) {
+                    ForEach(SubtitleFontSize.allCases) { size in
+                        Text(size.title).tag(size)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Button {
+                    environment.subtitleDisplaySettings.resetPosition()
+                } label: {
+                    HStack {
+                        Text("重置字幕位置")
+                        Spacer()
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                }
+                .tint(.cyan)
+            }
+        }
+    }
+
+    private var fontSizeBinding: Binding<SubtitleFontSize> {
+        Binding(
+            get: { environment.subtitleDisplaySettings.fontSize },
+            set: { environment.subtitleDisplaySettings.fontSize = $0 }
+        )
     }
 }

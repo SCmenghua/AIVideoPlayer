@@ -13,8 +13,9 @@
 
 ## 当前Phase
 
-**Phase 6**（SubtitleOverlay：双语、整句按播放光标对齐一次性出现、拖动、样式）。
-上一阶段：**Phase 5 —— WhisperKit AudioPipeline + SpeechRecognizer 实时识别与超前缓冲**（已完成）。
+**Phase 7**（TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类可替换 Provider；
+识别后立即提前翻译，延迟被超前窗口吸收）。
+上一阶段：**Phase 6 —— SubtitleOverlay 双语整句字幕叠加（按播放光标对齐一次性出现、拖动、样式）**（已完成）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -66,6 +67,11 @@
   真实 `SubtitlePipeline`（替换 Mock 注入）；超前识别开关（默认开）+ 2–10s 领先窗口（默认 3s，
   UserDefaults 持久化）；播放器播放前预读 Δ 秒、seek 重建领先窗口、识别游标只进不退；
   状态卡与设置页接入真实管线；单元测试（设置 / 缓冲 / 管线 / 播放器联动）。
+- **Phase 6**：`SubtitleTimeline`（SubtitleEngine 真实实现：final 优先于 partial、
+  final 到达收敛逐词残留、500 条内存上限）；`SubtitleOverlay` 双语整句字幕叠加
+  （按播放光标对齐一次性出现、DragGesture 拖动调整位置、字号样式）；
+  `SubtitleDisplaySettings`（字号 + 归一化位置，UserDefaults 持久化，AppEnvironment 共享）；
+  播放器普通 / 全屏接入、设置页「字幕显示」卡片；单元测试（时间线 / Overlay VM / 显示设置）。
 - **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
 
 ## 禁止事项

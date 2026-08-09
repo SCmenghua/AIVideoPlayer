@@ -8,7 +8,8 @@
 
 ### 待规划
 
-- 当前主线为 Phase 6（SubtitleOverlay：双语、整句按播放光标对齐一次性出现、拖动、样式）。
+- 当前主线为 Phase 7（TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
+  剧情理解润色；识别后立即提前翻译，延迟被超前窗口吸收）。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 - Phase 7 翻译引擎需求扩充已记录至架构文档：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
   剧情理解润色（自动压缩文本；Fast NMT 直接翻译、不参与上下文润色）（2026-08-09）。
@@ -18,6 +19,32 @@
   仅启用 Fast NMT Provider 时也能提前翻译、按时整句显示字幕，不依赖本地 / 云端 LLM（2026-08-09）。
 - Phase 7 翻译引擎需求补充：本地 LLM 模型不随 App 预置，由用户选择并从 Hugging Face 按需下载，
   下载完成后可用；云端 API 填入 key 后提供「测试连接」按钮（2026-08-09）。
+
+## [0.6.0] - 2026-08-09
+
+### Added（Phase 6 SubtitleOverlay 双语整句字幕叠加）
+
+- `SubtitleTimeline`：`SubtitleEngine` 真实实现——按 `startTime` 排序的时间线；
+  `segment(at:)` 按播放光标返回当前整句（final 优先于重叠 partial，区间左闭右开）；
+  append final 时清理被其覆盖的旧 partial（原始实时路径 partial → final 收敛）；
+  500 条内存上限，超出丢弃最旧
+- `SubtitleOverlayViewModel`：消费共享 `SubtitlePipeline.segments` 流写入时间线；
+  播放光标驱动当前句子（整句一次性出现）；拖动位移换算归一化位置（边界 0.08...0.92）；
+  换片 / 管线关闭时清空时间线与当前字幕
+- `SubtitleDisplaySettings`：字号（小 / 中 / 大）+ 字幕中心点归一化位置，
+  UserDefaults 持久化，提供重置位置；`AppEnvironment` 全局共享（播放器与设置页同一实例）
+- `SubtitleOverlay`：双语整句玻璃字幕条（原文 + 译文，译文缺失只显示原文；
+  原生 Liquid Glass，无模拟玻璃 API）；整句出现 / 消失动画；`DragGesture` 拖动调整位置
+- 播放器接入：`PlayerView` 与 `FullscreenPlayerView` 在「字幕开关开启且管线激活」时
+  渲染叠加层，普通与全屏共享同一 ViewModel；换片清空时间线、管线关闭清空当前字幕
+- 设置页：新增「字幕显示」卡片（字号选择、重置字幕位置）
+- 单元测试：时间线语义（边界 / final 优先 / partial 清理 / update / removeAll /
+  内存上限 / 排序）、Overlay ViewModel（流消费 / 光标对齐 / partial→final 收敛 /
+  reset / 拖动收敛与持久化 / 字号代理）、显示设置（默认值 / 持久化 / 越界收敛 / 重置）
+
+### Changed
+
+- 播放器叠加字幕层接入普通与全屏两个播放场景；设置页「关于」版本说明更新为 Phase 6
 
 ## [0.5.0] - 2026-08-09
 

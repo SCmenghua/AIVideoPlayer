@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// 播放器（Phase 3）：AVPlayer 渲染 + 玻璃控制栏 + 全屏横屏（架构文档 8.1.1）。
+/// 播放器（Phase 3 + Phase 6）：AVPlayer 渲染 + 玻璃控制栏 + 全屏横屏
+/// （架构文档 8.1.1）+ 双语整句字幕叠加层（SubtitleOverlay）。
 struct PlayerView: View {
     @State private var viewModel = PlayerViewModel()
+    @State private var subtitleOverlay: SubtitleOverlayViewModel?
     @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
@@ -16,7 +18,7 @@ struct PlayerView: View {
             }
         }
         .fullScreenCover(isPresented: $viewModel.isFullScreen) {
-            FullscreenPlayerView(viewModel: viewModel)
+            FullscreenPlayerView(viewModel: viewModel, subtitleOverlay: subtitleOverlay)
                 .onDisappear {
                     PlayerOrientationController.exitFullscreen()
                 }
@@ -26,14 +28,39 @@ struct PlayerView: View {
         .task {
             viewModel.attachSubtitlePipeline(environment.subtitlePipeline)
             viewModel.startObserving()
+            let overlay: SubtitleOverlayViewModel
+            if let existing = subtitleOverlay {
+                overlay = existing
+            } else {
+                let newOverlay = SubtitleOverlayViewModel(
+                    segments: environment.subtitlePipeline.segments,
+                    displaySettings: environment.subtitleDisplaySettings
+                )
+                subtitleOverlay = newOverlay
+                overlay = newOverlay
+            }
+
+            // 字幕流消费与播放加载并行；宿主视图消失时二者都被取消。
+            async let consumeSubtitles: Void = overlay.consume()
             if let pending = environment.consumePendingPlayback() {
                 await viewModel.load(pending)
             }
+            await consumeSubtitles
         }
         .onChange(of: environment.pendingPlayback) { _, _ in
             if let pending = environment.consumePendingPlayback() {
                 Task { await viewModel.load(pending) }
             }
+        }
+        .onChange(of: viewModel.currentItem) { _, _ in
+            // 换片：清空旧视频的时间线与当前字幕，避免残留。
+            guard let subtitleOverlay else { return }
+            Task { await subtitleOverlay.reset() }
+        }
+        .onChange(of: environment.subtitlePipeline.isActive) { _, isActive in
+            // 管线关闭：清空当前字幕，避免显示过期内容。
+            guard !isActive, let subtitleOverlay else { return }
+            Task { await subtitleOverlay.reset() }
         }
     }
 
@@ -79,6 +106,12 @@ struct PlayerView: View {
                     }
                 }
 
+            if viewModel.isSubtitleEnabled,
+               environment.subtitlePipeline.isActive,
+               let subtitleOverlay {
+                SubtitleOverlay(viewModel: subtitleOverlay, currentTime: viewModel.currentTime)
+            }
+
             if viewModel.isControlsVisible {
                 VStack {
                     Spacer()
@@ -121,6 +154,8 @@ struct PlayerView: View {
 /// 全屏播放器（隐藏状态栏与系统覆盖层；Tab Bar / Navigation Bar 由 fullScreenCover 天然隐藏）。
 private struct FullscreenPlayerView: View {
     let viewModel: PlayerViewModel
+    let subtitleOverlay: SubtitleOverlayViewModel?
+    @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
         ZStack {
@@ -136,6 +171,12 @@ private struct FullscreenPlayerView: View {
                         viewModel.isControlsVisible.toggle()
                     }
                 }
+
+            if viewModel.isSubtitleEnabled,
+               environment.subtitlePipeline.isActive,
+               let subtitleOverlay {
+                SubtitleOverlay(viewModel: subtitleOverlay, currentTime: viewModel.currentTime)
+            }
 
             if viewModel.isControlsVisible {
                 VStack {

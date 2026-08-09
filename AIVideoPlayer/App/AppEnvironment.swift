@@ -12,6 +12,8 @@ final class AppEnvironment {
     let subtitleSettings: SubtitleSettings
     /// AI 字幕子系统（真实 WhisperKit 管线）。
     let subtitlePipeline: SubtitlePipeline
+    /// 字幕叠加层显示设置（播放器与设置页共享，UserDefaults 持久化）。
+    let subtitleDisplaySettings: SubtitleDisplaySettings
 
     /// 待播放的媒体请求（由远程文件等入口发起，Player 消费后清空）。
     private(set) var pendingPlayback: MediaItem?
@@ -20,6 +22,7 @@ final class AppEnvironment {
         let settings = SubtitleSettings()
         subtitleSettings = settings
         subtitlePipeline = SubtitlePipeline(settings: settings)
+        subtitleDisplaySettings = SubtitleDisplaySettings()
     }
 
     /// 请求播放并切换到 Player Tab。

@@ -127,7 +127,7 @@ final class PlayerViewModel {
     }
 
     func toggleSubtitle() {
-        // Phase 6 接入 SubtitleOverlay 渲染；本期仅提供控制位。
+        // Phase 6：控制位驱动 SubtitleOverlay 显示。
         isSubtitleEnabled.toggle()
     }
 

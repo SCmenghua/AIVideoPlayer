@@ -58,7 +58,7 @@ flowchart TB
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）、媒体提取入口与远程文件浏览（WebDAV 目录导航） | 2 → 4 |
 | `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 1（占位）→ 3 |
-| `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | 1（Mock）→ 5/6 |
+| `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | ✅ 5/6 |
 | `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 领先窗口）+ 后续配置占位） | 1（占位）→ 5/7 |
 | `Core/Protocols/` | 7 个核心协议（见第 4 节） | 1 |
 | `Core/Models/` | 7 个数据模型（见第 5 节） | 1 |
@@ -78,7 +78,7 @@ flowchart TB
 | `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | ✅ Phase 3（AVPlayerPlaybackEngine） |
 | `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | ✅ Phase 5（WhisperKitSpeechRecognizer） |
 | `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
-| `SubtitleEngine` | 字幕时间线管理（双语、同步） | Phase 6 |
+| `SubtitleEngine` | 字幕时间线管理（双语、同步） | ✅ Phase 6（SubtitleTimeline） |
 | `RemoteFileBrowsing` | 远程文件浏览（connect / listDirectory / disconnect） | ✅ Phase 2（WebDAV；SMB / FTP 后续补充） |
 | `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | ✅ Phase 5（SubtitlePipeline） |
 | `CredentialStoring` | 密码存取（生产实现 Keychain） | ✅ Phase 2 |
@@ -315,6 +315,28 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 6. 取消与状态：URLSession 请求随 Task 取消，解析过程 `checkCancellation()`；`extractedMedia`
    显式表达 loading / ready / empty / error / cancelled。
 
+### 8.6 SubtitleOverlay（Phase 6）
+
+1. `SubtitleEngine` 真实实现：`Features/Subtitle/SubtitleTimeline`（@MainActor）——
+   维护按 `startTime` 排序的时间线；`segment(at:)` 按播放光标返回当前整句
+   （final 优先于重叠 partial，区间左闭右开）；append final 时清理被其时间区间
+   覆盖的旧 partial（原始实时路径 partial → final 收敛）；时间线上限 500 条，
+   超出丢弃最旧，防止无界增长。
+2. `SubtitleOverlayViewModel`（@MainActor @Observable）：消费共享
+   `SubtitlePipeline.segments` 流写入时间线；播放光标变化时查询当前句子
+   （整句一次性出现，不逐词跳动）；拖动位移换算为归一化坐标（边界 0.08...0.92）；
+   换片 / 管线关闭时清空时间线与当前字幕。
+3. `SubtitleDisplaySettings`：字号（小 / 中 / 大）与字幕中心点归一化位置，
+   UserDefaults 持久化，提供 `resetPosition()`；由 `AppEnvironment` 全局共享
+   （播放器叠加层与设置页使用同一实例）。
+4. `SubtitleOverlay` 视图：双语整句显示（原文 + 译文，译文缺失只显示原文），
+   原生 Liquid Glass 玻璃条（不使用任何模拟玻璃 API）；整句一次性出现 / 消失动画；
+   `DragGesture` 拖动调整位置；叠加在播放画面之上、控制栏之下。
+5. 接入：`PlayerView` 与 `FullscreenPlayerView` 在「字幕开关开启且管线激活」时
+   渲染 Overlay；换片时清空时间线；管线关闭时清空当前字幕，避免过期内容残留。
+6. 原始实时路径（超前开关关闭）不受影响：partial 逐词出现、final 到达后由时间线
+   final 优先语义收敛为整句，不改变 Phase 5 管线行为。
+
 ## 9. 设计原则与不可违反规则
 
 ### 设计原则
@@ -355,7 +377,7 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 4. **Phase 4（已完成）**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
 5. **Phase 5（已完成）**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别；超前缓冲
    （2–10s 可配置，默认建议 3s）：播放器先缓冲、识别游标领先播放光标，Whisper 提前分析并输出整句 final。
-6. **Phase 6**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
+6. **Phase 6（已完成）**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
 7. **Phase 7**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
    （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；
    在超前窗口内提前翻译（延迟被 Δ 吸收）；明确隐私提示。
