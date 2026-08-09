@@ -88,7 +88,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
 
     public func play() async {
         // 失败态只能走重试（重新加载），不允许直接播放。
-        guard state != .failed else { return }
+        if case .failed = state { return }
         avPlayer.play()
         // 立即同步状态：即使 timeControlStatus KVO 回调未送达，
         // 播放按钮也能马上切到暂停态。
