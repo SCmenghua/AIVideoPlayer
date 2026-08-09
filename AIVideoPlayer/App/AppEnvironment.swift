@@ -10,8 +10,12 @@ final class AppEnvironment {
 
     /// 超前识别设置（设置页与管线共享，UserDefaults 持久化）。
     let subtitleSettings: SubtitleSettings
+    /// 翻译设置（设置页与字幕管线共享，UserDefaults 持久化；API Key 走 Keychain）。
+    let translationSettings: TranslationSettings
     /// AI 字幕子系统（真实 WhisperKit 管线）。
     let subtitlePipeline: SubtitlePipeline
+    /// 本地大模型下载管理（设置页使用）。
+    let localModelDownloadManager: LocalModelDownloadManager
     /// 字幕叠加层显示设置（播放器与设置页共享，UserDefaults 持久化）。
     let subtitleDisplaySettings: SubtitleDisplaySettings
 
@@ -21,7 +25,15 @@ final class AppEnvironment {
     init() {
         let settings = SubtitleSettings()
         subtitleSettings = settings
-        subtitlePipeline = SubtitlePipeline(settings: settings)
+        let translationSettings = TranslationSettings()
+        self.translationSettings = translationSettings
+        subtitlePipeline = SubtitlePipeline(
+            settings: settings,
+            translationSettings: translationSettings
+        )
+        localModelDownloadManager = LocalModelDownloadManager(
+            descriptor: LocalModelCatalog.gemma4E2B
+        )
         subtitleDisplaySettings = SubtitleDisplaySettings()
     }
 

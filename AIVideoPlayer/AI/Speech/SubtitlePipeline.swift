@@ -15,6 +15,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public let segments: AsyncStream<SubtitleSegment>
 
     private let settings: SubtitleSettings
+    private let translationSettings: TranslationSettings
+    private let translationProviderFactory: @MainActor (TranslationSettings) -> (any TranslationEngine)?
+    private let contextProvider: TranslationContextProvider
     private let recognizerFactory: @MainActor () -> any SpeechRecognizer
     private let playerSourceFactory: @MainActor (any PlaybackEngine) -> any AudioPipeline
     private let readerSourceFactory: @MainActor (MediaItem) -> any AudioPipeline
@@ -31,6 +34,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var loopTask: Task<Void, Never>?
     private var consumeTask: Task<Void, Never>?
     private var forwardTask: Task<Void, Never>?
+    private var cachedTranslationEngine: (any TranslationEngine)?
+    private var cachedEngineKey: String?
 
     private let statusContinuation: AsyncStream<AISubtitleStatus>.Continuation
     private let segmentsContinuation: AsyncStream<SubtitleSegment>.Continuation
@@ -42,11 +47,19 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     public init(
         settings: SubtitleSettings,
+        translationSettings: TranslationSettings = TranslationSettings(),
+        translationProviderFactory: @escaping @MainActor (TranslationSettings) -> (any TranslationEngine)? = {
+            TranslationProviderFactory.make(settings: $0)
+        },
+        contextProvider: TranslationContextProvider = TranslationContextProvider(),
         recognizerFactory: @escaping @MainActor () -> any SpeechRecognizer = { WhisperKitSpeechRecognizer() },
         playerSourceFactory: @escaping @MainActor (any PlaybackEngine) -> any AudioPipeline = { PlayerAudioPipeline(engine: $0) },
         readerSourceFactory: @escaping @MainActor (MediaItem) -> any AudioPipeline = { AssetReaderAudioPipeline(item: $0) }
     ) {
         self.settings = settings
+        self.translationSettings = translationSettings
+        self.translationProviderFactory = translationProviderFactory
+        self.contextProvider = contextProvider
         self.recognizerFactory = recognizerFactory
         self.playerSourceFactory = playerSourceFactory
         self.readerSourceFactory = readerSourceFactory
@@ -123,6 +136,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     /// 设置变更（超前开关 / Δ）后重建识别游标并丢弃已缓存的 partial / final。
     public func rebuildAfterSettingsChange() async {
+        cachedTranslationEngine = nil
+        cachedEngineKey = nil
         guard active else { return }
         generation += 1
         stopLoops()
@@ -248,9 +263,75 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         forwardTask = Task { [weak self] in
             for await segment in recognizer.segments {
                 guard let self else { return }
-                self.segmentsContinuation.yield(segment)
+                if segment.isPartial {
+                    // 原始实时路径：逐词 partial 原样透出，不做翻译。
+                    self.segmentsContinuation.yield(segment)
+                } else {
+                    // Phase 7：final 段翻译后透出（超前窗口内译文提前就绪）。
+                    await self.translateAndYield(segment)
+                }
             }
         }
+    }
+
+    /// 翻译 final 段并写入 `translatedText`；翻译不可用 / 失败时原样透出
+    /// （Overlay 译文缺失只显示原文，不破坏 Phase 6 行为）。
+    private func translateAndYield(_ segment: SubtitleSegment) async {
+        guard active, translationSettings.isEnabled,
+              let engine = makeTranslationEngine()
+        else {
+            segmentsContinuation.yield(segment)
+            return
+        }
+
+        let previousState = status.state
+        setStatus(state: .translating)
+        var translated: String?
+        do {
+            let context: TranslationContext?
+            if translationSettings.isContextPolishEnabled,
+               engine.supportsContextPolish,
+               contextProvider.hasRecentEntries
+            {
+                context = contextProvider.makeContext()
+            } else {
+                context = nil
+            }
+            translated = try await engine.translate(
+                segment.originalText,
+                from: currentLanguage,
+                to: translationSettings.targetLanguageCode,
+                context: context
+            )
+        } catch {
+            // 单句翻译失败不打断字幕：原样透出原文。
+            translated = nil
+        }
+        guard active, !Task.isCancelled else { return }
+
+        if let translated, !translated.isEmpty {
+            contextProvider.record(original: segment.originalText, translated: translated)
+            var enriched = segment
+            enriched.translatedText = translated
+            segmentsContinuation.yield(enriched)
+        } else {
+            segmentsContinuation.yield(segment)
+        }
+
+        if status.state == .translating {
+            setStatus(state: previousState == .translating ? .ready : previousState)
+        }
+    }
+
+    private func makeTranslationEngine() -> (any TranslationEngine)? {
+        let key = translationSettings.engineCacheKey
+        if let cachedTranslationEngine, cachedEngineKey == key {
+            return cachedTranslationEngine
+        }
+        let engine = translationProviderFactory(translationSettings)
+        cachedTranslationEngine = engine
+        cachedEngineKey = key
+        return engine
     }
 
     private func runRecognitionLoop(generation: Int) async {

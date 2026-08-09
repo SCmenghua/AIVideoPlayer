@@ -8,7 +8,7 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 字幕采用「AI 先听一步」的超前识别设计：播放器先缓存 2–10 秒音频，Whisper 提前转写并翻译，
 字幕按整句一次出现，并支持拖动与样式调整（详见下文「AI 实时字幕：超前识别」）。
 
-## 当前功能（Phase 6）
+## 当前功能（Phase 7）
 
 - 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
 - Liquid Glass Design System：玻璃卡片、状态胶囊、图标按钮、强调按钮、开关（原生 `glassEffect` /
@@ -41,6 +41,16 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
   （归一化坐标持久化）；字号小 / 中 / 大三档；设置页「字幕显示」卡片可调字号与重置位置
 - 字幕时间线（Phase 6）：`SubtitleTimeline` 实现 `SubtitleEngine`——final 优先于
   partial、final 到达自动收敛逐词残留、500 条内存上限；普通播放与全屏播放共享同一叠加层
+- 可替换翻译引擎（Phase 7）：`TranslationEngine` 单一协议 + 三类 Provider——
+  Fast NMT（Apple 原生翻译，完全本地）/ 本地大模型（MLX Swift + Gemma 4 E2B 4-bit，
+  按需从 Hugging Face 下载约 3.5 GB，进度 / 取消 / 重试 / 删除）/ 云端 API
+  （OpenAI 兼容，Base URL / API Key / Model 自定义，测试连接 + 隐私提示，API Key 存 Keychain）
+- 剧情理解润色（Phase 7）：本地 / 云端 LLM 可选开关，`TranslationContextProvider`
+  结合最近字幕上下文翻译并自动压缩（滑动窗口 + 截断 + 预算），Fast NMT 不参与
+- 字幕翻译接入（Phase 7）：final 段识别后立即翻译并写入译文，超前窗口内提前就绪；
+  翻译禁用 / 失败时只显示原文；翻译期间状态卡显示 TRANSLATING
+- 设置页「翻译服务」卡片（Phase 7）：Provider 选择、目标语言（简体中文 / English，
+  留多语言扩展）、云端配置与测试连接、本地模型下载管理、启用校验
 
 ## 技术栈
 
@@ -51,7 +61,8 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 | 并发 | Swift Concurrency / AsyncStream / Observation |
 | 媒体 | AVFoundation / AVPlayer（已接入）；HTML5 video / HLS 提取（Phase 4 已接入） |
 | 浏览器 | WKWebView（已接入） |
-| AI | WhisperKit / Core ML（本地运行，Phase 5 已接入；模型内置，运行时不下载） |
+| AI | WhisperKit / Core ML（本地识别，模型内置）；MLX Swift（mlx-swift-lm，本地 LLM 推理） |
+| 翻译 | 可替换 TranslationEngine（Phase 7 已接入）：Apple Translation / 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API |
 | 网络 | URLSession、WebDAV（已接入）；SMB / FTP 后续补充 |
 | 存储 | Keychain 凭据（已接入）、UserDefaults 配置/历史/收藏；SwiftData（仅必要时） |
 | 工程 | XcodeGen（`project.yml` 生成 `.xcodeproj`） |

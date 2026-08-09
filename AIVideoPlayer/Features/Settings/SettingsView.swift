@@ -3,22 +3,13 @@ import SwiftUI
 /// 设置页：Phase 1 只呈现架构与隐私承诺；具体开关随对应 Phase 落地。
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var viewModel = SettingsViewModel()
 
     var body: some View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
                 subtitleDisplayCard
-                sectionCard(
-                    icon: "globe",
-                    tint: .orange,
-                    title: "翻译服务",
-                    lines: [
-                        viewModel.translationServiceConfigured ? "已配置" : "未配置（Phase 7）",
-                        "启用后，字幕文本将发送到你配置的翻译服务",
-                    ]
-                )
+                translationCard
                 sectionCard(
                     icon: "lock.shield",
                     tint: .green,
@@ -33,7 +24,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 6（SubtitleOverlay 双语字幕）",
+                        "AI Video Player · Phase 7（TranslationEngine 可替换翻译）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
@@ -46,6 +37,12 @@ struct SettingsView: View {
 
     private func toggleSubtitlePipeline() {
         Task { await environment.subtitlePipeline.toggle() }
+    }
+
+    // MARK: - 翻译服务（Phase 7）
+
+    private var translationCard: some View {
+        TranslationSettingsCard()
     }
 
     // MARK: - AI 字幕（Phase 5）

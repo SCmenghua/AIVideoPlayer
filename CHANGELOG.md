@@ -8,17 +8,41 @@
 
 ### 待规划
 
-- 当前主线为 Phase 7（TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
-  剧情理解润色；识别后立即提前翻译，延迟被超前窗口吸收）。
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
-- Phase 7 翻译引擎需求扩充已记录至架构文档：Fast NMT / 本地 LLM / 云端 API 三类 Provider +
-  剧情理解润色（自动压缩文本；Fast NMT 直接翻译、不参与上下文润色）（2026-08-09）。
-- 设计提案「AI 先听一步」已记录至架构文档（8.2.1）：播放器缓存 2–10s，Whisper 提前转写，
-  翻译紧随其后提前完成，字幕按整句对齐播放光标一次性出现（归属 Phase 5/6/7）（2026-08-09）。
-- 超前识别补充：新增开关（默认开启，关闭走原始 partial → final 实时路径）；
-  仅启用 Fast NMT Provider 时也能提前翻译、按时整句显示字幕，不依赖本地 / 云端 LLM（2026-08-09）。
-- Phase 7 翻译引擎需求补充：本地 LLM 模型不随 App 预置，由用户选择并从 Hugging Face 按需下载，
-  下载完成后可用；云端 API 填入 key 后提供「测试连接」按钮（2026-08-09）。
+
+## [0.7.0] - 2026-08-09
+
+### Added（Phase 7 TranslationEngine 可替换翻译）
+
+- `TranslationEngine` 协议演进：Provider 元数据（ID / 显示名 / 本地性 / 润色支持 / 就绪状态）+
+  上下文参数 `TranslationContext`；云端能力协议 `TranslationConnectionTesting`
+- Fast NMT Provider：Apple 原生 Translation 框架（iOS 26 `TranslationSession(installedSource:target:)`），
+  完全本地、零新依赖；`LanguageAvailability` 语言包可用性检查，未安装 / 不支持给出可读提示
+- Cloud LLM Provider：OpenAI 兼容 ChatCompletions（Base URL / API Key / Model 自定义），
+  「测试连接」成功 + 隐私提示确认后才允许启用；apiKey 存 Keychain（`KeychainAPIKeyStore`）
+- Local LLM Provider：MLX Swift（`mlx-swift-lm` 3.x + `swift-transformers` Tokenizer）本地推理，
+  默认模型 Gemma 4 E2B 4-bit（`mlx-community/gemma-4-e2b-it-4bit`，约 3.5 GB）；
+  `LocalModelDownloadManager` 从 Hugging Face 按需下载（逐文件进度 / 取消 / 重试 / 删除 / 校验），
+  下载完成后才能启用
+- `TranslationContextProvider`：剧情理解润色上下文（滑动窗口 + 逐条截断 + 总预算压缩），
+  仅本地 / 云端 LLM 使用，Fast NMT 不参与
+- `SubtitlePipeline` 接入：final 段翻译后写入 `translatedText`（超前窗口内提前就绪），
+  partial 原样透出；翻译期间状态 `.translating`；翻译禁用 / 失败时原样透出原文；
+  设置变更重建引擎缓存
+- 设置页「翻译服务」卡片：Provider 选择、目标语言（简体中文 / English，留多语言扩展）、
+  云端配置 + 测试连接 + 隐私提示、本地模型下载管理、剧情润色开关、启用校验
+- SPM 依赖：`ml-explore/mlx-swift-lm`（3.31.3+）、`huggingface/swift-transformers`（1.3.0+）
+- 单元测试：翻译设置持久化 / API Key 存储 / 云端 Provider（URLProtocol 桩：翻译、上下文、
+  测试连接、HTTP 错误、空内容）/ Fast NMT（元数据、可用性门控、空结果）/ 上下文压缩 /
+  下载管理器（完成、失败重试、取消、删除）/ 管线翻译集成（final 翻译、partial 透传、
+  禁用透传、失败透传、润色上下文、`.translating` 状态）
+
+### Changed
+
+- `TranslationEngine` 协议签名扩展（元数据 + `context` 参数），协议测试替身同步更新
+- 设置页「翻译服务」占位卡片替换为真实卡片；「关于」版本说明更新为 Phase 7
+- `SubtitlePipeline` 构造增加翻译设置 / Provider 工厂 / 上下文提供者注入
+- `AppEnvironment` 新增 `translationSettings` 与 `localModelDownloadManager` 全局共享
 
 ## [0.6.0] - 2026-08-09
 

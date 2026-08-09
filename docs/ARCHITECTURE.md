@@ -66,7 +66,7 @@ flowchart TB
 | `Core/Networking/` | WebDAV 目录浏览（PROPFIND；SMB / FTP 后续补充） | 2 |
 | `Core/Storage/` | Keychain 凭据、UserDefaults 配置/历史/收藏 | 2 |
 | `AI/Speech/` | WhisperKit 语音识别（超前缓冲识别）；AudioPipeline / WhisperKitSpeechRecognizer / SubtitlePipeline / SubtitleSettings | ✅ 5 |
-| `AI/Translation/` | 可替换翻译引擎 | 7 |
+| `AI/Translation/` | 可替换翻译引擎（Fast NMT / 本地 LLM / 云端 API） | ✅ 7 |
 | `Services/` | 业务服务（Playback / MediaExtractor） | 3-4 |
 | `Utilities/` | 日志等通用设施 | 1 |
 
@@ -77,7 +77,7 @@ flowchart TB
 | `MediaExtractor` | 网页 / 远程目录 → `[MediaItem]` | ✅ Phase 4（WebMediaExtractor） |
 | `PlaybackEngine` | 封装 AVPlayer 生命周期（加载/播放/暂停/seek/倍速/音量） | ✅ Phase 3（AVPlayerPlaybackEngine） |
 | `SpeechRecognizer` | 本地实时识别，输出 `AsyncStream<SubtitleSegment>`（partial / final；超前识别默认整句 final） | ✅ Phase 5（WhisperKitSpeechRecognizer） |
-| `TranslationEngine` | 文本翻译（可替换） | Phase 7（API / 本地模型 / Mock） |
+| `TranslationEngine` | 文本翻译（可替换） | ✅ Phase 7（Fast NMT / 本地 LLM / 云端 API） |
 | `SubtitleEngine` | 字幕时间线管理（双语、同步） | ✅ Phase 6（SubtitleTimeline） |
 | `RemoteFileBrowsing` | 远程文件浏览（connect / listDirectory / disconnect） | ✅ Phase 2（WebDAV；SMB / FTP 后续补充） |
 | `SubtitleStatusProviding` | AI 字幕状态来源（状态流 + toggle） | ✅ Phase 5（SubtitlePipeline） |
@@ -245,22 +245,28 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 
 ### 8.3 TranslationEngine（Phase 7）
 
-`TranslationEngine` 保持单一协议，翻译能力由多个可替换的 Provider 实现，用户可在设置页选择：
+`TranslationEngine` 保持单一协议（Provider 元数据 + `translate(_:from:to:context:)`），
+翻译能力由多个可替换的 Provider 实现，用户可在设置页选择；译文写入
+`SubtitleSegment.translatedText`（final 段在 `SubtitlePipeline` 内翻译后透出）。
 
 **Provider 类型：**
 
-1. **Fast NMT Provider（本地 / 轻量 NMT）**：基于 LibreTranslate、NLLB 等，适合极速、低消耗场景；
-   完全本地运行，文本不出设备。
-2. **Local LLM Provider（本地大模型）**：基于 Qwen、Gemma（4B 级）等本地模型，完全离线运行；
+1. **Fast NMT Provider（本地轻量翻译）**：使用 Apple 原生 Translation 框架
+   （iOS 26 可直接初始化 `TranslationSession(installedSource:target:)`），适合极速、低消耗场景；
+   完全本地运行，文本不出设备；依赖系统翻译语言包，未安装 / 不支持时给出可读提示，无需配置。
+2. **Local LLM Provider（本地大模型）**：基于 MLX Swift（`mlx-swift-lm` 3.x + `swift-transformers`
+   Tokenizer），默认模型 Gemma 4 E2B 4-bit（`mlx-community/gemma-4-e2b-it-4bit`，约 3.5 GB，
+   对应官方 `LLMRegistry.gemma4_e2b_it_4bit`），完全离线运行；
    无网络依赖，可在上下文润色模式下提供剧情感知翻译。
    **模型按需下载，不随 App 预置**：用户在设置页选择要使用的模型，点击「下载」后
-   从 Hugging Face 拉取模型文件；下载需展示进度、支持失败重试与取消，
-   下载完成后即可加载使用。
+   由 `LocalModelDownloadManager` 从 Hugging Face 拉取模型文件（逐文件进度、失败重试、
+   取消、删除、文件校验）；下载完成后才能启用该 Provider。
 3. **Cloud LLM Provider（云端 API）**：基于 OpenAI 兼容格式（ChatCompletions API），支持用户自定义
    `baseUrl`、`apiKey`、`modelName`（如 deepseek-chat、gpt-4o-mini、claude-3-5-haiku 等）。
+   apiKey 存 Keychain（`KeychainAPIKeyStore`），不落 UserDefaults。
    启用前必须展示提示：「字幕文本将发送到你配置的翻译服务」。
    **配置后提供「测试连接」按钮**：填入 key / baseUrl / model 后先测试连通性与鉴权，
-   测试成功才允许保存并启用；测试失败需展示具体错误提示。
+   测试成功（并确认隐私提示）才允许保存并启用；测试失败需展示具体错误提示。
 
 **上下文润色（可选开关）：**
 
@@ -273,20 +279,28 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 
 **实现约束：**
 
-1. 每个 Provider 都实现 `TranslationEngine` 协议，通过依赖注入接入字幕管线；
+- 每个 Provider 都实现 `TranslationEngine` 协议；云端额外实现
+   `TranslationConnectionTesting`（测试连接），通过依赖注入接入字幕管线；
    译文写入 `SubtitleSegment.translatedText`。
-2. 设置页提供 Provider 选择与对应配置（Base URL / API Key / Model / Language）。
-3. 隐私：Fast NMT 与 Local LLM 完全本地；Cloud LLM 必须先行展示隐私提示。
-4. 上下文窗口与压缩策略由独立组件管理（如 `TranslationContextProvider`），
+2. 设置页提供 Provider 选择与对应配置（Base URL / API Key / Model / Language）；
+   目标语言暂提供简体中文 / English，结构上留足多语言扩展。
+3. 隐私：Fast NMT 与 Local LLM 完全本地；Cloud LLM 必须先行展示隐私提示；
+   API Key 只存 Keychain。
+4. 上下文窗口与压缩策略由独立组件管理（`TranslationContextProvider`：滑动窗口 +
+   逐条截断 + 总预算压缩），
    禁止把大段原始字幕直接塞进请求。
-5. 超前识别模式下翻译紧随识别完成（领先播放光标）：用户听到该句前译文已就绪，
+5. `SubtitlePipeline` 接入：final 段翻译后写入 `translatedText` 再产出
+   （超前识别模式下译文领先播放光标就绪）；partial 原样透出（实时路径逐词不翻译）；
+   翻译禁用 / Provider 未就绪 / 单句失败时原样透出原文；翻译期间状态进入 `.translating`，
+   完成后恢复原状态；设置变更（Provider / 云端配置 / 本地模型 / 润色开关）后重建引擎缓存。
+6. 超前识别模式下翻译紧随识别完成（领先播放光标）：用户听到该句前译文已就绪，
    翻译延迟被 2–10s 超前窗口吸收（翻译耗时应 < Δ），不叠加到字幕显示延迟上。
-6. **仅 Fast NMT 也可独立支撑超前识别**：本地轻量翻译耗远小于 Δ 秒窗口，
+7. **仅 Fast NMT 也可独立支撑超前识别**：本地轻量翻译耗远小于 Δ 秒窗口，
    即使未启用本地 / 云端 LLM，翻译也随整句识别提前完成，字幕按时整句显示；
    LLM Provider 只提供「剧情理解润色」等增强能力，不是超前识别按时出字幕的前提。
-7. 本地 LLM 模型按需下载：不随 App 预置；设置页提供模型选择、下载（Hugging Face 拉取，
+8. 本地 LLM 模型按需下载：不随 App 预置；设置页提供模型选择、下载（Hugging Face 拉取，
    进度 / 失败重试 / 取消）、已下载模型管理与删除；下载完成后才能启用该 Provider。
-8. Cloud LLM 配置提供「测试连接」按钮：向配置的服务发起一次最小请求，
+9. Cloud LLM 配置提供「测试连接」按钮：向配置的服务发起一次最小请求，
    验证 baseUrl / apiKey / modelName 可用；测试成功才允许保存启用，失败需给出可读错误提示。
 
 ### 8.4 远程文件与浏览器（Phase 2）

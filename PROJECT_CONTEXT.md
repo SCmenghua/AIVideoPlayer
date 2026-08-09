@@ -13,9 +13,9 @@
 
 ## 当前Phase
 
-**Phase 7**（TranslationEngine：Fast NMT / 本地 LLM / 云端 API 三类可替换 Provider；
-识别后立即提前翻译，延迟被超前窗口吸收）。
-上一阶段：**Phase 6 —— SubtitleOverlay 双语整句字幕叠加（按播放光标对齐一次性出现、拖动、样式）**（已完成）。
+**Phase 8-10**（规划中）：Liquid Glass 深化（变形过渡）、性能、测试与错误处理。
+上一阶段：**Phase 7 —— TranslationEngine（Fast NMT / 本地 LLM / 云端 API 三类可替换 Provider；
+识别后立即提前翻译，延迟被超前窗口吸收）**（已完成）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
 
@@ -72,6 +72,11 @@
   （按播放光标对齐一次性出现、DragGesture 拖动调整位置、字号样式）；
   `SubtitleDisplaySettings`（字号 + 归一化位置，UserDefaults 持久化，AppEnvironment 共享）；
   播放器普通 / 全屏接入、设置页「字幕显示」卡片；单元测试（时间线 / Overlay VM / 显示设置）。
+- **Phase 7**：TranslationEngine 可替换翻译架构——Fast NMT（Apple 原生翻译，完全本地）/
+  本地 LLM（MLX Swift + Gemma 4 E2B 4-bit，按需下载 + 进度 / 取消 / 重试 / 删除）/ 云端 API
+  （OpenAI 兼容，测试连接 + 隐私提示，API Key 存 Keychain）；剧情理解润色（上下文压缩）；
+  final 段提前翻译写入 `SubtitleSegment.translatedText`，翻译期间 `.translating` 状态；
+  设置页「翻译服务」卡片；单元测试。
 - **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
 
 ## 禁止事项
@@ -101,6 +106,6 @@
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
 | AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；超前缓冲识别 2–10s） |
-| 翻译 | 可替换 TranslationEngine（Phase 7 规划：Fast NMT / 本地 LLM / 云端 API）；本地 LLM 按需从 Hugging Face 下载，云端 API 带「测试连接」 |
+| 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain） |
 | 工程 | XcodeGen（project.yml 生成工程） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |

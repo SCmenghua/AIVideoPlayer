@@ -69,7 +69,7 @@ struct ProtocolConformanceTests {
     @Test func translationEngineIsReplaceable() async throws {
         let engine = MockTranslationEngine()
 
-        let result = try await engine.translate("Hello", from: "en", to: "zh")
+        let result = try await engine.translate("Hello", from: "en", to: "zh", context: nil)
 
         #expect(result == "translated:Hello")
     }
@@ -178,10 +178,17 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
 
 @MainActor
 private final class MockTranslationEngine: TranslationEngine {
+    var providerID: TranslationProviderID { .fastNMT }
+    var displayName: String { "Mock" }
+    var isFullyLocal: Bool { true }
+    var supportsContextPolish: Bool { false }
+    var isReady: Bool { true }
+
     func translate(
         _ text: String,
         from sourceLanguage: String?,
-        to targetLanguage: String
+        to targetLanguage: String,
+        context: TranslationContext?
     ) async throws -> String {
         "translated:\(text)"
     }
