@@ -50,6 +50,12 @@
   `transcribe(samples:sampleRate:windowStart:windowDuration:emitPartial:)`
 - `SubtitleStatusCard` 文案更新为「本地内置」；CI 增加 Whisper 模型缓存（避免每次重新下载）
 
+### Fixed
+
+- 模型内置脚本不再调用 HuggingFace API 列表接口（CI 环境返回 401），改为提交固化文件清单
+  （`scripts/whisperkit-tiny.manifest`）逐个直链下载；修正 tokenizer 仓库名推导
+  （`openai/tiny` → `openai/whisper-tiny`）
+
 ## [0.2.0] - 2026-08-09
 
 ### Added（Phase 2 浏览器 + 远程文件）

@@ -47,7 +47,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: AIVideoPlayer/Resources/Models
-          key: whisper-model-${{ hashFiles('scripts/fetch-whisper-model.sh') }}
+          key: whisper-model-${{ hashFiles('scripts/fetch-whisper-model.sh', 'scripts/whisperkit-tiny.manifest') }}
 
       - name: Build (iOS Simulator, no signing)
         run: |
