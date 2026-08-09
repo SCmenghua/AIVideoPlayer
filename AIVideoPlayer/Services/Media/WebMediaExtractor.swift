@@ -87,7 +87,7 @@ public struct WebMediaExtractor: MediaExtractor {
             let posterTitle = attributes["poster"].flatMap { Self.title(from: $0, relativeTo: baseURL) }
             var candidates: [(value: String, title: String?)] = []
 
-            for key in ["src", "data-src"] {
+            for key in mediaSourceAttributeKeys {
                 if let value = attributes[key] {
                     candidates.append((value, posterTitle))
                 }
@@ -98,7 +98,7 @@ public struct WebMediaExtractor: MediaExtractor {
                 guard !isDRMMarked(tag: sourceTag, attributes: sourceAttributes) else { continue }
                 let sourceTitle = sourceAttributes["poster"]
                     .flatMap { Self.title(from: $0, relativeTo: baseURL) } ?? posterTitle
-                for key in ["src", "data-src"] {
+                for key in mediaSourceAttributeKeys {
                     if let value = sourceAttributes[key] {
                         candidates.append((value, sourceTitle))
                     }
@@ -258,6 +258,8 @@ public struct WebMediaExtractor: MediaExtractor {
 
     private static let doubleQuotedAttributePattern = #"([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*"([^"]*)""#
     private static let singleQuotedAttributePattern = #"([a-zA-Z][a-zA-Z0-9-]*)\s*=\s*'([^']*)'"#
+
+    private static let mediaSourceAttributeKeys = ["src", "data-src"]
 
     private static let htmlEntities: [(String, String)] = [
         ("&amp;", "&"),
