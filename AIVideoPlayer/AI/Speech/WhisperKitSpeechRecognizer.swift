@@ -180,13 +180,13 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         return url
     }
 
-    private static func cleanedText(_ raw: String) -> String {
+    nonisolated private static func cleanedText(_ raw: String) -> String {
         raw.replacingOccurrences(of: #"<\|[^>]*\|>"#, with: " ", options: .regularExpression)
             .split(whereSeparator: \.isWhitespace)
             .joined(separator: " ")
     }
 
-    private static func confidence(from avgLogprob: Float?) -> Double {
+    nonisolated private static func confidence(from avgLogprob: Float?) -> Double {
         guard let avgLogprob else { return 0 }
         return min(max(1.0 + Double(avgLogprob), 0.0), 1.0)
     }

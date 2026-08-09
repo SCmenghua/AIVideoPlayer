@@ -43,6 +43,10 @@ struct SettingsView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private func toggleSubtitlePipeline() {
+        Task { await environment.subtitlePipeline.toggle() }
+    }
+
     // MARK: - AI 字幕（Phase 5）
 
     private var aiSubtitleCard: some View {
@@ -67,7 +71,7 @@ struct SettingsView: View {
                         tint: .blue
                     ) {
                         withAnimation(.snappy) {
-                            Task<Void, Never> { await environment.subtitlePipeline.toggle() }
+                            toggleSubtitlePipeline()
                         }
                     }
                 }
