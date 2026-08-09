@@ -200,7 +200,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             modelLoaded = true
             startForwarding(recognizer: recognizer)
             setStatus(state: .listening)
-            if let engine {
+            if engine != nil {
                 await preparePlayback(from: playbackTime)
             }
         } catch {

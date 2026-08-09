@@ -24,6 +24,11 @@
 - `AVPlayerPlaybackEngine.deinit` 在 Swift 6 严格并发下无法访问非 Sendable
   观察者属性，导致 CI 编译失败：观察者属性标记 `nonisolated(unsafe)`
   （仅 MainActor 与 deinit 访问，deinit 时对象不再被并发访问）
+- `decidePolicyFor` 的 `decisionHandler` 闭包补 `@MainActor` 注解
+  （iOS 26 SDK 协议要求），否则 WKWebView 不会调用该方法，直链视频拦截失效
+- 新增的 `staleSegmentsBeforePlaybackTimeAreDropped` 测试误用了另一测试文件
+  的 Mock 方法：为 `SubtitlePipelineTests` 的 `MockSpeechRecognizer` 补 `emit`
+- `SubtitlePipeline.activate()` 未使用的 `engine` 绑定改为布尔判断（清警告）
 
 ### Fixed（Phase 7.5 成品 Debug，2026-08-09）
 

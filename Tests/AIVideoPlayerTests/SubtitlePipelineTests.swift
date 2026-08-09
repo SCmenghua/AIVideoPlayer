@@ -283,6 +283,10 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         discardCount += 1
     }
 
+    func emit(_ segment: SubtitleSegment) {
+        continuation.yield(segment)
+    }
+
     func transcribe(
         samples: [Float],
         sampleRate: Double,
