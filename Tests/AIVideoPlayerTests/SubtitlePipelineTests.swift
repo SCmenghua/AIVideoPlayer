@@ -25,7 +25,7 @@ struct SubtitlePipelineTests {
         await pipeline.preparePlayback(from: 0)
         emitSeconds(source, seconds: 5, start: 0)
 
-        await waitUntil { pipeline.status.state == .ready }
+        await waitUntil { pipeline.status.state == .ready && !transcript.segments.isEmpty }
         #expect(recognizer.transcriptionCalls.count >= 1)
         // 实时路径：始终透出 partial。
         #expect(recognizer.lastCall?.emitPartial == true)
@@ -160,7 +160,11 @@ struct SubtitlePipelineTests {
         await pipeline.preparePlayback(from: 0)
         emitSeconds(source, seconds: 20, start: 0)
 
-        await waitUntil { recognizer.transcriptionCalls.count >= 2 }
+        // 等待识别恢复且字幕真正写入：transcript 由异步转发任务写入，
+        // 只等转写调用数会在断言时出现竞态（偶发 CI 失败）。
+        await waitUntil {
+            recognizer.transcriptionCalls.count >= 2 && !transcript.segments.isEmpty
+        }
         // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
         #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
         #expect(recognizer.transcriptionCalls.count >= 2)
