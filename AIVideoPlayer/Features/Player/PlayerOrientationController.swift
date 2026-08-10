@@ -32,32 +32,32 @@ public enum PlayerOrientationController {
     /// 进入全屏：横屏视频默认请求横屏，竖屏视频保持竖屏。
     public static func enterFullscreen(prefersLandscape: Bool) {
         isFullscreenLandscape = prefersLandscape
-        applyOrientation(prefersLandscape ? .landscape : .portrait)
+        applyOrientation(landscape: prefersLandscape)
     }
 
     /// 退出全屏：恢复竖屏。
     public static func exitFullscreen() {
         isFullscreenLandscape = false
-        applyOrientation(.portrait)
+        applyOrientation(landscape: false)
     }
 
     /// 手动请求横屏全屏（自动旋转失败时的兜底选项）。
     public static func requestLandscape() {
         isFullscreenLandscape = true
-        applyOrientation(.landscape)
+        applyOrientation(landscape: true)
     }
 
     /// 手动请求恢复竖屏。
     public static func requestPortrait() {
         isFullscreenLandscape = false
-        applyOrientation(.portrait)
+        applyOrientation(landscape: false)
     }
 
     /// 应用目标方向：先刷新 supportedInterfaceOrientations，再请求几何更新。
     /// 横屏请求同时允许左右两个方向（避免单一方向掩码被系统拒绝）；
     /// 失败时延迟重试一次，覆盖首次请求时方向掩码尚未就绪的竞态。
-    private static func applyOrientation(_ orientation: UIInterfaceOrientation) {
-        let mask: UIInterfaceOrientationMask = orientation == .portrait ? .portrait : .landscape
+    private static func applyOrientation(landscape: Bool) {
+        let mask: UIInterfaceOrientationMask = landscape ? .landscape : .portrait
 
         // 关键步骤：通知系统重新读取 App 的方向掩码，否则首次请求会按旧掩码校验失败。
         UIApplication.shared.connectedScenes

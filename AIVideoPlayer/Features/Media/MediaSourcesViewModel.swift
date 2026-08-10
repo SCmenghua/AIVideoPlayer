@@ -108,8 +108,9 @@ final class MediaSourcesViewModel {
         for url in urls {
             guard url.startAccessingSecurityScopedResource() else { continue }
             defer { url.stopAccessingSecurityScopedResource() }
+            // iOS 不支持 .withSecurityScope（仅 macOS）；普通书签即可持久化文件地址。
             guard let bookmark = try? url.bookmarkData(
-                options: .withSecurityScope,
+                options: [],
                 includingResourceValuesForKeys: nil,
                 relativeTo: nil
             ) else { continue }
@@ -130,7 +131,7 @@ final class MediaSourcesViewModel {
         var isStale = false
         guard let url = try? URL(
             resolvingBookmarkData: file.bookmarkData,
-            options: .withSecurityScope,
+            options: [],
             relativeTo: nil,
             bookmarkDataIsStale: &isStale
         ) else { return nil }

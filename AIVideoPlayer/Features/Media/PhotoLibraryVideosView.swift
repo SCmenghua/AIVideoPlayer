@@ -120,8 +120,8 @@ struct PhotoLibraryVideosView: View {
         asset: PHAsset,
         completion: @escaping (URL?) -> Void
     ) {
-        if let urlAsset = avAsset as? AVURLAsset, let url = urlAsset.url {
-            completion(url)
+        if let urlAsset = avAsset as? AVURLAsset {
+            completion(urlAsset.url)
             return
         }
         // 无法直接取得 URL（如 iCloud 资源）时导出到临时目录。
@@ -134,7 +134,7 @@ struct PhotoLibraryVideosView: View {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(ext.isEmpty ? "mov" : ext)
-        PHAssetResourceManager.default().writeData(for: resource, toFileURL: url, options: nil) { error in
+        PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: nil) { error in
             completion(error == nil ? url : nil)
         }
     }
