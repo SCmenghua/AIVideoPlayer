@@ -129,11 +129,11 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
 
         let options = DecodingOptions(
             task: .transcribe,
+            language: language,
             temperature: 0.0,
             // 标准解码路径：检测（或传入）语言后预填 SOT + 语言 + 任务 + 时间戳 token。
             // 此前关闭 prefill 会让多语言模型缺少语言提示，中文解码不稳定。
             usePrefillPrompt: true,
-            language: language,
             detectLanguage: true,
             skipSpecialTokens: true,
             wordTimestamps: false,
