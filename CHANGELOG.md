@@ -6,6 +6,14 @@
 
 ## [Unreleased]
 
+### Added（Phase 8.1 翻译设置增强）
+
+- 翻译设置新增「原语言」选择（自动检测 / 简体中文 / English）：
+  手动指定源语言时优先于识别语言；本地 / 云端 LLM 的 Prompt 会带上源语言提示
+- 确认 Gemma 4 E2B 官方下载仓库 `mlx-community/gemma-4-e2b-it-4bit`
+  （Hugging Face，主文件约 3.55 GB，文件清单与下载器匹配）；
+  本地大模型按需下载、不随 App 内置
+
 ### 待规划
 
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
