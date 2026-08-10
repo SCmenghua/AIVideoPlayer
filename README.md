@@ -116,16 +116,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.8）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.9）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.8）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.9）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.7.x` → 下一次 `0.7.(x+1)`），文档中的 Phase 编号同步递增
-（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.8，下一次打包应为 0.7.9。
+（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.9，下一次打包应为 0.7.10。
 
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 
@@ -151,8 +151,10 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   状态机禁止 playing 被 ready 回退、HLS/时长未就绪时进度条兜底），CI 通过
 - ✅ Phase 7.8 完成：播放器状态与进度兜底（引擎 play/pause/seek 直接维护权威状态、
   引擎节拍器周期推送进度、VM 双通道同步（流 + 轮询）、时长未知时进度条禁用），CI 通过
+- ✅ Phase 7.9 完成：播放器细节优化（设置二级菜单、删除音量、视频横竖屏检测与
+  全屏默认方向、横/竖屏单按钮切换）+ 浏览器主页标签页、返回主页与左缘右滑返回，CI 通过
 - 🔄 Phase 7.x 系列进行中：Phase 8 之前用 7.x 的数个小版本修好播放器功能
-  （当前基线 0.7.8 / Phase 7.8，下一次打包 0.7.9 / Phase 7.9）
+  （当前基线 0.7.9 / Phase 7.9，下一次打包 0.7.10 / Phase 7.10）
 
 ## 后续开发路线
 
@@ -169,7 +171,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 7.6 | 播放器换片复位（先初始化再加载、旧加载取消 + 世代守卫）+ 手动初始化按钮 | ✅ 完成 |
 | 7.7 | 播放器状态与进度修复（播放按钮状态错乱、进度条兜底、版本 0.7.7） | ✅ 完成 |
 | 7.8 | 播放器状态与进度兜底（权威状态 + 节拍器 + VM 双通道 + 时长未知禁拖，版本 0.7.8） | ✅ 完成 |
-| 7.9+（Phase 8 之前） | 继续用 7.x 的数个小版本修好播放器功能（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | 🔄 进行中 |
+| 7.9 | 播放器细节优化（设置二级菜单、删除音量、横竖屏检测与默认方向、横/竖屏单按钮）+ 主页标签页（版本 0.7.9） | ✅ 完成 |
+| 7.10+（Phase 8 之前） | 继续用 7.x 的数个小版本修好播放器功能（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | 🔄 进行中 |
 | 8 | 修好语音识别功能与翻译功能（当前为半成品状态） | ⬜ 未开始 |
 | 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 

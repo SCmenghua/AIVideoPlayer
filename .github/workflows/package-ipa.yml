@@ -6,7 +6,7 @@ on:
       version:
         description: "IPA 版本号（用于文件名、工件名与 Release tag）"
         required: false
-        default: "0.7.8"
+        default: "0.7.9"
 
 permissions:
   contents: write
@@ -97,8 +97,8 @@ jobs:
 
           - 供自签工具使用：Sideloadly / AltStore / 爱思助手 等，导入 IPA 后用自己的 Apple ID 签名安装。
           - 需要 iOS 26 及以上设备。
-          - Phase 7.8：播放器状态与进度兜底——播放/暂停按钮即时切换、时间与进度条
-            双通道更新（引擎节拍器 + VM 轮询）、时长未知时进度条禁用拖动。
+          - Phase 7.9：播放器细节优化（设置二级菜单、视频横竖屏检测与全屏默认方向、
+            横/竖屏单按钮切换）+ 浏览器主页标签页与左缘右滑返回。
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$IPA_NAME" --clobber

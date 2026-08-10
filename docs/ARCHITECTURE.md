@@ -57,7 +57,7 @@ flowchart TB
 | `App/` | App 入口、Tab 路由、全局状态（AppEnvironment） | 1 |
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）、媒体提取入口与远程文件浏览（WebDAV 目录导航） | 2 → 4 |
-| `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 3 → 6/7.6-7.7 |
+| `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 3 → 6/7.6-7.9 |
 | `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（SubtitleStatusCard / SubtitleOverlay + ViewModel） | ✅ 5/6 |
 | `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 领先窗口）+ 后续配置占位） | 1（占位）→ 5/7 |
 | `Core/Protocols/` | 12 个核心协议（见第 4 节） | 1 → 7 |
@@ -388,6 +388,19 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 - 手动初始化：控制栏「重新初始化播放器」按钮与失败态「重试」按钮
   调用 `PlayerViewModel.reinitialize()` 重新加载当前媒体。
 
+### 8.9 播放器状态/进度兜底与细节优化（Phase 7.8/7.9）
+
+- 权威状态：引擎 `play()` / `pause()` 直接维护状态（不再只依赖 `timeControlStatus`
+  KVO 回调），VM 播放控制/seek/加载后从引擎同步 `playbackState`；
+  引擎 0.5s 兜底节拍器周期读取时间/时长/状态并推送，VM 另有轮询双通道，
+  流未送达时 UI 仍能更新（播放按钮、时间、进度条）。
+- 时长未知（HLS 未填充 seek 范围）时进度条禁用拖动，避免 0...1 退化范围
+  把任意拖动变成从头重播；`seek` 目标收敛到已知时长。
+- 视频横竖屏：加载时异步读取视频轨自然尺寸（宽 > 高为横屏，未知按竖屏），
+  横屏视频进入全屏默认横屏；全屏内横/竖屏合并为单个切换按钮
+  （由 `PlayerOrientationController.isLandscape` 判定当前方向）。
+- 控制栏「设置」二级菜单收纳重新播放 / 画面比例 / 重新初始化；音量已移除。
+
 ## 9. 设计原则与不可违反规则
 
 ### 设计原则
@@ -443,9 +456,13 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
    generation 守卫）+ 手动初始化按钮。
 10. **Phase 7.7（已完成）**：播放器状态与进度修复（换片先暂停、状态机
     禁止 playing 被 ready 回退、时长兜底、CMTime 编译修复）。
-11. **Phase 8 之前（Phase 7.x 系列，进行中）**：用 7.x 的数个小版本修好播放器功能。
-12. **Phase 8（规划中）**：修好语音识别功能与翻译功能（二者当前仍为半成品状态）。
-13. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+11. **Phase 7.8（已完成）**：播放器状态与进度兜底（引擎权威状态 + 节拍器 +
+    VM 双通道 + 时长未知禁拖）。
+12. **Phase 7.9（已完成）**：播放器细节优化（设置二级菜单、删除音量、横竖屏
+    检测与默认方向、横/竖屏单按钮）+ 浏览器主页标签页、返回主页与左缘右滑返回。
+13. **Phase 8 之前（Phase 7.x 系列，进行中）**：用 7.x 的数个小版本修好播放器功能。
+14. **Phase 8（规划中）**：修好语音识别功能与翻译功能（二者当前仍为半成品状态）。
+15. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。
