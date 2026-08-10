@@ -6,7 +6,15 @@
 
 ## [Unreleased]
 
-### Added（Phase 7.10 进行中）
+### 待规划
+
+- Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
+
+## [0.7.10] - 2026-08-10
+
+### Added（Phase 7.10 横屏识别/方向切换修复 + 媒体来源）
+
+- 版本号提升至 0.7.10（Phase 7.10 横屏识别/方向切换修复 + 媒体来源）
 
 - 修复横屏视频识别：分辨率检测改用 `preferredTransform` 修正旋转元数据，
   全屏入口检测未完成时重新检测并等待结论
@@ -19,9 +27,13 @@
 - 文件来源：从文件 App 选取视频（安全作用域书签持久化，跨启动可用），点击播放
 - 新增 `MediaSource` / `PickedVideoFile` 模型与存储，及对应单元测试
 
-### 待规划
+### Fixed（Phase 7.10）
 
-- Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
+- 全屏内横/竖屏切换失效：请求旋转前先刷新 supportedInterfaceOrientations，
+  横屏同时请求左右两个方向，失败延迟重试一次；按钮状态按真实界面方向判断
+- iOS 编译修复：`.withSecurityScope` 仅 macOS 可用改普通书签、
+  `writeData(toFile:)` 参数标签、`UIInterfaceOrientation` 无 `.landscape`
+  改 Bool 参数
 
 ## [0.7.9] - 2026-08-10
 
