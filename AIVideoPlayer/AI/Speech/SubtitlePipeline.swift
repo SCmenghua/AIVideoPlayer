@@ -208,6 +208,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         generation += 1
         currentLanguage = nil
         modelLoaded = false
+        // 新会话重置统计，让设置页数字反映当前播放会话。
+        transcribedWindowCount = 0
+        emittedSegmentCount = 0
         setStatus(state: .loading)
 
         let recognizer = recognizerFactory()
@@ -300,13 +303,17 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 guard let self else { return }
                 // seek / 暂停恢复后到达的过期结果（时间早于当前播放位置）直接丢弃，
                 // 避免旧字幕写入时间线（配合识别器内的 generation 门控双保险）。
-                if segment.startTime + Self.staleSegmentTolerance < self.playbackTime {
-                    continue
-                }
                 if segment.isPartial {
-                    // 原始实时路径：逐词 partial 原样透出，不做翻译。
+                    // 原始实时路径：partial 到达时播放光标必然已越过窗口起点，
+                    // 不能用「早于播放位置」丢弃（否则实时字幕永远不显示）；
+                    // seek / 暂停后的过期结果由识别器 generation 门控负责。
                     self.forwardSegment(segment)
                 } else {
+                    // final 完全过期（整句已播完）才丢弃，避免旧字幕闪现；
+                    // 领先模式下 final 在播放光标到达前就绪，不受影响。
+                    if segment.endTime + Self.staleSegmentTolerance < self.playbackTime {
+                        continue
+                    }
                     // Phase 7：final 段翻译后透出（超前窗口内译文提前就绪）。
                     await self.translateAndYield(segment)
                 }

@@ -110,21 +110,25 @@ struct PlayerControlsView: View {
     /// 字幕语言选择（原语言 / 目标语言）：字幕开关打开后出现。
     private var languageMenu: some View {
         Menu {
-            Picker("原语言", selection: Binding(
-                get: { environment.translationSettings.sourceLanguageCode },
-                set: { environment.translationSettings.sourceLanguageCode = $0 }
-            )) {
-                ForEach(environment.translationSettings.visibleSourceLanguages, id: \.code) { language in
-                    Text(language.displayName).tag(language.code)
+            Section("原语言") {
+                Picker("原语言", selection: Binding(
+                    get: { environment.translationSettings.sourceLanguageCode },
+                    set: { environment.translationSettings.sourceLanguageCode = $0 }
+                )) {
+                    ForEach(environment.translationSettings.visibleSourceLanguages, id: \.code) { language in
+                        Text(language.displayName).tag(language.code)
+                    }
                 }
             }
 
-            Picker("目标语言", selection: Binding(
-                get: { environment.translationSettings.targetLanguageCode },
-                set: { environment.translationSettings.targetLanguageCode = $0 }
-            )) {
-                ForEach(environment.translationSettings.visibleTargetLanguages, id: \.code) { language in
-                    Text(language.displayName).tag(language.code)
+            Section("目标语言") {
+                Picker("目标语言", selection: Binding(
+                    get: { environment.translationSettings.targetLanguageCode },
+                    set: { environment.translationSettings.targetLanguageCode = $0 }
+                )) {
+                    ForEach(environment.translationSettings.visibleTargetLanguages, id: \.code) { language in
+                        Text(language.displayName).tag(language.code)
+                    }
                 }
             }
         } label: {

@@ -12,7 +12,7 @@ struct TranslationSettingsCard: View {
                 card(viewModel)
             }
         }
-        .onAppear {
+        .task {
             if viewModel == nil {
                 viewModel = TranslationSettingsViewModel(
                     settings: environment.translationSettings,
@@ -23,7 +23,7 @@ struct TranslationSettingsCard: View {
     }
 
     private func card(_ vm: TranslationSettingsViewModel) -> some View {
-        GlassCard(tint: .orange) {
+        GlassCard(tint: .orange, isInteractive: true) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 header
                 providerPicker(vm)
