@@ -6,14 +6,40 @@
 
 ## [Unreleased]
 
+### 待规划
+
+- Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
+
+## [0.8.9] - 2026-08-11
+
+### Fixed（Phase 8.9 播放器 bug 修复）
+
+- **大视频 UI 冻结修复**：`AssetReaderAudioPipeline.consume()` 解码循环
+  从主线程 `Task` 改为后台线程 `Task.detached(priority: .userInitiated)`，
+  避免大视频（1h 以上）解码时阻塞主线程导致 UI 冻结（视频声音继续但界面无响应）
+- **网络资源播放停摆修复**：`SubtitlePipeline.makeSource` 按 URL 类型判断
+  音频来源选路——本地文件（`url.isFileURL` 且非 HLS）优先用 AssetReader 预读，
+  网络资源 / HLS 直接用 PlayerAudioPipeline 实时 Tap，避免 AVAssetReader 
+  不支持 HLS 导致卡住（表现为播放器加载封面后点击开始 2 秒恢复暂停、
+  拖动进度条可显示画面但暂停键失效）
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.9
+
+## [0.8.8] - 2026-08-11（❌ 失败弃用）
+
+**Phase 8.8 标记失败**：实测修好了大视频播放 bug，但网页视频仍无法播放，
+且字幕功能回归不可用（字幕卡片显示错误或停在「正在聆听」无法执行字幕显示
+与语音识别，字幕记录与翻译记录均为空）。代码已回退至 0.8.7，后续 Phase 
+忽略本次代码。
+
 ### 变更（Phase 8.8 基线回退，2026-08-11）
 
 - 代码基线回退至 Phase 8.7 / 0.8.7（commit `b6ae7aa`）：
   移除 0.8.8 的播放器 / 音频来源选路改动，回到可正常识别字幕的版本
 - 保留说明文档（README / CHANGELOG / PROJECT_CONTEXT / ARCHITECTURE）
-  并记录本次回退；Phase 8.8 标记失败弃用——实测修好了大视频播放 bug，
-  但网页视频仍无法播放，且字幕功能回归不可用（字幕卡片显示错误或停在
-  「正在聆听」无法执行字幕显示与语音识别，字幕记录与翻译记录均为空）
+  并记录本次回退
 - 后续修复将在 0.8.7 基线上进行（下一次 Phase 编号为 8.9）
 
 ### 变更（工作流约定，2026-08-10）
@@ -23,11 +49,6 @@
   通过 Bark 通知用户帮忙下载日志
 - 记录 Bark 推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`
 - 术语约定：「设置页」= 底部 Setting 选项卡，「播放器页」= 底部 Player 选项卡
-
-### 待规划
-
-- Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
-- Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
 ## [0.8.7] - 2026-08-10
 

@@ -67,6 +67,11 @@ Fast NMT，无需隐私确认），翻译成功条数与失败原因可观测（
 > **重要标记（2026-08-11）**：Phase 8.8 失败（网页视频仍无法播放、字幕功能
 > 回归不可用），实现已回退弃用；后续所有 Phase 将忽略 / 不再复用本次代码，
 > 未来将从 Phase 8.7 / 0.8.7 代码开始重构，下一次 Phase 编号为 **8.9**。
+**Phase 8.9**（进行中，2026-08-11 打包 0.8.9）：修复两个播放器 bug——
+大视频 UI 冻结（`AssetReaderAudioPipeline` 解码循环用 `Task.detached` 移到后台线程，
+避免阻塞主线程）、网络资源播放停摆（`makeSource` 按 URL 类型判断：本地文件优先
+用 AssetReader 预读、网络资源 / HLS 直接用 PlayerAudioPipeline 实时 Tap，
+避免 AVAssetReader 不支持 HLS 导致卡住）；`MARKETING_VERSION` 提升至 0.8.9。
 **Phase 9 & Phase 9+**（规划中）：完成 Liquid Glass 深化（变形过渡）、性能、
 测试与错误处理。
 上一阶段：**Phase 7.13 —— 移除文件来源导入**（已完成；Phase 7.5–7.13
@@ -115,10 +120,15 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
   （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-当前代码基线：0.8.7（Phase 8.7，2026-08-10；0.8.2 – 0.8.4 与 0.8.8 全部失败弃用）。
+当前代码基线：0.8.9（Phase 8.9，2026-08-11；0.8.2 – 0.8.4 与 0.8.8 全部失败弃用）。
 
 ## 已完成
 
+- **Phase 8.9（2026-08-11 打包 0.8.9）**：修复两个播放器 bug——大视频 UI 冻结
+  （`AssetReaderAudioPipeline.consume()` 解码循环用 `Task.detached` 移到后台线程，
+  避免阻塞主线程 UI）；网络资源播放停摆（`SubtitlePipeline.makeSource` 按 URL 类型
+  判断：本地文件优先用 AssetReader 预读、网络资源 / HLS 直接用 PlayerAudioPipeline
+  实时 Tap，避免 AVAssetReader 不支持 HLS 导致卡住）；`MARKETING_VERSION` 提升至 0.8.9。
 - **Phase 8.8 终止与回退**（2026-08-11）：实测网页视频仍无法播放，且字幕功能
   回归不可用（卡片显示错误 / 停在「正在聆听」无法识别、字幕记录与翻译记录为空），
   结束 Phase 8.8；代码基线回退至 Phase 8.7 / 0.8.7（commit `b6ae7aa`），

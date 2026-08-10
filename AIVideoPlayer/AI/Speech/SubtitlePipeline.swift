@@ -213,16 +213,32 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     // MARK: - 管线组装
 
     private func makeSource(engine: any PlaybackEngine, at time: TimeInterval) async -> (any AudioPipeline)? {
-        if let item = engine.currentItem {
+        guard let item = engine.currentItem else {
+            setStatus(state: .error)
+            return nil
+        }
+
+        // 本地文件 / 非 HLS 远程文件：优先尝试 AssetReader（预读，识别速度快）。
+        // 网络流媒体（HLS 等）：直接用 PlayerAudioPipeline（实时 Tap），
+        // 避免 AVAssetReader 不支持 HLS 导致卡住或失败。
+        let isLocalFile = item.url.isFileURL
+        let isHLS = item.url.pathExtension.lowercased() == "m3u8"
+            || item.url.absoluteString.contains(".m3u8")
+
+        if isLocalFile && !isHLS {
+            // 本地文件：优先用 AssetReader 预读。
             let reader = readerSourceFactory(item)
             if (try? await reader.start(at: time)) != nil {
                 return reader
             }
         }
+
+        // 网络资源 / HLS / AssetReader 失败回退：用实时 Tap。
         let tapSource = playerSourceFactory(engine)
         if (try? await tapSource.start(at: time)) != nil {
             return tapSource
         }
+
         setStatus(state: .error)
         return nil
     }

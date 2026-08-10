@@ -77,7 +77,8 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
         guard !isRunning else { return }
         try await prepareReader(at: playbackTime)
         isRunning = true
-        consumeTask = Task { [weak self] in
+        // 解码循环移到后台线程，避免大视频阻塞主线程 UI。
+        consumeTask = Task.detached(priority: .userInitiated) { [weak self] in
             await self?.consume()
         }
     }
