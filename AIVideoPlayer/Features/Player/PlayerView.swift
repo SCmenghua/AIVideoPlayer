@@ -28,24 +28,11 @@ struct PlayerView: View {
         .task {
             viewModel.attachSubtitlePipeline(environment.subtitlePipeline)
             viewModel.startObserving()
-            let overlay: SubtitleOverlayViewModel
-            if let existing = subtitleOverlay {
-                overlay = existing
-            } else {
-                let newOverlay = SubtitleOverlayViewModel(
-                    segments: environment.subtitlePipeline.segments,
-                    displaySettings: environment.subtitleDisplaySettings
-                )
-                subtitleOverlay = newOverlay
-                overlay = newOverlay
-            }
-
-            // 字幕流消费与播放加载并行；宿主视图消失时二者都被取消。
-            async let consumeSubtitles: Void = overlay.consume()
+            // Overlay 直接读取共享字幕记录：Tab 反复进出 / 全屏切换不会中断字幕。
+            ensureSubtitleOverlay()
             if let pending = environment.consumePendingPlayback() {
                 viewModel.load(pending)
             }
-            await consumeSubtitles
         }
         .onChange(of: environment.pendingPlayback) { _, _ in
             if let pending = environment.consumePendingPlayback() {
@@ -54,14 +41,23 @@ struct PlayerView: View {
         }
         .onChange(of: viewModel.currentItem) { _, _ in
             // 换片：清空旧视频的时间线与当前字幕，避免残留。
-            guard let subtitleOverlay else { return }
-            Task { await subtitleOverlay.reset() }
+            subtitleOverlay?.reset()
         }
         .onChange(of: environment.subtitlePipeline.isActive) { _, isActive in
             // 管线关闭：清空当前字幕，避免显示过期内容。
-            guard !isActive, let subtitleOverlay else { return }
-            Task { await subtitleOverlay.reset() }
+            if !isActive {
+                subtitleOverlay?.reset()
+            }
         }
+    }
+
+    /// 惰性创建 Overlay ViewModel（@State 跨全屏 / Tab 切换保留同一实例）。
+    private func ensureSubtitleOverlay() {
+        guard subtitleOverlay == nil else { return }
+        subtitleOverlay = SubtitleOverlayViewModel(
+            transcript: environment.subtitleTranscript,
+            displaySettings: environment.subtitleDisplaySettings
+        )
     }
 
     // MARK: - 空状态（含调试入口）

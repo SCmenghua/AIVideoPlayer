@@ -19,7 +19,7 @@ public struct PCMChunk: Sendable {
     }
 }
 
-/// 领先识别用的 PCM 滚动缓冲（绝对时间轴，只进不退）。
+/// 识别用的 PCM 滚动缓冲（绝对时间轴，只进不退）。
 /// 线程安全：音频采集可能在后台线程写入，识别循环在 MainActor 读取。
 final class PCMBuffer: @unchecked Sendable {
     private static let maxBufferedDuration: TimeInterval = 120

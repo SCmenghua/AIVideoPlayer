@@ -61,7 +61,7 @@ struct TranslationSettingsCard: View {
     }
 
     private func rebuildPipeline() {
-        Task { await environment.subtitlePipeline.rebuildAfterSettingsChange() }
+        environment.subtitlePipeline.rebuildTranslationEngine()
     }
 
     // MARK: - 头部

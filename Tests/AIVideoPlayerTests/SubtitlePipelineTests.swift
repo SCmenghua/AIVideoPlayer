@@ -5,13 +5,18 @@ import Testing
 @MainActor
 struct SubtitlePipelineTests {
 
-    @Test func toggleActivatesAndRunsLeadAheadRecognition() async throws {
+    @Test func toggleActivatesAndRunsRealtimeRecognition() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
-        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            source: source,
+            recognizer: recognizer,
+            transcript: transcript
+        )
         pipeline.attach(playbackEngine: engine)
 
         await pipeline.toggle()
@@ -22,39 +27,19 @@ struct SubtitlePipelineTests {
 
         await waitUntil { pipeline.status.state == .ready }
         #expect(recognizer.transcriptionCalls.count >= 1)
-        #expect(recognizer.lastCall?.emitPartial == false)
+        // 实时路径：始终透出 partial。
+        #expect(recognizer.lastCall?.emitPartial == true)
         #expect(pipeline.status.isModelLoaded)
         #expect(pipeline.status.language == "en")
-    }
-
-    @Test func disabledLeadAheadUsesRawPartialPath() async throws {
-        let engine = MockPlaybackEngine()
-        try await engine.load(MockRemoteFiles.sampleMediaItem)
-
-        let settings = SubtitleSettings(suiteName: uniqueSuiteName())
-        settings.isLeadAheadEnabled = false
-        let source = MockAudioPipeline(canReadAhead: true)
-        let recognizer = MockSpeechRecognizer()
-        let pipeline = makePipeline(
-            source: source,
-            recognizer: recognizer,
-            settings: settings
-        )
-        pipeline.attach(playbackEngine: engine)
-
-        await pipeline.toggle()
-        await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 5, start: 0)
-
-        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        #expect(recognizer.lastCall?.emitPartial == true)
+        #expect(pipeline.emittedSegmentCount >= 1)
+        #expect(!transcript.segments.isEmpty)
     }
 
     @Test func seekResetsCursorAndDiscardsPendingResults() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         let pipeline = makePipeline(source: source, recognizer: recognizer)
         pipeline.attach(playbackEngine: engine)
@@ -72,32 +57,11 @@ struct SubtitlePipelineTests {
         #expect(recognizer.lastCall?.windowStart == 30)
     }
 
-    @Test func settingsChangeRebuildsCursor() async throws {
-        let engine = MockPlaybackEngine()
-        try await engine.load(MockRemoteFiles.sampleMediaItem)
-
-        let source = MockAudioPipeline(canReadAhead: true)
-        let recognizer = MockSpeechRecognizer()
-        let pipeline = makePipeline(source: source, recognizer: recognizer)
-        pipeline.attach(playbackEngine: engine)
-
-        await pipeline.toggle()
-        await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 2, start: 0)
-
-        await pipeline.rebuildAfterSettingsChange()
-        #expect(recognizer.discardCount >= 1)
-
-        emitSeconds(source, seconds: 5, start: 0)
-        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        #expect(recognizer.lastCall?.emitPartial == false)
-    }
-
     @Test func toggleOffStopsPipeline() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         let pipeline = makePipeline(source: source, recognizer: recognizer)
         pipeline.attach(playbackEngine: engine)
@@ -111,25 +75,23 @@ struct SubtitlePipelineTests {
         #expect(recognizer.state == .off)
     }
 
-    @Test func staleSegmentsBeforePlaybackTimeAreDropped() async throws {
+    @Test func staleFinalBeforePlaybackTimeIsDropped() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
-        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            source: source,
+            recognizer: recognizer,
+            transcript: transcript
+        )
         pipeline.attach(playbackEngine: engine)
 
         await pipeline.toggle()
         await pipeline.preparePlayback(from: 30)
 
-        let collect = Task { () -> SubtitleSegment? in
-            for await segment in pipeline.segments {
-                if Task.isCancelled { return nil }
-                return segment
-            }
-            return nil
-        }
         recognizer.emit(
             SubtitleSegment(
                 startTime: 0,
@@ -140,49 +102,59 @@ struct SubtitlePipelineTests {
             )
         )
         try? await Task.sleep(for: .milliseconds(100))
-        collect.cancel()
-        #expect(await collect.value == nil)
+        #expect(transcript.segments.isEmpty)
     }
 
-    @Test func micSourceAlwaysUsesRawPath() async throws {
+    @Test func partialBehindPlaybackIsStillWritten() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: false)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
-        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            source: source,
+            recognizer: recognizer,
+            transcript: transcript
+        )
         pipeline.attach(playbackEngine: engine)
 
         await pipeline.toggle()
-        await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 5, start: 0)
+        await pipeline.preparePlayback(from: 30)
 
-        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        #expect(recognizer.lastCall?.emitPartial == true)
-        #expect(pipeline.shouldUseLeadAhead == false)
+        // 实时路径 partial 即使窗口起点略早于播放位置也不丢弃：
+        // 避免识别稍慢时「识别已产出但播放器无字幕」。
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 28,
+                endTime: 33,
+                originalText: "partial text",
+                confidence: 0.5,
+                isPartial: true
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(transcript.segments.count == 1)
+        #expect(transcript.segments.first?.isPartial == true)
     }
 
     @Test func recognitionLoopSurvivesEngineNotReadyAndRecovers() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         // 模拟用户打开字幕时模型仍在加载：前两个窗口抛「引擎未就绪」，
         // 之后模型加载完成，识别必须自动恢复而不是永久停摆。
         recognizer.failuresBeforeSuccess = 2
         recognizer.failureError = WhisperRecognizerError.engineNotReady
-        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            source: source,
+            recognizer: recognizer,
+            transcript: transcript
+        )
         pipeline.attach(playbackEngine: engine)
-
-        let collect = Task { () -> [SubtitleSegment] in
-            var segments: [SubtitleSegment] = []
-            for await segment in pipeline.segments {
-                segments.append(segment)
-                if segments.count >= 2 { return segments }
-            }
-            return segments
-        }
 
         await pipeline.toggle()
         await pipeline.preparePlayback(from: 0)
@@ -192,10 +164,7 @@ struct SubtitlePipelineTests {
         // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
         #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
         #expect(recognizer.transcriptionCalls.count >= 2)
-
-        collect.cancel()
-        let segments = await collect.value
-        #expect(!segments.isEmpty)
+        #expect(!transcript.segments.isEmpty)
     }
 
     @Test func activateMidPlaybackUsesEngineCurrentTime() async throws {
@@ -203,7 +172,7 @@ struct SubtitlePipelineTests {
         try await engine.load(MockRemoteFiles.sampleMediaItem)
         await engine.seek(to: 30)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         let pipeline = makePipeline(source: source, recognizer: recognizer)
         pipeline.attach(playbackEngine: engine)
@@ -221,7 +190,7 @@ struct SubtitlePipelineTests {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         recognizer.outcome = RecognitionOutcome(language: "zh", segmentCount: 1)
         let pipeline = makePipeline(source: source, recognizer: recognizer)
@@ -242,7 +211,7 @@ struct SubtitlePipelineTests {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
-        let source = MockAudioPipeline(canReadAhead: true)
+        let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         let pipeline = makePipeline(source: source, recognizer: recognizer)
         pipeline.attach(playbackEngine: engine)
@@ -264,10 +233,10 @@ struct SubtitlePipelineTests {
     private func makePipeline(
         source: MockAudioPipeline,
         recognizer: MockSpeechRecognizer,
-        settings: SubtitleSettings? = nil
+        transcript: SubtitleTranscriptStore = SubtitleTranscriptStore()
     ) -> SubtitlePipeline {
         SubtitlePipeline(
-            settings: settings ?? SubtitleSettings(suiteName: uniqueSuiteName()),
+            transcript: transcript,
             recognizerFactory: { recognizer },
             playerSourceFactory: { _ in source },
             readerSourceFactory: { _ in source }
@@ -296,10 +265,6 @@ struct SubtitlePipelineTests {
             try? await Task.sleep(for: .milliseconds(20))
         }
     }
-
-    private func uniqueSuiteName() -> String {
-        "subtitle-pipeline.\(UUID().uuidString)"
-    }
 }
 
 // MARK: - 测试替身
@@ -307,7 +272,6 @@ struct SubtitlePipelineTests {
 @MainActor
 private final class MockAudioPipeline: AudioPipeline {
     let sourceKind: AudioSourceKind = .player
-    let canReadAhead: Bool
     let chunks: AsyncStream<PCMChunk>
 
     private let continuation: AsyncStream<PCMChunk>.Continuation
@@ -315,8 +279,7 @@ private final class MockAudioPipeline: AudioPipeline {
     private(set) var stopCount = 0
     private(set) var resetCount = 0
 
-    init(canReadAhead: Bool) {
-        self.canReadAhead = canReadAhead
+    init() {
         let pair = AsyncStream<PCMChunk>.makeStream()
         self.chunks = pair.stream
         self.continuation = pair.continuation

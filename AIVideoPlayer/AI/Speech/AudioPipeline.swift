@@ -34,13 +34,11 @@ public enum AudioPipelineError: LocalizedError, Sendable {
 }
 
 /// 音频管线：向识别器提供连续的 PCM 音频块。
-/// 实现：AssetReaderAudioPipeline（可预读，超前识别）、
-/// PlayerAudioPipeline（AVPlayer 实时 Tap，原始路径）、MicrophoneAudioPipeline（麦克风，原始路径）。
+/// 实现：AssetReaderAudioPipeline（AVAssetReader 预读）、
+/// PlayerAudioPipeline（AVPlayer 实时 Tap）、MicrophoneAudioPipeline（麦克风）。
 @MainActor
 public protocol AudioPipeline: AnyObject {
     var sourceKind: AudioSourceKind { get }
-    /// 是否可预读（超前识别只对可预读来源生效；麦克风 / 实时 Tap 不可预读）。
-    var canReadAhead: Bool { get }
     var chunks: AsyncStream<PCMChunk> { get }
 
     func start(at playbackTime: TimeInterval) async throws
@@ -49,13 +47,12 @@ public protocol AudioPipeline: AnyObject {
     func reset(to playbackTime: TimeInterval) async
 }
 
-/// 基于 AVAssetReader 的音频管线：以高于实时的速度解码 PCM，
-/// 使识别游标可以领先播放光标 Δ 秒（超前识别）。本地 / 渐进式媒体适用；
+/// 基于 AVAssetReader 的音频管线：以高于实时的速度解码 PCM，向识别器供料。
+/// 本地 / 渐进式媒体适用；
 /// HLS 等 AVAssetReader 无法读取的来源在 `start` 时抛错，由上层回退到 PlayerAudioPipeline。
 @MainActor
 public final class AssetReaderAudioPipeline: AudioPipeline {
     public let sourceKind: AudioSourceKind = .player
-    public let canReadAhead = true
     public let chunks: AsyncStream<PCMChunk>
 
     private let item: MediaItem
@@ -191,11 +188,10 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
 }
 
 /// 基于 AVPlayer 实时渲染的音频管线：用 MTAudioProcessingTap 捕获 PCM。
-/// 只能实时取到「正在播放」的音频，因此不可预读，超前识别自动降级为原始路径。
+/// 只能实时取到「正在播放」的音频。
 @MainActor
 public final class PlayerAudioPipeline: AudioPipeline {
     public let sourceKind: AudioSourceKind = .player
-    public let canReadAhead = false
     public let chunks: AsyncStream<PCMChunk>
 
     private let engine: any PlaybackEngine
@@ -404,12 +400,10 @@ private final class TapBox: @unchecked Sendable {
     }
 }
 
-/// 麦克风音频管线：WhisperKit AudioProcessor 实时采集。
-/// 不可预读，超前识别自动降级为原始路径（partial → final）。
+/// 麦克风音频管线：WhisperKit AudioProcessor 实时采集（partial → final）。
 @MainActor
 public final class MicrophoneAudioPipeline: AudioPipeline {
     public let sourceKind: AudioSourceKind = .microphone
-    public let canReadAhead = false
     public let chunks: AsyncStream<PCMChunk>
 
     private let continuation: AsyncStream<PCMChunk>.Continuation

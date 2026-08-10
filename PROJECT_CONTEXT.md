@@ -42,26 +42,29 @@
 > **重要标记（2026-08-10）**：Phase 8.2 – Phase 8.4 全部失败（实测无法正常使用），
 > 相关实现已回退并弃用；后续所有 Phase 将忽略 / 不再复用这几次的代码，
 > 未来将从 Phase 8.1 / 0.8.1 代码开始重构，下一次 Phase 编号为 **8.5**。
-**Phase 8.5**（下一个 Phase，待开启）：从 Phase 8.1 / 0.8.1 代码基线开始重构
-（忽略 Phase 8.2 – 8.4 全部失败实现），需求待用户提供。
+**Phase 8.5**（已完成，2026-08-10 打包 0.8.5）：删除超前识别（Lead-Ahead）功能
+（设置开关 / Δ 领先窗口 / 播放前预读等待全部移除）；重构字幕显示链路——新增共享
+`SubtitleTranscriptStore`（播放器 Overlay 与设置页直接读取，不再消费单次迭代的
+AsyncStream，修复 Tab 反复进出 / 全屏切换后字幕丢失）；实时路径 partial 不再按
+播放位置丢弃；设置页新增「字幕记录」卡片（已识别字幕原文 + 译文 + 时间 + 清空），
+用于排查「识别已产出但播放器无字幕」。
 **Phase 9 & Phase 9+**（规划中）：完成 Liquid Glass 深化（变形过渡）、性能、
 测试与错误处理。
 上一阶段：**Phase 7.13 —— 移除文件来源导入**（已完成；Phase 7.5–7.13
 已整体收尾）。
 
-## 设计提案（AI 先听一步：超前实时字幕）
+## 字幕设计（实时路径）
 
-实时字幕不做「边听边出」的逐词模式，而是让 AI 管线领先播放光标 2–10 秒
-（可配置，默认建议 3 秒）：
+字幕管线统一走实时识别：固定 5 秒窗口，Whisper 按 partial → final 输出，
+final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.translatedText`）。
+识别游标只进不退、落后播放光标的窗口自动跳过；seek / 暂停恢复后丢弃过期结果。
 
-- 播放器先缓冲 Δ 秒音频，Whisper 提前分析领先窗口内的音频并整句转写；
-- 翻译紧随识别提前完成（Phase 7），识别 + 翻译延迟被 Δ 窗口吸收；
-- 字幕仍按播放光标对齐，句子开始时整句一次性显示原文 + 译文；
-- 设置页提供开关，默认开启；关闭后回到原始实时路径（不预缓冲，Whisper 逐词
-  partial → final，识别完成后即时翻译）；
-- 仅启用 Fast NMT Provider（本地 / 轻量 NMT）也能按时整句出字幕，不依赖本地 / 云端 LLM；
-- 归属 Phase 5（超前音频缓冲 + 领先识别游标）/ Phase 6（整句字幕显示）/ Phase 7（提前翻译），
-  详见 docs/ARCHITECTURE.md 8.2.1。
+- 每条识别 / 翻译结果写入共享 `SubtitleTranscriptStore`（有界保留最近 200 条），
+  播放器 Overlay 与设置页「字幕记录」卡片直接读取；
+- 设置页「字幕记录」展示已识别字幕的原文 + 译文 + 时间，支持一键清空，
+  用于排查「识别已产出但播放器无字幕」；
+- Phase 8.5 起**超前识别（Lead-Ahead）已删除**（设置开关 / Δ 领先窗口 /
+  播放前预读等待全部移除），详见 docs/ARCHITECTURE.md 8.2.1。
 
 ## 工作流程（提交约定）
 
@@ -88,8 +91,7 @@
   `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
   （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-  当前代码基线：0.8.1（Phase 8.1，2026-08-10 二次回退；0.8.2 – 0.8.4 全部失败弃用），
-  下一次打包应为 0.8.5（Phase 8.5）。
+当前代码基线：0.8.5（Phase 8.5，2026-08-10 重构；0.8.2 – 0.8.4 全部失败弃用）。
 
 ## 已完成
 
@@ -97,6 +99,11 @@
   代码基线再次回退至 Phase 8.1 / 0.8.1（commit `4449b16`），保留说明文档并记录；
   **Phase 8.2 – Phase 8.4 全部失败**，实现已弃用；后续所有 Phase 忽略这几次代码，
   未来从 0.8.1 代码开始重构，下一次 Phase 为 8.5。
+- **Phase 8.5（2026-08-10 打包 0.8.5）**：删除超前识别功能；重构字幕显示链路——
+  新增共享 `SubtitleTranscriptStore`（播放器 Overlay 与设置页「字幕记录」直接读取，
+  不再依赖单次消费的流，修复 Tab 反复进出后字幕丢失）；实时路径 partial 不再按
+  播放位置丢弃；设置页新增「字幕记录」卡片（原文 + 译文 + 时间 + 清空）；
+  `MARKETING_VERSION` 提升至 0.8.5。
 - **Phase 8.4 基线回退**（2026-08-10）：代码基线回退至 Phase 8.1 / 0.8.1
   （commit `4449b16`），移除 0.8.2 / 0.8.3 的翻译与字幕相关改动；
   保留 4 份说明文档（README / CHANGELOG / PROJECT_CONTEXT / ARCHITECTURE）
@@ -218,14 +225,13 @@
 - **Phase 5**：WhisperKit（`argmax-oss-swift from 1.0.0`，CI 解析 1.1.0）本地实时识别；模型随 App 内置
   （构建脚本打包，运行时不下载、无需用户选择）；`AudioPipeline` 三来源
   （AVAssetReader 预读 / MTAudioProcessingTap 实时 / 麦克风）、`WhisperKitSpeechRecognizer`、
-  真实 `SubtitlePipeline`（替换 Mock 注入）；超前识别开关（默认开）+ 2–10s 领先窗口（默认 3s，
-  UserDefaults 持久化）；播放器播放前预读 Δ 秒、seek 重建领先窗口、识别游标只进不退；
-  状态卡与设置页接入真实管线；单元测试（设置 / 缓冲 / 管线 / 播放器联动）。
-- **Phase 6**：`SubtitleTimeline`（SubtitleEngine 真实实现：final 优先于 partial、
-  final 到达收敛逐词残留、500 条内存上限）；`SubtitleOverlay` 双语整句字幕叠加
+  真实 `SubtitlePipeline`（替换 Mock 注入）；实时识别游标只进不退、落后窗口跳过；
+  状态卡与设置页接入真实管线；单元测试（缓冲 / 管线 / 播放器联动）。
+- **Phase 6**：`SubtitleOverlay` 双语整句字幕叠加
   （按播放光标对齐一次性出现、DragGesture 拖动调整位置、字号样式）；
   `SubtitleDisplaySettings`（字号 + 归一化位置，UserDefaults 持久化，AppEnvironment 共享）；
-  播放器普通 / 全屏接入、设置页「字幕显示」卡片；单元测试（时间线 / Overlay VM / 显示设置）。
+  播放器普通 / 全屏接入、设置页「字幕显示」卡片；单元测试（Overlay VM / 显示设置）；
+  Phase 8.5 起时间线由共享 `SubtitleTranscriptStore` 取代。
 - **Phase 7**：TranslationEngine 可替换翻译架构——Fast NMT（Apple 原生翻译，完全本地）/
   本地 LLM（MLX Swift + Gemma 4 E2B 4-bit，按需下载 + 进度 / 取消 / 重试 / 删除）/ 云端 API
   （OpenAI 兼容，测试连接 + 隐私提示，API Key 存 Keychain）；剧情理解润色（上下文压缩）；
@@ -264,7 +270,7 @@
 | 浏览器 | WKWebView（已接入） |
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
-| AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；超前缓冲识别 2–10s） |
+| AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；实时路径 5 秒窗口） |
 | 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain） |
 | 工程 | XcodeGen（project.yml 生成工程）；GitHub Actions：主 CI（build/test）+ release-ipa（unsigned IPA → GitHub Release） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |

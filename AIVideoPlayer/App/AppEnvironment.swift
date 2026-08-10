@@ -2,14 +2,14 @@ import Foundation
 import Observation
 
 /// 全局、应用级状态。刻意保持很小：目前只有 Tab 选择；
-/// Phase 5 起持有 AI 字幕设置与字幕管线（全应用共享，浏览器状态卡与播放器共用）。
+/// Phase 5 起持有 AI 字幕记录与字幕管线（全应用共享，浏览器状态卡与播放器共用）。
 @MainActor
 @Observable
 final class AppEnvironment {
     var selectedTab: AppTab = .browser
 
-    /// 超前识别设置（设置页与管线共享，UserDefaults 持久化）。
-    let subtitleSettings: SubtitleSettings
+    /// AI 字幕记录（播放器 Overlay 与设置页「字幕记录」共享，有界保留最近条目）。
+    let subtitleTranscript: SubtitleTranscriptStore
     /// 翻译设置（设置页与字幕管线共享，UserDefaults 持久化；API Key 走 Keychain）。
     let translationSettings: TranslationSettings
     /// AI 字幕子系统（真实 WhisperKit 管线）。
@@ -23,12 +23,12 @@ final class AppEnvironment {
     private(set) var pendingPlayback: MediaItem?
 
     init() {
-        let settings = SubtitleSettings()
-        subtitleSettings = settings
+        let transcript = SubtitleTranscriptStore()
+        subtitleTranscript = transcript
         let translationSettings = TranslationSettings()
         self.translationSettings = translationSettings
         subtitlePipeline = SubtitlePipeline(
-            settings: settings,
+            transcript: transcript,
             translationSettings: translationSettings
         )
         localModelDownloadManager = LocalModelDownloadManager(

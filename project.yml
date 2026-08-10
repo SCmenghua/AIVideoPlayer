@@ -13,7 +13,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.8.1
+    MARKETING_VERSION: 0.8.5
 
 packages:
   WhisperKit:
@@ -72,7 +72,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoadsInWebContent: true
           NSAllowsLocalNetworking: true
-        NSMicrophoneUsageDescription: 用于麦克风实时语音识别（超前模式自动降级为实时路径）。
+        NSMicrophoneUsageDescription: 用于麦克风实时语音识别。
         NSPhotoLibraryUsageDescription: 用于读取相册中的视频并在播放器中播放。
         NSLocalNetworkUsageDescription: 用于连接局域网内的 WebDAV 文件服务器。
         UILaunchScreen: {}

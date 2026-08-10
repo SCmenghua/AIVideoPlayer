@@ -74,25 +74,6 @@ struct ProtocolConformanceTests {
         #expect(result == "translated:Hello")
     }
 
-    @Test func subtitleEngineManagesTimeline() async {
-        let engine = MockSubtitleEngine()
-        let segment = SubtitleSegment(
-            startTime: 0,
-            endTime: 1,
-            originalText: "hi",
-            confidence: 0.8
-        )
-
-        await engine.append(segment)
-
-        #expect(engine.segments.count == 1)
-        #expect(engine.segment(at: 0.5) == segment)
-        #expect(engine.segment(at: 1.5) == nil)
-
-        await engine.removeAll()
-        #expect(engine.segments.isEmpty)
-    }
-
     @Test func subtitleStatusProviderTransitionsToReady() async {
         let provider = MockSubtitleStatusProvider()
 
@@ -192,28 +173,5 @@ private final class MockTranslationEngine: TranslationEngine {
         context: TranslationContext?
     ) async throws -> String {
         "translated:\(text)"
-    }
-}
-
-@MainActor
-private final class MockSubtitleEngine: SubtitleEngine {
-    private(set) var segments: [SubtitleSegment] = []
-
-    func append(_ segment: SubtitleSegment) async {
-        segments.append(segment)
-    }
-
-    func update(_ segment: SubtitleSegment) async {
-        if let index = segments.firstIndex(where: { $0.id == segment.id }) {
-            segments[index] = segment
-        }
-    }
-
-    func removeAll() async {
-        segments.removeAll()
-    }
-
-    func segment(at time: TimeInterval) -> SubtitleSegment? {
-        segments.first { $0.startTime <= time && time < $0.endTime }
     }
 }

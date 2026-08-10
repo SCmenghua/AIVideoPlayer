@@ -5,31 +5,30 @@ import Testing
 @MainActor
 struct SubtitlePipelineTranslationTests {
 
-    @Test func finalSegmentIsTranslatedAndYielded() async throws {
+    @Test func finalSegmentIsTranslatedAndWrittenToTranscript() async throws {
         let settings = makeTranslationSettings(enabled: true)
         let recognizer = MockSpeechRecognizer()
         let translator = MockTranslator(translated: "你好")
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: translator
+            translator: translator,
+            transcript: transcript
         )
 
-        let collect = Task {
-            await pipeline.toggle()
-            recognizer.emit(
-                SubtitleSegment(
-                    startTime: 0,
-                    endTime: 1,
-                    originalText: "Hello",
-                    confidence: 0.9,
-                    isPartial: false
-                )
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
             )
-            return await firstSegment(from: pipeline)
-        }
+        )
 
-        let segment = await collect.value
+        let segment = await firstSegment(from: transcript)
         #expect(segment?.originalText == "Hello")
         #expect(segment?.translatedText == "你好")
         #expect(translator.callCount == 1)
@@ -40,27 +39,26 @@ struct SubtitlePipelineTranslationTests {
         let settings = makeTranslationSettings(enabled: true)
         let recognizer = MockSpeechRecognizer()
         let translator = MockTranslator()
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: translator
+            translator: translator,
+            transcript: transcript
         )
 
-        let collect = Task {
-            await pipeline.toggle()
-            recognizer.emit(
-                SubtitleSegment(
-                    startTime: 0,
-                    endTime: 1,
-                    originalText: "Hel",
-                    confidence: 0.5,
-                    isPartial: true
-                )
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hel",
+                confidence: 0.5,
+                isPartial: true
             )
-            return await firstSegment(from: pipeline)
-        }
+        )
 
-        let segment = await collect.value
+        let segment = await firstSegment(from: transcript)
         #expect(segment?.translatedText == nil)
         #expect(translator.callCount == 0)
     }
@@ -69,27 +67,26 @@ struct SubtitlePipelineTranslationTests {
         let settings = makeTranslationSettings(enabled: false)
         let recognizer = MockSpeechRecognizer()
         let translator = MockTranslator()
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: translator
+            translator: translator,
+            transcript: transcript
         )
 
-        let collect = Task {
-            await pipeline.toggle()
-            recognizer.emit(
-                SubtitleSegment(
-                    startTime: 0,
-                    endTime: 1,
-                    originalText: "Hello",
-                    confidence: 0.9,
-                    isPartial: false
-                )
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
             )
-            return await firstSegment(from: pipeline)
-        }
+        )
 
-        let segment = await collect.value
+        let segment = await firstSegment(from: transcript)
         #expect(segment?.translatedText == nil)
         #expect(translator.callCount == 0)
     }
@@ -99,27 +96,26 @@ struct SubtitlePipelineTranslationTests {
         let recognizer = MockSpeechRecognizer()
         let translator = MockTranslator()
         translator.error = FastNMTError.languagePackNotInstalled
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: translator
+            translator: translator,
+            transcript: transcript
         )
 
-        let collect = Task {
-            await pipeline.toggle()
-            recognizer.emit(
-                SubtitleSegment(
-                    startTime: 0,
-                    endTime: 1,
-                    originalText: "Hello",
-                    confidence: 0.9,
-                    isPartial: false
-                )
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
             )
-            return await firstSegment(from: pipeline)
-        }
+        )
 
-        let segment = await collect.value
+        let segment = await firstSegment(from: transcript)
         #expect(segment?.translatedText == nil)
         #expect(translator.callCount == 1)
     }
@@ -130,10 +126,12 @@ struct SubtitlePipelineTranslationTests {
         let recognizer = MockSpeechRecognizer()
         let translator = MockTranslator()
         translator.supportsContextPolish = true
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: translator
+            translator: translator,
+            transcript: transcript
         )
 
         await pipeline.toggle()
@@ -143,7 +141,7 @@ struct SubtitlePipelineTranslationTests {
                 confidence: 0.9, isPartial: false
             )
         )
-        let first = await firstSegment(from: pipeline)
+        let first = await firstSegment(from: transcript)
         #expect(first?.translatedText == "译文")
         // 首句翻译时还没有历史上下文，context 应为 nil。
         #expect(translator.lastContext == nil)
@@ -154,7 +152,7 @@ struct SubtitlePipelineTranslationTests {
                 confidence: 0.9, isPartial: false
             )
         )
-        let second = await firstSegment(from: pipeline)
+        let second = await waitForSegment(count: 2, in: transcript)
         #expect(second?.translatedText == "译文")
         #expect(translator.lastContext?.isEmpty == false)
         #expect(translator.lastContext?.text.contains("First") == true)
@@ -163,10 +161,12 @@ struct SubtitlePipelineTranslationTests {
     @Test func statusTransitionsThroughTranslating() async throws {
         let settings = makeTranslationSettings(enabled: true)
         let recognizer = MockSpeechRecognizer()
+        let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(
             translationSettings: settings,
             recognizer: recognizer,
-            translator: MockTranslator()
+            translator: MockTranslator(),
+            transcript: transcript
         )
 
         let statusTask = Task {
@@ -202,21 +202,32 @@ struct SubtitlePipelineTranslationTests {
     private func makePipeline(
         translationSettings: TranslationSettings,
         recognizer: MockSpeechRecognizer,
-        translator: MockTranslator
+        translator: MockTranslator,
+        transcript: SubtitleTranscriptStore
     ) -> SubtitlePipeline {
         SubtitlePipeline(
-            settings: SubtitleSettings(suiteName: uniqueSuiteName()),
+            transcript: transcript,
             translationSettings: translationSettings,
             translationProviderFactory: { _ in translator },
             recognizerFactory: { recognizer }
         )
     }
 
-    private func firstSegment(from pipeline: SubtitlePipeline) async -> SubtitleSegment? {
-        for await segment in pipeline.segments {
-            return segment
+    private func firstSegment(from transcript: SubtitleTranscriptStore) async -> SubtitleSegment? {
+        await waitForSegment(count: 1, in: transcript)
+    }
+
+    private func waitForSegment(
+        count: Int,
+        in transcript: SubtitleTranscriptStore,
+        timeout: Duration = .seconds(3)
+    ) async -> SubtitleSegment? {
+        let start = ContinuousClock.now
+        while transcript.segments.count < count {
+            if ContinuousClock.now - start > timeout { break }
+            try? await Task.sleep(for: .milliseconds(20))
         }
-        return nil
+        return transcript.segments.count >= count ? transcript.segments[count - 1] : nil
     }
 
     private func uniqueSuiteName() -> String {

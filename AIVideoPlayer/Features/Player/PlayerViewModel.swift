@@ -215,7 +215,7 @@ final class PlayerViewModel {
         aspectMode = mode
     }
 
-    // MARK: - AI 超前识别
+    // MARK: - AI 字幕准备
 
     private func play() async {
         await prepareAIForPlayback(from: currentTime)
@@ -242,14 +242,9 @@ final class PlayerViewModel {
         }
     }
 
-    /// 播放前准备音频管线：重建/启动来源，超前模式下先等 Δ 秒预读完成再出声。
+    /// 播放前准备音频管线：重建 / 启动来源并让识别循环就绪。
     private func prepareAIForPlayback(from time: TimeInterval) async {
         guard let subtitlePipeline else { return }
         await subtitlePipeline.preparePlayback(from: time)
-        guard subtitlePipeline.shouldUseLeadAhead else { return }
-        _ = await subtitlePipeline.waitUntilLeadCaptured(
-            delta: subtitlePipeline.leadAheadWindow,
-            timeout: 4
-        )
     }
 }

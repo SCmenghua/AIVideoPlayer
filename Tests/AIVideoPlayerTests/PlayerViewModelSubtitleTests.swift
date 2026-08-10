@@ -103,10 +103,9 @@ private final class SpySubtitlePipeline: SubtitlePipeline {
     private(set) var toggleCount = 0
     /// 模拟管线已激活 / 未激活状态。
     var activeOverride: Bool?
-    var leadAheadEnabled = false
 
     init() {
-        super.init(settings: SubtitleSettings(suiteName: "spy.\(UUID().uuidString)"))
+        super.init()
     }
 
     override var isActive: Bool {
@@ -132,13 +131,5 @@ private final class SpySubtitlePipeline: SubtitlePipeline {
 
     override func handlePlaybackPaused() {
         pauseCount += 1
-    }
-
-    override var shouldUseLeadAhead: Bool {
-        leadAheadEnabled
-    }
-
-    override var leadAheadWindow: TimeInterval {
-        3
     }
 }

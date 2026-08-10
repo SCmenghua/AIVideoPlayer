@@ -8,6 +8,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
+                subtitleTranscriptCard
                 subtitleDisplayCard
                 translationCard
                 sectionCard(
@@ -24,7 +25,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 7（TranslationEngine 可替换翻译）",
+                        "AI Video Player · Phase 8.5（字幕显示链路重构）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
@@ -88,50 +89,17 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Toggle(
-                    isOn: Binding(
-                        get: { environment.subtitleSettings.isLeadAheadEnabled },
-                        set: { newValue in
-                            environment.subtitleSettings.isLeadAheadEnabled = newValue
-                            Task { await environment.subtitlePipeline.rebuildAfterSettingsChange() }
-                        }
-                    )
-                ) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("超前识别（AI 先听一步）")
-                            .font(.subheadline.weight(.medium))
-                        Text("关闭后回到逐词实时路径")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.blue)
-
-                VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
-                    Text("领先窗口：\(Int(environment.subtitleSettings.leadAheadWindow)) 秒")
-                        .font(.subheadline)
-                    Slider(
-                        value: Binding(
-                            get: { environment.subtitleSettings.leadAheadWindow },
-                            set: { newValue in
-                                environment.subtitleSettings.leadAheadWindow = newValue
-                                Task { await environment.subtitlePipeline.rebuildAfterSettingsChange() }
-                            }
-                        ),
-                        in: SubtitleSettings.leadAheadWindowRange,
-                        step: 1
-                    )
-                    .tint(.blue)
-                    Text("播放器先预读 Δ 秒音频，Whisper 提前转写；识别与翻译延迟被超前窗口吸收（2–10 秒）。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-
                 Text("音频永远不会离开设备。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    // MARK: - 字幕记录（Phase 8.5 调试）
+
+    private var subtitleTranscriptCard: some View {
+        SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
     }
 
     private func sectionCard(icon: String, tint: Color, title: String, lines: [String]) -> some View {
