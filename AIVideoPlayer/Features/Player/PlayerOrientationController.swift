@@ -10,9 +10,14 @@ public enum PlayerOrientationController {
     /// 当前是否处于播放器全屏横屏状态。
     private static var isFullscreenLandscape = false
 
-    /// 当前是否处于横屏（供全屏控制栏的横/竖屏切换按钮判断方向）。
+    /// 当前是否处于横屏：优先读取真实界面方向，读取不到时回退到内部标志。
     public static var isLandscape: Bool {
-        isFullscreenLandscape
+        if let scene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first {
+            return scene.interfaceOrientation.isLandscape
+        }
+        return isFullscreenLandscape
     }
 
     /// AppDelegate 查询的方向掩码（应用级唯一入口）。
@@ -27,34 +32,40 @@ public enum PlayerOrientationController {
     /// 进入全屏：横屏视频默认请求横屏，竖屏视频保持竖屏。
     public static func enterFullscreen(prefersLandscape: Bool) {
         isFullscreenLandscape = prefersLandscape
-        requestRotation(prefersLandscape ? .landscapeRight : .portrait)
+        applyOrientation(prefersLandscape ? .landscape : .portrait)
     }
 
     /// 退出全屏：恢复竖屏。
     public static func exitFullscreen() {
         isFullscreenLandscape = false
-        requestRotation(.portrait)
+        applyOrientation(.portrait)
     }
 
     /// 手动请求横屏全屏（自动旋转失败时的兜底选项）。
     public static func requestLandscape() {
         isFullscreenLandscape = true
-        requestRotation(.landscapeRight)
+        applyOrientation(.landscape)
     }
 
     /// 手动请求恢复竖屏。
     public static func requestPortrait() {
         isFullscreenLandscape = false
-        requestRotation(.portrait)
+        applyOrientation(.portrait)
     }
 
-    private static func requestRotation(_ orientation: UIInterfaceOrientation) {
-        let mask: UIInterfaceOrientationMask
-        switch orientation {
-        case .landscapeLeft: mask = .landscapeLeft
-        case .landscapeRight: mask = .landscapeRight
-        default: mask = .portrait
-        }
+    /// 应用目标方向：先刷新 supportedInterfaceOrientations，再请求几何更新。
+    /// 横屏请求同时允许左右两个方向（避免单一方向掩码被系统拒绝）；
+    /// 失败时延迟重试一次，覆盖首次请求时方向掩码尚未就绪的竞态。
+    private static func applyOrientation(_ orientation: UIInterfaceOrientation) {
+        let mask: UIInterfaceOrientationMask = orientation == .portrait ? .portrait : .landscape
+
+        // 关键步骤：通知系统重新读取 App 的方向掩码，否则首次请求会按旧掩码校验失败。
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .first?
+            .keyWindow?
+            .rootViewController?
+            .setNeedsUpdateOfSupportedInterfaceOrientations()
 
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
@@ -63,8 +74,16 @@ public enum PlayerOrientationController {
         }
 
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
-            // 旋转请求失败（如系统锁定或 iPad 多任务）时不做强制回退；
-            // 全屏控制栏已提供手动「横屏/竖屏」按钮作为兜底。
+            // 首次请求可能因掩码刷新时序失败：延迟重试一次。
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(150))
+                guard let retryScene = UIApplication.shared.connectedScenes
+                    .compactMap({ $0 as? UIWindowScene })
+                    .first else { return }
+                retryScene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
+                    // 仍失败（系统锁定 / iPad 多任务等）：保持现状，不强制回退。
+                }
+            }
         }
     }
 }

@@ -46,6 +46,14 @@ final class PlayerViewModel {
     /// 当前视频是否为横屏视频（由引擎检测；未知时按竖屏处理）。
     var isLandscapeVideo: Bool { engine.isLandscapeVideo }
 
+    /// 全屏入口：检测尚未完成时重新检测并等待结论，返回最终横屏建议。
+    func resolveLandscapeForFullscreen() async -> Bool {
+        if engine.isResolutionKnown {
+            return engine.isLandscapeVideo
+        }
+        return await engine.resolveVideoOrientation(timeout: 2)
+    }
+
     var currentProgress: Double {
         guard duration > 0 else { return 0 }
         return min(max(currentTime / duration, 0), 1)

@@ -5,8 +5,6 @@ struct RemoteFilesView: View {
     let viewModel: RemoteFilesViewModel
     let onPlayMedia: (MediaItem) -> Void
 
-    @State private var showsConnectionSetup = false
-
     var body: some View {
         Group {
             switch viewModel.connectionState {
@@ -24,29 +22,18 @@ struct RemoteFilesView: View {
                 connectedView
             }
         }
-        .sheet(isPresented: $showsConnectionSetup) {
-            ConnectionSetupView(viewModel: viewModel)
-        }
     }
 
     // MARK: - 未连接
 
     private var disconnectedView: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
-            Image(systemName: "externaldrive.badge.plus")
+            Image(systemName: "externaldrive")
                 .font(.largeTitle)
                 .foregroundStyle(.secondary)
-            Text("未连接远程服务器")
+            Text("未连接服务器")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-
-            if !viewModel.profiles.isEmpty {
-                VStack(spacing: AppTheme.Spacing.xs) {
-                    ForEach(viewModel.profiles) { profile in
-                        profileQuickRow(profile)
-                    }
-                }
-            }
 
             if let error = viewModel.lastError {
                 Text(error)
@@ -54,42 +41,13 @@ struct RemoteFilesView: View {
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
             }
-
-            GlassProminentButton(title: "添加服务器", systemImage: "plus") {
-                showsConnectionSetup = true
-            }
+            Text("服务器配置请在主页「媒体来源」中管理")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(AppTheme.Spacing.md)
         .glassEffect(.regular, in: .rect(cornerRadius: AppTheme.CornerRadius.lg))
-    }
-
-    private func profileQuickRow(_ profile: RemoteServerProfile) -> some View {
-        Button {
-            Task { await viewModel.reconnect(profile: profile) }
-        } label: {
-            HStack {
-                Image(systemName: "server.rack")
-                    .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(profile.name)
-                        .font(.body.weight(.medium))
-                    Text(profile.rootURL.absoluteString)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                Spacer()
-            }
-            .padding(AppTheme.Spacing.sm)
-            .glassEffect(.regular.tint(.blue).interactive(), in: .rect(cornerRadius: AppTheme.CornerRadius.md))
-        }
-        .buttonStyle(.plain)
-        .contextMenu {
-            Button("删除", role: .destructive) {
-                Task { await viewModel.deleteProfile(profile) }
-            }
-        }
     }
 
     // MARK: - 已连接

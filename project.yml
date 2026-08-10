@@ -73,6 +73,7 @@ targets:
           NSAllowsArbitraryLoadsInWebContent: true
           NSAllowsLocalNetworking: true
         NSMicrophoneUsageDescription: 用于麦克风实时语音识别（超前模式自动降级为实时路径）。
+        NSPhotoLibraryUsageDescription: 用于读取相册中的视频并在播放器中播放。
         NSLocalNetworkUsageDescription: 用于连接局域网内的 WebDAV 文件服务器。
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:

@@ -119,9 +119,12 @@ struct PlayerView: View {
                         viewModel: viewModel,
                         onFullscreen: {
                             viewModel.isFullScreen = true
-                            PlayerOrientationController.enterFullscreen(
-                                prefersLandscape: viewModel.isLandscapeVideo
-                            )
+                            Task {
+                                let prefersLandscape = await viewModel.resolveLandscapeForFullscreen()
+                                PlayerOrientationController.enterFullscreen(
+                                    prefersLandscape: prefersLandscape
+                                )
+                            }
                         },
                         showsOrientationControls: false
                     )

@@ -12,6 +12,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     public private(set) var duration: TimeInterval = 0
     public private(set) var rate: Float = 1
     public private(set) var isLandscapeVideo = false
+    public private(set) var isResolutionKnown = false
 
     public var player: AVPlayer? { avPlayer }
     public let stateStream: AsyncStream<PlaybackState>
@@ -70,6 +71,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         duration = 0
         rate = 1
         isLandscapeVideo = false
+        isResolutionKnown = false
         setState(.loading)
         detectResolution(for: item)
         do {
@@ -127,23 +129,47 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         }
     }
 
+    /// 重新检测并等待横竖屏结果（全屏入口使用）。
+    /// 检测失败 / 超时按竖屏处理，返回当前结论。
+    public func resolveVideoOrientation(timeout: TimeInterval = 2) async -> Bool {
+        guard let item = currentItem else { return isLandscapeVideo }
+        detectResolution(for: item)
+        let deadline = ContinuousClock.now + .seconds(timeout)
+        while !isResolutionKnown, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return isLandscapeVideo
+    }
+
     // MARK: - Private
 
     /// 检测当前视频横竖屏（宽 > 高为横屏）。异步进行，不阻塞加载完成。
     private func detectResolution(for item: MediaItem) {
         resolutionTask?.cancel()
+        isResolutionKnown = false
         resolutionTask = Task { [weak self] in
             guard let self else { return }
             let asset = AVURLAsset(url: item.url)
             guard !Task.isCancelled,
                   let tracks = try? await asset.loadTracks(withMediaType: .video),
                   let track = tracks.first else {
+                self.markResolutionKnown(for: item)
                 return
             }
             let size = (try? await track.load(.naturalSize)) ?? .zero
+            let transform = (try? await track.load(.preferredTransform)) ?? .identity
             guard !Task.isCancelled, self.currentItem?.id == item.id else { return }
-            self.isLandscapeVideo = size.width > size.height
+            // 用 preferredTransform 修正旋转元数据：手机竖拍视频的编码尺寸可能是
+            // 横向的，按展示方向判断才是真实横竖屏。
+            let displayRect = CGRect(origin: .zero, size: size).applying(transform)
+            self.isLandscapeVideo = abs(displayRect.width) > abs(displayRect.height)
+            self.isResolutionKnown = true
         }
+    }
+
+    private func markResolutionKnown(for item: MediaItem) {
+        guard !Task.isCancelled, currentItem?.id == item.id else { return }
+        isResolutionKnown = true
     }
 
     /// 进度/状态兜底节拍器：每 0.5s 读取一次 AVPlayer 当前时间/时长/状态并推送。

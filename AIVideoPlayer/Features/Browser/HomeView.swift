@@ -1,10 +1,10 @@
 import SwiftUI
 
-/// 首页内容（Browser 未打开网页时显示）：AI 字幕状态 + 远程文件浏览。
+/// 首页内容（Browser 未打开网页时显示）：标签页 + AI 字幕状态 + 媒体来源。
 struct HomeView: View {
     let browserViewModel: BrowserViewModel
-    let remoteFilesViewModel: RemoteFilesViewModel
     let subtitleViewModel: SubtitleStatusViewModel?
+    let mediaSourcesViewModel: MediaSourcesViewModel
     let onPlayMedia: (MediaItem) -> Void
 
     var body: some View {
@@ -15,7 +15,7 @@ struct HomeView: View {
                 if let subtitleViewModel {
                     SubtitleStatusCard(viewModel: subtitleViewModel)
                 }
-                RemoteFilesView(viewModel: remoteFilesViewModel, onPlayMedia: onPlayMedia)
+                MediaSourcesSection(viewModel: mediaSourcesViewModel, onPlayMedia: onPlayMedia)
             }
             .padding(AppTheme.Spacing.md)
         }

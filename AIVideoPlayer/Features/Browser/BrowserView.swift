@@ -6,7 +6,7 @@ struct BrowserView: View {
     @Environment(AppEnvironment.self) private var environment
 
     @State private var webViewModel = BrowserViewModel()
-    @State private var remoteFilesViewModel = RemoteFilesViewModel()
+    @State private var mediaSourcesViewModel = MediaSourcesViewModel()
     @State private var subtitleViewModel: SubtitleStatusViewModel?
 
     @State private var showsHistory = false
@@ -53,8 +53,8 @@ struct BrowserView: View {
         case .idle:
             HomeView(
                 browserViewModel: webViewModel,
-                remoteFilesViewModel: remoteFilesViewModel,
                 subtitleViewModel: subtitleViewModel,
+                mediaSourcesViewModel: mediaSourcesViewModel,
                 onPlayMedia: { environment.requestPlayback(of: $0) }
             )
         case .loading, .ready:
