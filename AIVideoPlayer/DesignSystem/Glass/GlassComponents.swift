@@ -5,30 +5,20 @@ import SwiftUI
 struct GlassCard<Content: View>: View {
     private let tint: Color?
     private let cornerRadius: CGFloat
-    private let isInteractive: Bool
     private let content: Content
 
     init(
         tint: Color? = nil,
         cornerRadius: CGFloat = AppTheme.CornerRadius.md,
-        isInteractive: Bool = false,
         @ViewBuilder content: () -> Content
     ) {
         self.tint = tint
         self.cornerRadius = cornerRadius
-        self.isInteractive = isInteractive
         self.content = content()
     }
 
     var body: some View {
-        if isInteractive, let tint {
-            content
-                .padding(AppTheme.Spacing.md)
-                .glassEffect(
-                    .regular.tint(tint).interactive(),
-                    in: .rect(cornerRadius: cornerRadius)
-                )
-        } else if let tint {
+        if let tint {
             content
                 .padding(AppTheme.Spacing.md)
                 .glassEffect(.regular.tint(tint), in: .rect(cornerRadius: cornerRadius))

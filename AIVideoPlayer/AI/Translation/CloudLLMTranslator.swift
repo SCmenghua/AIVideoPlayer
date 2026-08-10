@@ -69,7 +69,6 @@ public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionT
         let config = try resolvedConfig()
         let prompt = Self.buildPrompt(
             text: text,
-            sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             context: context
         )
@@ -89,30 +88,20 @@ public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionT
 
     static func buildPrompt(
         text: String,
-        sourceLanguage: String?,
         targetLanguage: String,
         context: TranslationContext?
     ) -> String {
         let target = TranslationTargetLanguageCatalog.language(for: targetLanguage).promptName
-        let sourceHint = sourceLanguage.flatMap {
-            TranslationSourceLanguageCatalog.language(for: $0).promptName
-        }
-        let instruction: String
-        if let sourceHint {
-            instruction = "请把下面这行\(sourceHint)字幕翻译成\(target)。只输出译文，不要加引号或解释："
-        } else {
-            instruction = "请把下面这行字幕翻译成\(target)。只输出译文，不要加引号或解释："
-        }
         if let context, !context.isEmpty {
             return """
             以下是最近的剧情字幕上下文，用于保持翻译连贯：
             \(context.text)
 
-            \(instruction)
+            请把下面这行字幕翻译成\(target)。只输出译文，不要加引号或解释：
             \(text)
             """
         }
-        return "\(instruction)\n\(text)"
+        return "请把下面这行字幕翻译成\(target)。只输出译文，不要加引号或解释：\n\(text)"
     }
 
     // MARK: - 请求
