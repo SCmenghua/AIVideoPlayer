@@ -6,7 +6,7 @@ on:
       version:
         description: "Release 版本号（用于 IPA 文件名与 Release tag）"
         required: false
-        default: "0.7.10"
+        default: "0.7.11"
 
 permissions:
   contents: write
