@@ -27,6 +27,8 @@ struct WebViewRepresentable: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
+        // iOS 默认手势：从屏幕左侧右滑返回（有历史时），右侧左滑前进。
+        webView.allowsBackForwardNavigationGestures = true
         context.coordinator.webView = webView
         return webView
     }

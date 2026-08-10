@@ -58,6 +58,62 @@ struct BrowserViewModelTests {
         #expect(viewModel.pendingCommand == .none)
     }
 
+    // MARK: - 主页标签页与返回主页
+
+    @Test func goHomeResetsToIdleAndClearsAddress() throws {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            homeTabStore: MockHomeTabStore()
+        )
+        let url = try #require(URL(string: "https://example.com"))
+
+        viewModel.load(url)
+        viewModel.goHome()
+
+        #expect(viewModel.navigationState == .idle)
+        #expect(viewModel.addressText.isEmpty)
+        #expect(viewModel.requestedLoad == nil)
+        #expect(viewModel.pendingCommand == .none)
+        #expect(!viewModel.isWebContentVisible)
+    }
+
+    @Test func homeTabAddOpenRemove() throws {
+        let tabStore = MockHomeTabStore()
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            homeTabStore: tabStore
+        )
+
+        viewModel.addHomeTab(title: "Example", urlString: "example.com")
+        #expect(viewModel.tabs.count == 1)
+        #expect(viewModel.tabs.first?.title == "Example")
+
+        viewModel.openHomeTab(viewModel.tabs[0])
+        if case .loading(let url) = viewModel.navigationState {
+            #expect(url.host == "example.com")
+        } else {
+            Issue.record("期望打开标签页后进入 loading 状态")
+        }
+
+        viewModel.removeHomeTab(viewModel.tabs[0])
+        #expect(viewModel.tabs.isEmpty)
+        #expect(tabStore.loadTabs().isEmpty)
+    }
+
+    @Test func homeTabInvalidURLIsIgnored() {
+        let viewModel = BrowserViewModel(
+            historyStore: MockHistoryStore(),
+            bookmarkStore: MockBookmarkStore(),
+            homeTabStore: MockHomeTabStore()
+        )
+
+        viewModel.addHomeTab(title: "Bad", urlString: "   ")
+
+        #expect(viewModel.tabs.isEmpty)
+    }
+
     // MARK: - Phase 7.5 浏览器视频接管
 
     @Test func directVideoURLProducesPlayableMediaItem() throws {
@@ -296,5 +352,22 @@ private final class MockBookmarkStore: BookmarkStoring, @unchecked Sendable {
 
     func removeBookmark(id: UUID) throws {
         bookmarks.removeAll { $0.id == id }
+    }
+}
+
+private final class MockHomeTabStore: HomeTabStoring, @unchecked Sendable {
+    private var tabs: [HomeTab] = []
+
+    func loadTabs() -> [HomeTab] {
+        tabs
+    }
+
+    func addTab(_ tab: HomeTab) throws {
+        tabs.removeAll { $0.url == tab.url }
+        tabs.insert(tab, at: 0)
+    }
+
+    func removeTab(id: UUID) throws {
+        tabs.removeAll { $0.id == id }
     }
 }

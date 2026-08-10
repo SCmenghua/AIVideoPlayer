@@ -11,7 +11,6 @@ final class PlayerViewModel {
     private(set) var currentTime: TimeInterval = 0
     private(set) var duration: TimeInterval = 0
     private(set) var rate: Float = 1
-    private(set) var volume: Float = 1
 
     var isFullScreen = false
     var isSubtitleEnabled = false
@@ -43,6 +42,9 @@ final class PlayerViewModel {
     }
 
     var isPlaying: Bool { playbackState == .playing }
+
+    /// 当前视频是否为横屏视频（由引擎检测；未知时按竖屏处理）。
+    var isLandscapeVideo: Bool { engine.isLandscapeVideo }
 
     var currentProgress: Double {
         guard duration > 0 else { return 0 }
@@ -171,11 +173,6 @@ final class PlayerViewModel {
     func setRate(_ newRate: Float) async {
         rate = newRate
         await engine.setRate(newRate)
-    }
-
-    func setVolume(_ newVolume: Float) async {
-        volume = newVolume
-        await engine.setVolume(newVolume)
     }
 
     func toggleSubtitle() {

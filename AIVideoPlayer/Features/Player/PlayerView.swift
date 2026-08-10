@@ -119,7 +119,9 @@ struct PlayerView: View {
                         viewModel: viewModel,
                         onFullscreen: {
                             viewModel.isFullScreen = true
-                            PlayerOrientationController.enterFullscreen()
+                            PlayerOrientationController.enterFullscreen(
+                                prefersLandscape: viewModel.isLandscapeVideo
+                            )
                         },
                         showsOrientationControls: false
                     )

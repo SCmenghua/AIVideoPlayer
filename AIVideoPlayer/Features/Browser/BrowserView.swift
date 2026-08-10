@@ -52,6 +52,7 @@ struct BrowserView: View {
         switch webViewModel.navigationState {
         case .idle:
             HomeView(
+                browserViewModel: webViewModel,
                 remoteFilesViewModel: remoteFilesViewModel,
                 subtitleViewModel: subtitleViewModel,
                 onPlayMedia: { environment.requestPlayback(of: $0) }

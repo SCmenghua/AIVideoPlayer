@@ -11,6 +11,8 @@ public protocol PlaybackEngine: AnyObject {
     var currentTime: TimeInterval { get }
     var duration: TimeInterval { get }
     var rate: Float { get }
+    /// 当前媒体是否为横屏视频（宽 > 高）；未知/失败时返回 false。
+    var isLandscapeVideo: Bool { get }
 
     /// 渲染句柄（只读）：仅供 VideoLayerView 绑定 AVPlayerLayer；
     /// Phase 5 起亦供 PlayerAudioPipeline 读取音频输出（Service 层，非播放控制）。
@@ -26,5 +28,9 @@ public protocol PlaybackEngine: AnyObject {
     func pause() async
     func seek(to time: TimeInterval) async
     func setRate(_ rate: Float) async
-    func setVolume(_ volume: Float) async
+}
+
+/// 默认按竖屏处理，测试替身无需重复实现。
+extension PlaybackEngine {
+    public var isLandscapeVideo: Bool { false }
 }

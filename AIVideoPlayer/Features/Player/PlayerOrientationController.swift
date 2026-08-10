@@ -10,6 +10,11 @@ public enum PlayerOrientationController {
     /// 当前是否处于播放器全屏横屏状态。
     private static var isFullscreenLandscape = false
 
+    /// 当前是否处于横屏（供全屏控制栏的横/竖屏切换按钮判断方向）。
+    public static var isLandscape: Bool {
+        isFullscreenLandscape
+    }
+
     /// AppDelegate 查询的方向掩码（应用级唯一入口）。
     public static var interfaceOrientationMask: UIInterfaceOrientationMask {
         if UIDevice.current.userInterfaceIdiom == .pad {
@@ -19,10 +24,10 @@ public enum PlayerOrientationController {
         return isFullscreenLandscape ? .allButUpsideDown : .portrait
     }
 
-    /// 进入全屏：允许横屏并请求旋转到横屏。
-    public static func enterFullscreen() {
-        isFullscreenLandscape = true
-        requestRotation(.landscapeRight)
+    /// 进入全屏：横屏视频默认请求横屏，竖屏视频保持竖屏。
+    public static func enterFullscreen(prefersLandscape: Bool) {
+        isFullscreenLandscape = prefersLandscape
+        requestRotation(prefersLandscape ? .landscapeRight : .portrait)
     }
 
     /// 退出全屏：恢复竖屏。

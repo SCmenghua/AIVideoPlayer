@@ -56,8 +56,6 @@ final class MockPlaybackEngine: PlaybackEngine {
         rate = newRate
     }
 
-    func setVolume(_ volume: Float) async {}
-
     func emitState(_ newState: PlaybackState) {
         state = newState
         stateContinuation.yield(newState)

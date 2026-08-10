@@ -10,6 +10,16 @@ struct AddressBarView: View {
     var body: some View {
         HStack(spacing: AppTheme.Spacing.xs) {
             Button {
+                viewModel.goHome()
+            } label: {
+                Image(systemName: "house.fill")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .disabled(!viewModel.isWebContentVisible)
+            .buttonStyle(.plain)
+            .accessibilityLabel("返回主页")
+
+            Button {
                 viewModel.goBack()
             } label: {
                 Image(systemName: "chevron.left")

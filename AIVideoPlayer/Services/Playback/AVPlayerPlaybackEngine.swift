@@ -11,6 +11,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     public private(set) var currentTime: TimeInterval = 0
     public private(set) var duration: TimeInterval = 0
     public private(set) var rate: Float = 1
+    public private(set) var isLandscapeVideo = false
 
     public var player: AVPlayer? { avPlayer }
     public let stateStream: AsyncStream<PlaybackState>
@@ -29,9 +30,12 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     /// 进度/状态兜底节拍器：周期读取 AVPlayer 当前时间并推送进度，
     /// 即使周期观察者回调未送达也能驱动 UI 时间与进度条。
     nonisolated(unsafe) private var tickerTask: Task<Void, Never>?
+    /// 分辨率检测任务：换片时取消旧检测，避免旧结果覆盖新媒体。
+    nonisolated(unsafe) private var resolutionTask: Task<Void, Never>?
 
     deinit {
         tickerTask?.cancel()
+        resolutionTask?.cancel()
         if let timeObserver {
             avPlayer.removeTimeObserver(timeObserver)
         }
@@ -65,7 +69,9 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         currentTime = 0
         duration = 0
         rate = 1
+        isLandscapeVideo = false
         setState(.loading)
+        detectResolution(for: item)
         do {
             try await waitUntilReady(playerItem)
         } catch is CancellationError {
@@ -121,11 +127,24 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         }
     }
 
-    public func setVolume(_ newVolume: Float) async {
-        avPlayer.volume = newVolume
-    }
-
     // MARK: - Private
+
+    /// 检测当前视频横竖屏（宽 > 高为横屏）。异步进行，不阻塞加载完成。
+    private func detectResolution(for item: MediaItem) {
+        resolutionTask?.cancel()
+        resolutionTask = Task { [weak self] in
+            guard let self else { return }
+            let asset = AVURLAsset(url: item.url)
+            guard !Task.isCancelled,
+                  let tracks = try? await asset.loadTracks(withMediaType: .video),
+                  let track = tracks.first else {
+                return
+            }
+            let size = (try? await track.load(.naturalSize)) ?? .zero
+            guard !Task.isCancelled, self.currentItem?.id == item.id else { return }
+            self.isLandscapeVideo = size.width > size.height
+        }
+    }
 
     /// 进度/状态兜底节拍器：每 0.5s 读取一次 AVPlayer 当前时间/时长/状态并推送。
     /// 与 KVO / 周期观察者双通道并存：

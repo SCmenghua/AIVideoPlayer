@@ -21,17 +21,13 @@ struct PlayerControlsView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: AppTheme.Spacing.sm) {
-                    replayButton
                     playButton
                     rateMenu
-                    aspectButton
                     subtitleButton
-                    volumeMenu
                     sizeMenu
-                    reinitializeButton
+                    settingsMenu
                     if showsOrientationControls {
-                        landscapeButton
-                        portraitButton
+                        orientationButton
                     }
                     fullscreenButton
                 }
@@ -65,19 +61,6 @@ struct PlayerControlsView: View {
 
     // MARK: - 按钮
 
-    private var replayButton: some View {
-        Button {
-            Task { await viewModel.seek(to: 0) }
-        } label: {
-            Image(systemName: "backward.end.fill")
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("重新播放")
-    }
-
     private var playButton: some View {
         Button {
             Task { await viewModel.togglePlayPause() }
@@ -107,23 +90,6 @@ struct PlayerControlsView: View {
         }
     }
 
-    private var aspectButton: some View {
-        Button {
-            withAnimation(.snappy) {
-                viewModel.setAspectMode(viewModel.aspectMode == .fit ? .fill : .fit)
-            }
-        } label: {
-            Image(systemName: viewModel.aspectMode == .fit
-                ? "rectangle.arrowtriangle.2.outward"
-                : "rectangle.arrowtriangle.2.inward")
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("切换画面比例")
-    }
-
     private var subtitleButton: some View {
         Button {
             viewModel.toggleSubtitle()
@@ -135,26 +101,6 @@ struct PlayerControlsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("字幕")
-    }
-
-    private var volumeMenu: some View {
-        Menu {
-            Slider(
-                value: Binding(
-                    get: { viewModel.volume },
-                    set: { value in
-                        Task { await viewModel.setVolume(value) }
-                    }
-                ),
-                in: 0...1
-            )
-            .frame(width: 160)
-        } label: {
-            Image(systemName: viewModel.volume == 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
-        }
     }
 
     /// 画面大小滑块（缩放 0.5x...2.0x）。
@@ -182,31 +128,59 @@ struct PlayerControlsView: View {
         }
     }
 
-    /// 手动横屏全屏（自动旋转失败时的兜底选项）。
-    private var landscapeButton: some View {
-        Button {
-            PlayerOrientationController.requestLandscape()
+    /// 设置二级菜单：收纳不常用的播放器控制项。
+    private var settingsMenu: some View {
+        Menu {
+            Button {
+                Task { await viewModel.seek(to: 0) }
+            } label: {
+                Label("重新播放", systemImage: "backward.end.fill")
+            }
+
+            Button {
+                withAnimation(.snappy) {
+                    viewModel.setAspectMode(viewModel.aspectMode == .fit ? .fill : .fit)
+                }
+            } label: {
+                Label(
+                    viewModel.aspectMode == .fit ? "切换为填充画面" : "切换为适应画面",
+                    systemImage: "rectangle.arrowtriangle.2.outward"
+                )
+            }
+
+            Button {
+                viewModel.reinitialize()
+            } label: {
+                Label("重新初始化播放器", systemImage: "arrow.clockwise.circle")
+            }
         } label: {
-            Image(systemName: "rotate.right")
+            Image(systemName: "gearshape.fill")
                 .font(.subheadline.weight(.semibold))
                 .frame(width: 40, height: 40)
                 .glassEffect(.regular.tint(.white).interactive(), in: .circle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("横屏全屏")
+        .accessibilityLabel("播放器设置")
     }
 
-    private var portraitButton: some View {
+    /// 横屏 / 竖屏切换（全屏内）：当前横屏则切回竖屏，当前竖屏则切为横屏。
+    private var orientationButton: some View {
         Button {
-            PlayerOrientationController.requestPortrait()
+            if PlayerOrientationController.isLandscape {
+                PlayerOrientationController.requestPortrait()
+            } else {
+                PlayerOrientationController.requestLandscape()
+            }
         } label: {
-            Image(systemName: "rotate.left")
+            Image(systemName: PlayerOrientationController.isLandscape
+                ? "rotate.left"
+                : "rotate.right")
                 .font(.subheadline.weight(.semibold))
                 .frame(width: 40, height: 40)
                 .glassEffect(.regular.tint(.white).interactive(), in: .circle)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("竖屏全屏")
+        .accessibilityLabel(PlayerOrientationController.isLandscape ? "切换为竖屏" : "切换为横屏")
     }
 
     private var fullscreenButton: some View {
@@ -220,20 +194,6 @@ struct PlayerControlsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(viewModel.isFullScreen ? "退出全屏" : "全屏")
-    }
-
-    /// 手动初始化：重新加载当前媒体（换片卡转圈 / 状态异常时手动恢复）。
-    private var reinitializeButton: some View {
-        Button {
-            viewModel.reinitialize()
-        } label: {
-            Image(systemName: "arrow.clockwise.circle")
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(.white).interactive(), in: .circle)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("重新初始化播放器")
     }
 
     private func formatTime(_ time: TimeInterval) -> String {

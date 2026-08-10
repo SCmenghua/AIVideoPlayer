@@ -34,10 +34,12 @@ final class BrowserViewModel {
     private(set) var requestedLoad: URL?
     private(set) var history: [BrowserHistoryEntry] = []
     private(set) var bookmarks: [Bookmark] = []
+    private(set) var tabs: [HomeTab] = []
     private(set) var extractedMedia: LoadState<[MediaItem]> = .loading
 
     private let historyStore: any BrowserHistoryStoring
     private let bookmarkStore: any BookmarkStoring
+    private let homeTabStore: any HomeTabStoring
     private let mediaExtractor: any MediaExtractor
 
     private var extractionGeneration = 0
@@ -46,13 +48,16 @@ final class BrowserViewModel {
     init(
         historyStore: any BrowserHistoryStoring = UserDefaultsHistoryStore(),
         bookmarkStore: any BookmarkStoring = UserDefaultsBookmarkStore(),
+        homeTabStore: any HomeTabStoring = UserDefaultsHomeTabStore(),
         mediaExtractor: any MediaExtractor = WebMediaExtractor()
     ) {
         self.historyStore = historyStore
         self.bookmarkStore = bookmarkStore
+        self.homeTabStore = homeTabStore
         self.mediaExtractor = mediaExtractor
         self.history = historyStore.loadEntries()
         self.bookmarks = bookmarkStore.loadBookmarks()
+        self.tabs = homeTabStore.loadTabs()
     }
 
     var isLoading: Bool {
@@ -107,6 +112,17 @@ final class BrowserViewModel {
     func reload() {
         pendingCommand = .reload
         commandVersion += 1
+    }
+
+    /// 返回主页（刚进入软件、尚未跳转的界面）：清空网页状态与地址栏。
+    func goHome() {
+        navigationState = .idle
+        addressText = ""
+        requestedLoad = nil
+        pendingCommand = .none
+        commandVersion += 1
+        canGoBack = false
+        canGoForward = false
     }
 
     func consumeCommand() {
@@ -183,6 +199,29 @@ final class BrowserViewModel {
     func clearHistory() {
         try? historyStore.clear()
         history = historyStore.loadEntries()
+    }
+
+    // MARK: - 主页标签页（手动添加快捷入口，独立于收藏）
+
+    /// 添加主页标签页；URL 非法时忽略。
+    func addHomeTab(title: String, urlString: String) {
+        guard let url = Self.makeURL(from: urlString) else { return }
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedTitle = trimmedTitle.isEmpty
+            ? (url.host ?? url.absoluteString)
+            : trimmedTitle
+        try? homeTabStore.addTab(HomeTab(url: url, title: resolvedTitle))
+        tabs = homeTabStore.loadTabs()
+    }
+
+    func removeHomeTab(_ tab: HomeTab) {
+        try? homeTabStore.removeTab(id: tab.id)
+        tabs = homeTabStore.loadTabs()
+    }
+
+    /// 打开主页标签页（与地址栏/历史/收藏共用加载入口）。
+    func openHomeTab(_ tab: HomeTab) {
+        load(tab.url)
     }
 
     // MARK: - 媒体提取（Phase 4）

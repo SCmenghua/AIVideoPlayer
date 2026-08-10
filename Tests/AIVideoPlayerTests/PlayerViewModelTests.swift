@@ -298,7 +298,6 @@ private final class GatedPlaybackEngine: PlaybackEngine {
         rate = newRate
     }
 
-    func setVolume(_ volume: Float) async {}
 }
 
 /// 静默播放引擎：play/pause/load/seek 更新内部状态但不 yield 流，
@@ -355,8 +354,6 @@ private final class SilentPlaybackEngine: PlaybackEngine {
         rate = newRate
     }
 
-    func setVolume(_ volume: Float) async {}
-
     func simulateProgress(currentTime: TimeInterval, duration: TimeInterval) {
         self.currentTime = currentTime
         self.duration = duration
@@ -408,5 +405,4 @@ private final class AutoplayPlaybackEngine: PlaybackEngine {
         rate = newRate
     }
 
-    func setVolume(_ volume: Float) async {}
 }
