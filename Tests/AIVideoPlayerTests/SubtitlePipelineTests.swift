@@ -292,6 +292,10 @@ struct SubtitlePipelineTests {
             try? await Task.sleep(for: .milliseconds(20))
         }
     }
+
+    private func uniqueSuiteName() -> String {
+        "subtitle-pipeline.\(UUID().uuidString)"
+    }
 }
 
 // MARK: - 测试替身
