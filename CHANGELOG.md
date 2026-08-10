@@ -9,6 +9,7 @@
 ### 待规划
 
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
+- Phase 8.1：修复用户实测反馈的剩余 bug（清单待用户提供，2026-08-10 记录）
 
 ## [0.8.0] - 2026-08-10
 
@@ -31,6 +32,8 @@
 - 内置普通话测试视频 `test.mp4` + 正确转写文本 `test.txt`：
   放入 `Resources/Samples/`（随 App 打包，调试入口优先加载；
   `test.txt` 入库，`test.mp4` 体积约 9 MB 保持 git 忽略、本地放置）
+  注：GitHub Actions 打包的 IPA 不含 git 忽略的 `test.mp4`，
+  设备上调试入口回退到 `sample.mp4` / 远程示例；本地 macOS 构建放入该文件即可随包
 - 双语字幕结构保持就位：`SubtitleSegment.translatedText` + Overlay 第二行渲染
   已存在，译文可用时自动显示，Phase 8 后续只补翻译质量与开关
 

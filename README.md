@@ -127,6 +127,11 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 （上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。
 当前基线 0.8.0（Phase 8.0），下一次打包应为 0.8.1（Phase 8.1）。
 
+> GitHub Actions 打包的 IPA 不含本地 `test.mp4`（约 9 MB，git 忽略）：
+> 调试入口在设备上会回退到构建时下载的 `sample.mp4` / 远程示例；
+> 需要验证普通话识别时，在本地 macOS 构建前把 `test.mp4` 放入
+> `AIVideoPlayer/Resources/Samples/` 即可随包。
+
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 
 ## 当前阶段状态
@@ -163,10 +168,11 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   （Documents/MediaFiles），修复书签授权跨启动失效导致的导入失败，CI 通过
 - ✅ Phase 7.13 完成：移除文件来源导入功能（多次修复未稳定，保留枚举值与
   占位入口便于后期恢复），媒体来源保留 WebDAV 与相册，CI 通过
-- 🔄 Phase 8.0 进行中：修复语音识别字幕链路——播放器字幕开关自动激活识别管线、
+- ✅ Phase 8.0 完成：修复语音识别字幕链路——播放器字幕开关自动激活识别管线、
   播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试；
-  内置普通话测试视频 test.mp4 + 正确转写 test.txt 供回归验证
-  （当前基线 0.8.0 / Phase 8.0，2026-08-10 打包）
+  内置普通话测试视频 test.mp4 + 正确转写 test.txt 供回归验证，
+  打包 0.8.0（当前基线 0.8.0 / Phase 8.0，2026-08-10）
+- 🔄 Phase 8.1 待开启：修复用户实测反馈的剩余 bug（清单待用户提供）
 
 ## 后续开发路线
 
@@ -189,7 +195,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 7.12 | 文件来源导入复制到 App 沙盒（修复跨启动访问失效）（版本 0.7.12） | ✅ 完成 |
 | 7.13 | 移除文件来源导入（保留扩展点与占位入口），媒体来源保留 WebDAV / 相册（版本 0.7.13） | ✅ 完成 |
 | 7.14+ | 播放器功能收尾（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | ⬜ 未开始 |
-| 8 | 修好语音识别功能与翻译功能（当前为半成品状态）；8.0 已修复字幕输出链路 | 🔄 进行中 |
+| 8 | 修好语音识别功能与翻译功能；8.0 已修复字幕输出链路并打包 0.8.0 | ✅ 完成（翻译部分后续） |
+| 8.1 | 修复用户实测反馈的剩余 bug（清单待用户提供） | 🔄 待开启 |
 | 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕：超前识别（设计提案）

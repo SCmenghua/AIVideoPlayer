@@ -174,6 +174,8 @@ test-videos.co.uk）。
 Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地普通话测试视频，
 约 9 MB，git 忽略、手动放置；同目录 `test.txt` 是其正确转写文本，随 App 打包并入库）。
 两者用于语音识别回归验证：播放 `test.mp4` 时，字幕应与 `test.txt` 内容一致。
+注意：`test.mp4` 不入库，GitHub Actions 打包的 IPA 不含它，设备上会回退到
+`sample.mp4` / 远程示例；需验证普通话识别时，在本地 macOS 构建前手动放入该文件。
 
 - **删除方法**：移除 `PlayerView.emptyState` 中的调试按钮及对应文案即可；
 - 正式入口为「远程文件视频行 → `AppEnvironment.requestPlayback`」，与调试按钮相互独立，
@@ -479,9 +481,14 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
     （Documents/MediaFiles），修复书签授权跨启动失效。
 16. **Phase 7.13（已完成）**：移除文件来源导入功能（保留 `MediaSourceKind.files`
     枚举值与占位入口，便于后期恢复），媒体来源保留 WebDAV / 相册。
-17. **Phase 8 之前（Phase 7.x 系列，进行中）**：用 7.x 的数个小版本修好播放器功能。
-18. **Phase 8（规划中）**：修好语音识别功能与翻译功能（二者当前仍为半成品状态）。
-19. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+17. **Phase 7.x 系列（已完成）**：用 7.x 的数个小版本修好播放器功能（7.5–7.13 收尾）。
+18. **Phase 8.0（已完成，打包 0.8.0）**：修复「播放视频没有字幕」的核心链路——
+    播放器字幕开关联动识别管线、播放中途激活用真实播放时间重建游标、
+    模型加载期识别循环自动重试；内置普通话测试素材（`test.txt` 入库随包，
+    `test.mp4` 仅本地构建随包）。
+19. **Phase 8.1（待开启）**：修复用户实测反馈的剩余 bug（清单待用户提供）；
+    Phase 8 后续再完善翻译功能（双语字幕实际可用）。
+20. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。
