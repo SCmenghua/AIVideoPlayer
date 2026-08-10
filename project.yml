@@ -13,7 +13,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.8.1
+    MARKETING_VERSION: 0.8.2
 
 packages:
   WhisperKit:

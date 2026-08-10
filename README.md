@@ -119,16 +119,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.1）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.2）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.1）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.2）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。
-当前基线 0.8.1（Phase 8.1），下一次打包应为 0.8.2（Phase 8.2）。
+当前基线 0.8.2（Phase 8.2），下一次打包应为 0.8.3（Phase 8.3）。
 
 > GitHub Actions 打包的 IPA 不含本地 `test.mp4`（约 9 MB，git 忽略）：
 > 调试入口在设备上会回退到构建时下载的 `sample.mp4` / 远程示例；
@@ -175,9 +175,12 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试；
   内置普通话测试视频 test.mp4 + 正确转写 test.txt 供回归验证，
   打包 0.8.0（当前基线 0.8.0 / Phase 8.0，2026-08-10）
-- 🔄 Phase 8.1 进行中（打包 0.8.1）：修复「开关已生效但看不到字幕」——确认开关链路真实生效；
+- ✅ Phase 8.1 完成（打包 0.8.1）：修复「开关已生效但看不到字幕」——确认开关链路真实生效；
   修正识别参数（标准 prefill + 语言传递）、识别游标跟随播放并跳过落后窗口；
   设置页新增识别状态统计（模型加载 / 转写窗口 / 字幕产出）
+- ✅ Phase 8.2 完成（打包 0.8.2）：翻译功能增强——系统翻译 / 本地大模型
+  （Gemma 4 E2B 按需下载）/ 云端 API 可选；原语言与目标语言选择；多语言池
+  12 种、设置页可勾选呈现并排序；播放器字幕开启后出现「字幕语言」按钮
 
 ## 后续开发路线
 
@@ -201,7 +204,8 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 7.13 | 移除文件来源导入（保留扩展点与占位入口），媒体来源保留 WebDAV / 相册（版本 0.7.13） | ✅ 完成 |
 | 7.14+ | 播放器功能收尾（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | ⬜ 未开始 |
 | 8 | 修好语音识别功能与翻译功能；8.0 已修复字幕输出链路并打包 0.8.0 | ✅ 完成（翻译部分后续） |
-| 8.1 | 修复「开关已生效但看不到字幕」：识别参数修正、识别游标跟随播放、设置页识别状态统计（打包 0.8.1） | 🔄 进行中 |
+| 8.1 | 修复「开关已生效但看不到字幕」：识别参数修正、识别游标跟随播放、设置页识别状态统计（打包 0.8.1） | ✅ 完成 |
+| 8.2 | 翻译功能增强：系统翻译 / 本地大模型 / 云端 API、原语言与目标语言、多语言池 12 种可配置、播放器语言按钮（打包 0.8.2） | ✅ 完成 |
 | 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕：超前识别（设计提案）
