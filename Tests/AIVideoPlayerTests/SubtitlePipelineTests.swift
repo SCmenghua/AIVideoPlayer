@@ -261,13 +261,16 @@ struct SubtitlePipelineTests {
         transcript: SubtitleTranscriptStore = SubtitleTranscriptStore(),
         translationSettings: TranslationSettings? = nil
     ) -> SubtitlePipeline {
-        let settings = translationSettings ?? {
-            let defaults = TranslationSettings(suiteName: uniqueSuiteName())
+        let settings: TranslationSettings
+        if let translationSettings {
+            settings = translationSettings
+        } else {
             // 识别链路测试保持翻译关闭，避免真实 Fast NMT 在 CI 上被调用。
+            let defaults = TranslationSettings(suiteName: uniqueSuiteName())
             defaults.isEnabled = false
-            return defaults
-        }()
-        SubtitlePipeline(
+            settings = defaults
+        }
+        return SubtitlePipeline(
             transcript: transcript,
             translationSettings: settings,
             recognizerFactory: { recognizer },
