@@ -20,8 +20,11 @@ AIVideoPlayer/Resources/Models/whisperkit-coreml/*
 
 # Bundled sample video (fetched by scripts/fetch-sample-video.sh at build time)
 # 保留 .gitkeep 占位，确保 XcodeGen 生成工程时目录存在。
+# test.mp4 是本地普通话测试视频（约 9 MB，git 忽略，本地手动放置即可）；
+# test.txt 是其正确转写文本（随 App 打包并入库，供测试/回归对照）。
 AIVideoPlayer/Resources/Samples/*
 !AIVideoPlayer/Resources/Samples/.gitkeep
+!AIVideoPlayer/Resources/Samples/test.txt
 
 # OS
 .DS_Store

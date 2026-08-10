@@ -171,6 +171,10 @@ SubtitleStatusViewModel(provider: any SubtitleStatusProviding = MockSubtitleStat
 离线可播；未内置时回退到远程示例 URL（原 googleapis 链接已返回 403，回退改用
 test-videos.co.uk）。
 
+Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地普通话测试视频，
+约 9 MB，git 忽略、手动放置；同目录 `test.txt` 是其正确转写文本，随 App 打包并入库）。
+两者用于语音识别回归验证：播放 `test.mp4` 时，字幕应与 `test.txt` 内容一致。
+
 - **删除方法**：移除 `PlayerView.emptyState` 中的调试按钮及对应文案即可；
 - 正式入口为「远程文件视频行 → `AppEnvironment.requestPlayback`」，与调试按钮相互独立，
   删除调试按钮不影响播放链路。
@@ -236,6 +240,9 @@ test-videos.co.uk）。
 - 状态语义：`AIState` 的 LISTENING / TRANSCRIBING / TRANSLATING 表示领先窗口内的管线状态，
   READY 表示当前播放位置的句子已整句就绪（窗口转写完成后进入 READY，下一窗口开始时回到 TRANSCRIBING）。
 - 窗口长度：超前模式取 `max(Δ, 5)` 秒，原始路径固定 5 秒；单个窗口失败只跳过该窗口，不中断整条管线。
+- 识别循环容错：模型仍在加载时收到转写请求，识别器抛出「引擎未就绪」普通错误
+  （不是 CancellationError），循环短暂等待后重试，避免模型加载竞态导致识别永久退出；
+  播放中途才打开字幕时，激活路径用引擎当前真实时间（而非上次播放开始时间）重建识别游标。
 - HLS / 直播等 AVAssetReader 无法预读的来源，自动降级为 MTAudioProcessingTap 实时路径（无 Δ 领先）。
 
 **体验权衡：**
@@ -354,7 +361,10 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
    原生 Liquid Glass 玻璃条（不使用任何模拟玻璃 API）；整句一次性出现 / 消失动画；
    `DragGesture` 拖动调整位置；叠加在播放画面之上、控制栏之下。
 5. 接入：`PlayerView` 与 `FullscreenPlayerView` 在「字幕开关开启且管线激活」时
-   渲染 Overlay；换片时清空时间线；管线关闭时清空当前字幕，避免过期内容残留。
+   渲染 Overlay（`SubtitleLayer`）；播放器字幕开关打开时会自动激活共享管线
+   （不再要求先去设置页 / 首页单独开启）；管线已在别处激活时播放器默认显示字幕；
+   开关开启但引擎加载中 / 出错 / 已关闭时，画面顶部显示状态胶囊（`SubtitleStatusPill`），
+   明确识别引擎状态；换片时清空时间线；管线关闭时清空当前字幕，避免过期内容残留。
 6. 原始实时路径（超前开关关闭）不受影响：partial 逐词出现、final 到达后由时间线
    final 优先语义收敛为整句，不改变 Phase 5 管线行为。
 

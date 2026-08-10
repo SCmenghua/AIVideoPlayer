@@ -29,6 +29,8 @@ final class PlayerViewModel {
     private var refreshTask: Task<Void, Never>?
     /// 当前加载任务：新加载会取消旧任务，避免并发加载互相覆盖状态。
     private var loadTask: Task<Void, Never>?
+    /// 播放器字幕开关触发的管线激活任务（避免多次点击重复激活）。
+    private var subtitleActivationTask: Task<Void, Never>?
     /// 加载世代：旧任务完成时若世代不匹配则丢弃结果，防止过期加载
     /// 覆盖新媒体的状态（换片后旧任务超时把状态打成 failed 等）。
     private var loadGeneration = 0
@@ -102,9 +104,11 @@ final class PlayerViewModel {
         stateTask?.cancel()
         progressTask?.cancel()
         refreshTask?.cancel()
+        subtitleActivationTask?.cancel()
         stateTask = nil
         progressTask = nil
         refreshTask = nil
+        subtitleActivationTask = nil
     }
 
     // MARK: - 播放控制
@@ -152,6 +156,11 @@ final class PlayerViewModel {
     func attachSubtitlePipeline(_ pipeline: SubtitlePipeline) {
         subtitlePipeline = pipeline
         pipeline.attach(playbackEngine: engine)
+        // 管线已在设置页 / 首页启用时，播放器默认显示字幕，
+        // 避免「设置里开了但播放器还要再点一次开关」的困惑。
+        if pipeline.isActive {
+            isSubtitleEnabled = true
+        }
     }
 
     func togglePlayPause() async {
@@ -186,6 +195,18 @@ final class PlayerViewModel {
     func toggleSubtitle() {
         // Phase 6：控制位驱动 SubtitleOverlay 显示。
         isSubtitleEnabled.toggle()
+        guard isSubtitleEnabled else { return }
+        ensureSubtitlePipelineActive()
+    }
+
+    /// 播放器字幕开关打开时，确保共享 AI 管线已激活（设置页 / 首页有独立开关）。
+    private func ensureSubtitlePipelineActive() {
+        guard let subtitlePipeline, !subtitlePipeline.isActive else { return }
+        subtitleActivationTask?.cancel()
+        subtitleActivationTask = Task { [weak self] in
+            guard let self, let pipeline = self.subtitlePipeline, !pipeline.isActive else { return }
+            await pipeline.toggle()
+        }
     }
 
     func setAspectMode(_ mode: VideoAspectMode) {

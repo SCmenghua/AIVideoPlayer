@@ -151,10 +151,13 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         generation += 1
         stopLoops()
         await recognizer?.discardPendingResults()
-        buffer.reset(to: playbackTime)
+        // 设置变更发生在播放中途时，playbackTime 可能停留在上次播放开始位置，
+        // 必须用引擎当前真实时间重建游标，否则识别会从旧位置开始而永远追不上。
+        let resumeTime = engine?.currentTime ?? playbackTime
+        buffer.reset(to: resumeTime)
         if let source {
-            await source.reset(to: playbackTime)
-            try? await source.start(at: playbackTime)
+            await source.reset(to: resumeTime)
+            try? await source.start(at: resumeTime)
         }
         if let source {
             consumeChunks(from: source)
@@ -201,7 +204,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             startForwarding(recognizer: recognizer)
             setStatus(state: .listening)
             if engine != nil {
-                await preparePlayback(from: playbackTime)
+                // 播放中途才打开字幕时，engine.currentTime 才是真实播放位置；
+                // playbackTime 可能停留在更早的记录值，用它重建会让识别
+                // 从旧位置开始、永远追不上播放光标（表现为没有任何字幕）。
+                await preparePlayback(from: engine?.currentTime ?? playbackTime)
             }
         } catch {
             active = false
@@ -384,10 +390,17 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 }
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
             } catch is CancellationError {
-                return
+                // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
+                // 或 generation 已变化（新会话接管），此时才应退出。
+                if Task.isCancelled || self.generation != generation || !self.active {
+                    return
+                }
+                // 其余 CancellationError 视作临时不可用：稍后重试，不终止循环。
+                try? await Task.sleep(for: .milliseconds(200))
             } catch {
-                // 单个窗口失败：跳过并继续，避免整条管线停摆。
+                // 单个窗口失败（含模型尚未就绪）：跳过并继续，避免整条管线停摆。
                 setStatus(state: .listening)
+                try? await Task.sleep(for: .milliseconds(100))
             }
         }
     }

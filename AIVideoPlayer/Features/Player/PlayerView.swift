@@ -106,11 +106,12 @@ struct PlayerView: View {
                     }
                 }
 
-            if viewModel.isSubtitleEnabled,
-               environment.subtitlePipeline.isActive,
-               let subtitleOverlay {
-                SubtitleOverlay(viewModel: subtitleOverlay, currentTime: viewModel.currentTime)
-            }
+            SubtitleLayer(
+                isEnabled: viewModel.isSubtitleEnabled,
+                status: environment.subtitlePipeline.status,
+                subtitleOverlay: subtitleOverlay,
+                currentTime: viewModel.currentTime
+            )
 
             if viewModel.isControlsVisible {
                 VStack {
@@ -180,11 +181,12 @@ private struct FullscreenPlayerView: View {
                     }
                 }
 
-            if viewModel.isSubtitleEnabled,
-               environment.subtitlePipeline.isActive,
-               let subtitleOverlay {
-                SubtitleOverlay(viewModel: subtitleOverlay, currentTime: viewModel.currentTime)
-            }
+            SubtitleLayer(
+                isEnabled: viewModel.isSubtitleEnabled,
+                status: environment.subtitlePipeline.status,
+                subtitleOverlay: subtitleOverlay,
+                currentTime: viewModel.currentTime
+            )
 
             if viewModel.isControlsVisible {
                 VStack {

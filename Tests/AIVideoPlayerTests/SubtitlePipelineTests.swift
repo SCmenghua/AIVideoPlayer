@@ -162,6 +162,61 @@ struct SubtitlePipelineTests {
         #expect(pipeline.shouldUseLeadAhead == false)
     }
 
+    @Test func recognitionLoopSurvivesEngineNotReadyAndRecovers() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline(canReadAhead: true)
+        let recognizer = MockSpeechRecognizer()
+        // 模拟用户打开字幕时模型仍在加载：前两个窗口抛「引擎未就绪」，
+        // 之后模型加载完成，识别必须自动恢复而不是永久停摆。
+        recognizer.failuresBeforeSuccess = 2
+        recognizer.failureError = WhisperRecognizerError.engineNotReady
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        let collect = Task { () -> [SubtitleSegment] in
+            var segments: [SubtitleSegment] = []
+            for await segment in pipeline.segments {
+                segments.append(segment)
+                if segments.count >= 2 { return segments }
+            }
+            return segments
+        }
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        emitSeconds(source, seconds: 20, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 2 }
+        // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
+        #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
+        #expect(recognizer.transcriptionCalls.count >= 2)
+
+        collect.cancel()
+        let segments = await collect.value
+        #expect(!segments.isEmpty)
+    }
+
+    @Test func activateMidPlaybackUsesEngineCurrentTime() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+        await engine.seek(to: 30)
+
+        let source = MockAudioPipeline(canReadAhead: true)
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        // 播放到 30s 时才打开字幕：激活必须以引擎当前时间（30s）重建游标，
+        // 而不是从陈旧记录值（0s）开始，否则识别永远追不上播放光标。
+        await pipeline.toggle()
+        emitSeconds(source, seconds: 5, start: 30)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        #expect(recognizer.lastCall?.windowStart == 30)
+    }
+
     // MARK: - 辅助
 
     private func makePipeline(
@@ -251,6 +306,9 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
     private(set) var transcriptionCalls: [TranscriptionCall] = []
     private(set) var discardCount = 0
     var outcome = RecognitionOutcome(language: "en", segmentCount: 1)
+    /// 前 N 次转写直接抛错（模拟模型加载未完成），之后恢复正常。
+    var failuresBeforeSuccess = 0
+    var failureError: Error = WhisperRecognizerError.engineNotReady
 
     struct TranscriptionCall {
         let windowStart: TimeInterval
@@ -294,6 +352,10 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         windowDuration: TimeInterval,
         emitPartial: Bool
     ) async throws -> RecognitionOutcome {
+        if failuresBeforeSuccess > 0 {
+            failuresBeforeSuccess -= 1
+            throw failureError
+        }
         transcriptionCalls.append(
             TranscriptionCall(windowStart: windowStart, emitPartial: emitPartial)
         )

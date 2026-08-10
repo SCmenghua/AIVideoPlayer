@@ -13,6 +13,20 @@ public enum WhisperModelError: LocalizedError, Sendable {
     }
 }
 
+/// 识别引擎运行期错误。
+public enum WhisperRecognizerError: LocalizedError, Sendable {
+    /// 模型仍在加载 / 尚未就绪时收到了转写请求。
+    /// 注意：这不是取消，调用方应稍后重试而不是结束识别循环。
+    case engineNotReady
+
+    public var errorDescription: String? {
+        switch self {
+        case .engineNotReady:
+            "识别引擎尚未就绪"
+        }
+    }
+}
+
 /// WhisperKit 本地实时识别实现（Phase 5）。
 /// 模型随 App 内置（Resources/Models/whisperkit-coreml），音频不离开设备；
 /// 通过 `transcribe` 处理领先窗口 / 实时窗口，并把 Whisper 的 partial / final
@@ -93,7 +107,9 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         try Task.checkCancellation()
         let windowGeneration = generationBox.current()
         guard let whisperKit else {
-            throw CancellationError()
+            // 模型加载仍在进行：抛普通错误而非 CancellationError，
+            // 让上层识别循环跳过本次尝试并继续重试（而不是被当作取消而退出）。
+            throw WhisperRecognizerError.engineNotReady
         }
 
         let resampled = try AudioResampler.resample(

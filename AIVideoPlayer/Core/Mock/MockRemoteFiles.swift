@@ -51,8 +51,22 @@ public enum MockRemoteFiles {
     ]
 
     /// 播放器占位页使用的示例媒体。
-    /// 优先使用构建时内置的小体积示例视频（离线可播）；未内置时回退到远程示例。
+    /// 优先使用本地普通话测试视频 `test.mp4`（Phase 8.0 语音识别回归样本，
+    /// 正确转写见同目录 `test.txt`，随 App 打包）；其次回退到构建时内置的
+    /// 小体积示例视频（离线可播）；都未内置时回退到远程示例。
     public static let sampleMediaItem: MediaItem = {
+        if let bundledURL = Bundle.main.url(
+            forResource: "test",
+            withExtension: "mp4",
+            subdirectory: "Samples"
+        ) {
+            return MediaItem(
+                title: "示例视频（内置·普通话）",
+                url: bundledURL,
+                kind: .video,
+                source: .local
+            )
+        }
         if let bundledURL = Bundle.main.url(
             forResource: "sample",
             withExtension: "mp4",
