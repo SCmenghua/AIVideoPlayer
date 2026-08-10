@@ -13,6 +13,7 @@ struct TranslationSettingsTests {
         #expect(settings.selectedProviderID == .fastNMT)
         #expect(settings.sourceLanguageCode == nil)
         #expect(settings.targetLanguageCode == TranslationSettings.defaultTargetLanguageCode)
+        #expect(settings.visibleLanguageCodes == TranslationLanguageCatalog.all.map(\.code))
         #expect(!settings.isContextPolishEnabled)
         #expect(settings.localModelDownloadedID == nil)
         #expect(settings.selectedLocalModelID == LocalModelCatalog.gemma4E2B.id)
@@ -27,6 +28,7 @@ struct TranslationSettingsTests {
         settings.selectedProviderID = .cloudLLM
         settings.sourceLanguageCode = "zh-Hans"
         settings.targetLanguageCode = "en"
+        settings.visibleLanguageCodes = ["en", "ja", "zh-Hans"]
         settings.isContextPolishEnabled = true
         settings.cloudBaseURL = "https://api.example.com/v1"
         settings.cloudModelName = "test-model"
@@ -38,6 +40,7 @@ struct TranslationSettingsTests {
         #expect(reloaded.selectedProviderID == .cloudLLM)
         #expect(reloaded.sourceLanguageCode == "zh-Hans")
         #expect(reloaded.targetLanguageCode == "en")
+        #expect(reloaded.visibleLanguageCodes == ["en", "ja", "zh-Hans"])
         #expect(reloaded.isContextPolishEnabled)
         #expect(reloaded.cloudBaseURL == "https://api.example.com/v1")
         #expect(reloaded.cloudModelName == "test-model")
@@ -72,20 +75,54 @@ struct TranslationSettingsTests {
         clearSuite(suite)
     }
 
-    @Test func targetLanguageCatalogExposesSimplifiedChineseAndEnglish() {
-        let languages = TranslationTargetLanguageCatalog.all
-        #expect(languages.map(\.code) == ["zh-Hans", "en"])
-        #expect(TranslationTargetLanguageCatalog.language(for: "zh-Hans").promptName == "Simplified Chinese")
-        #expect(TranslationTargetLanguageCatalog.language(for: "xx").code == "zh-Hans")
+    @Test func languageCatalogExposesTwelveLanguages() {
+        let languages = TranslationLanguageCatalog.all
+        #expect(languages.count == 12)
+        #expect(languages.map(\.code) == [
+            "zh-Hans", "en", "ja", "ko", "ms", "fil",
+            "th", "vi", "id", "fr", "de", "es",
+        ])
+        #expect(TranslationLanguageCatalog.language(for: "ja").promptName == "Japanese")
+        #expect(TranslationLanguageCatalog.language(for: "ms").promptName == "Malay")
+        #expect(TranslationLanguageCatalog.language(for: "fil").promptName == "Filipino")
+        #expect(TranslationLanguageCatalog.language(for: "xx").code == "zh-Hans")
     }
 
-    @Test func sourceLanguageCatalogExposesAutomaticChineseAndEnglish() {
+    @Test func sourceAndTargetCatalogsFollowLanguagePool() {
         let languages = TranslationSourceLanguageCatalog.all
-        #expect(languages.map(\.code) == [nil, "zh-Hans", "en"])
+        #expect(languages.count == 13)
+        #expect(languages.first?.code == nil)
+        #expect(languages.map(\.code).compactMap { $0 } == TranslationLanguageCatalog.all.map(\.code))
         #expect(TranslationSourceLanguageCatalog.language(for: nil).code == nil)
-        #expect(TranslationSourceLanguageCatalog.language(for: "zh-Hans").promptName == "Chinese")
-        #expect(TranslationSourceLanguageCatalog.language(for: "zh").promptName == "Chinese")
+        #expect(TranslationSourceLanguageCatalog.language(for: "zh-Hans").promptName == "Simplified Chinese")
+        #expect(TranslationSourceLanguageCatalog.language(for: "zh").promptName == "Simplified Chinese")
         #expect(TranslationSourceLanguageCatalog.language(for: "xx").code == nil)
+
+        let targets = TranslationTargetLanguageCatalog.all
+        #expect(targets.count == 12)
+        #expect(targets.map(\.code) == TranslationLanguageCatalog.all.map(\.code))
+    }
+
+    @Test func visibleLanguageListTogglesAndSorts() {
+        let suite = uniqueSuiteName()
+        let settings = TranslationSettings(suiteName: suite)
+
+        settings.toggleLanguageVisibility("ms")
+        #expect(!settings.visibleLanguageCodes.contains("ms"))
+
+        settings.toggleLanguageVisibility("ms")
+        #expect(settings.visibleLanguageCodes.contains("ms"))
+
+        settings.visibleLanguageCodes = ["en", "ja", "zh-Hans"]
+        settings.moveLanguageUp("ja")
+        #expect(settings.visibleLanguageCodes == ["ja", "en", "zh-Hans"])
+        settings.moveLanguageDown("ja")
+        #expect(settings.visibleLanguageCodes == ["en", "ja", "zh-Hans"])
+
+        let reloaded = TranslationSettings(suiteName: suite)
+        #expect(reloaded.visibleLanguageCodes == ["en", "ja", "zh-Hans"])
+
+        clearSuite(suite)
     }
 
     private func uniqueSuiteName() -> String {

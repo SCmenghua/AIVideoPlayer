@@ -6,6 +6,7 @@ struct PlayerControlsView: View {
     let viewModel: PlayerViewModel
     let onFullscreen: () -> Void
     let showsOrientationControls: Bool
+    @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
@@ -24,6 +25,9 @@ struct PlayerControlsView: View {
                     playButton
                     rateMenu
                     subtitleButton
+                    if viewModel.isSubtitleEnabled {
+                        languageMenu
+                    }
                     sizeMenu
                     settingsMenu
                     if showsOrientationControls {
@@ -101,6 +105,36 @@ struct PlayerControlsView: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("字幕")
+    }
+
+    /// 字幕语言选择（原语言 / 目标语言）：字幕开关打开后出现。
+    private var languageMenu: some View {
+        Menu {
+            Picker("原语言", selection: Binding(
+                get: { environment.translationSettings.sourceLanguageCode },
+                set: { environment.translationSettings.sourceLanguageCode = $0 }
+            )) {
+                ForEach(environment.translationSettings.visibleSourceLanguages, id: \.code) { language in
+                    Text(language.displayName).tag(language.code)
+                }
+            }
+
+            Picker("目标语言", selection: Binding(
+                get: { environment.translationSettings.targetLanguageCode },
+                set: { environment.translationSettings.targetLanguageCode = $0 }
+            )) {
+                ForEach(environment.translationSettings.visibleTargetLanguages, id: \.code) { language in
+                    Text(language.displayName).tag(language.code)
+                }
+            }
+        } label: {
+            Image(systemName: "character.bubble")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.orange).interactive(), in: .circle)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("字幕语言")
     }
 
     /// 画面大小滑块（缩放 0.5x...2.0x）。

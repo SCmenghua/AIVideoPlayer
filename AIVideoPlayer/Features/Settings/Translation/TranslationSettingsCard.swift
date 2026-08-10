@@ -29,6 +29,7 @@ struct TranslationSettingsCard: View {
                 providerPicker(vm)
                 sourceLanguagePicker(vm)
                 targetLanguagePicker(vm)
+                languageListSection(vm)
                 providerSection(vm)
                 contextPolishToggle(vm)
                 enableToggle(vm)
@@ -109,7 +110,7 @@ struct TranslationSettingsCard: View {
                 rebuildPipeline()
             }
         )) {
-            ForEach(TranslationSourceLanguageCatalog.all, id: \.code) { language in
+            ForEach(vm.settings.visibleSourceLanguages, id: \.code) { language in
                 Text(language.displayName).tag(language.code)
             }
         }
@@ -124,11 +125,61 @@ struct TranslationSettingsCard: View {
                 rebuildPipeline()
             }
         )) {
-            ForEach(TranslationTargetLanguageCatalog.all, id: \.code) { language in
+            ForEach(vm.settings.visibleTargetLanguages, id: \.code) { language in
                 Text(language.displayName).tag(language.code)
             }
         }
         .pickerStyle(.menu)
+    }
+
+    /// 语言列表管理：勾选是否呈现 + 排序。
+    private func languageListSection(_ vm: TranslationSettingsViewModel) -> some View {
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.xs) {
+            Text("语言列表")
+                .font(.subheadline.weight(.medium))
+            Text("勾选要在“原语言 / 目标语言”中出现的语言，并可调整顺序；系统翻译仅支持部分语言对，不支持时请使用本地大模型。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            ForEach(TranslationLanguageCatalog.all, id: \.code) { language in
+                HStack(spacing: AppTheme.Spacing.xs) {
+                    Toggle(isOn: Binding(
+                        get: { vm.settings.visibleLanguageCodes.contains(language.code) },
+                        set: { _ in
+                            vm.settings.toggleLanguageVisibility(language.code)
+                            rebuildPipeline()
+                        }
+                    )) {
+                        Text(language.displayName)
+                            .font(.subheadline)
+                    }
+                    .tint(.orange)
+
+                    Spacer()
+
+                    Button {
+                        vm.settings.moveLanguageUp(language.code)
+                        rebuildPipeline()
+                    } label: {
+                        Image(systemName: "arrow.up")
+                    }
+                    .disabled(!vm.settings.visibleLanguageCodes.contains(language.code)
+                        || vm.settings.visibleLanguageCodes.firstIndex(of: language.code) == 0)
+                    .buttonStyle(.borderless)
+
+                    Button {
+                        vm.settings.moveLanguageDown(language.code)
+                        rebuildPipeline()
+                    } label: {
+                        Image(systemName: "arrow.down")
+                    }
+                    .disabled(!vm.settings.visibleLanguageCodes.contains(language.code)
+                        || vm.settings.visibleLanguageCodes.firstIndex(of: language.code)
+                            == vm.settings.visibleLanguageCodes.count - 1)
+                    .buttonStyle(.borderless)
+                }
+            }
+        }
     }
 
     @ViewBuilder
