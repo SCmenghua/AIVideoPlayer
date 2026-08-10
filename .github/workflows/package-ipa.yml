@@ -6,7 +6,7 @@ on:
       version:
         description: "IPA 版本号（用于文件名、工件名与 Release tag）"
         required: false
-        default: "0.8.0"
+        default: "0.8.1"
 
 permissions:
   contents: write
@@ -97,9 +97,10 @@ jobs:
 
           - 供自签工具使用：Sideloadly / AltStore / 爱思助手 等，导入 IPA 后用自己的 Apple ID 签名安装。
           - 需要 iOS 26 及以上设备。
+          - Phase 8.1：识别可用性修复——标准 prefill + 语言传递（中文识别更稳）、
+            识别游标跟随播放位置并跳过落后窗口；设置页新增识别状态统计。
           - Phase 8.0：修复 AI 字幕无输出问题（播放器字幕开关联动识别管线、
-            播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试），
-            内置普通话测试视频 test.mp4 + 正确转写 test.txt 供回归验证。
+            播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试）。
           EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$IPA_NAME" --clobber
