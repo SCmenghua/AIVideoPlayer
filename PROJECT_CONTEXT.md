@@ -56,8 +56,8 @@
   `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
   （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-  当前基线：0.7.13（Phase 7.13）。Phase 8.0 进行中且尚未打包，
-  版本号保持 0.7.13，下一次打包时按约定递增。
+  当前基线：0.8.0（Phase 8.0，2026-08-10 打包），
+  下一次打包应为 0.8.1（Phase 8.1）。
 
 ## 已完成
 

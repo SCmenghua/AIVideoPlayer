@@ -116,16 +116,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.13）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.0）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.13）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.0）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
-（上一次 `0.7.x` → 下一次 `0.7.(x+1)`），文档中的 Phase 编号同步递增
-（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.13，下一次打包应为 0.7.14。
+（上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。
+当前基线 0.8.0（Phase 8.0），下一次打包应为 0.8.1（Phase 8.1）。
 
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 
@@ -166,7 +166,7 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - 🔄 Phase 8.0 进行中：修复语音识别字幕链路——播放器字幕开关自动激活识别管线、
   播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试；
   内置普通话测试视频 test.mp4 + 正确转写 test.txt 供回归验证
-  （当前基线 0.7.13，尚未打包）
+  （当前基线 0.8.0 / Phase 8.0，2026-08-10 打包）
 
 ## 后续开发路线
 
