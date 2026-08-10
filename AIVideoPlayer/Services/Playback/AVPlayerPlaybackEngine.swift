@@ -22,8 +22,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     private let stateContinuation: AsyncStream<PlaybackState>.Continuation
     private let progressContinuation: AsyncStream<PlaybackProgress>.Continuation
 
-    /// 
-onisolated(unsafe)：仅 MainActor 方法与 deinit 访问（deinit 无隔离，
+    /// nonisolated(unsafe)：仅 MainActor 方法与 deinit 访问（deinit 无隔离，
     /// 无法读取 actor 隔离的非 Sendable 存储属性；属性本身只在本类内使用，
     /// 且 deinit 时对象不再被并发访问，安全）。
     nonisolated(unsafe) private var timeObserver: Any?
