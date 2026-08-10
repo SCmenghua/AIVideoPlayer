@@ -13,6 +13,11 @@
 - 确认 Gemma 4 E2B 官方下载仓库 `mlx-community/gemma-4-e2b-it-4bit`
   （Hugging Face，主文件约 3.55 GB，文件清单与下载器匹配）；
   本地大模型按需下载、不随 App 内置
+- 多语言支持：语言池扩展至 12 种（简体中文 / English / 日本語 / 한국어 /
+  Bahasa Melayu / Filipino / ไทย / Tiếng Việt / Bahasa Indonesia / Français /
+  Deutsch / Español）；设置页可勾选语言是否呈现并排序
+  （系统翻译仅支持 Apple 提供的语言对，马来文 / 菲律宾文等需用本地大模型）
+- 播放器字幕开关打开后，控制栏出现「字幕语言」按钮（原语言 / 目标语言选择）
 
 ### 待规划
 

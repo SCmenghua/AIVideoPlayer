@@ -323,10 +323,16 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
    进度 / 失败重试 / 取消）、已下载模型管理与删除；下载完成后才能启用该 Provider。
 9. Cloud LLM 配置提供「测试连接」按钮：向配置的服务发起一次最小请求，
    验证 baseUrl / apiKey / modelName 可用；测试成功才允许保存启用，失败需给出可读错误提示。
-10. 语言选择（Phase 8.1）：设置页支持「原语言」（自动检测 / 简体中文 / English）
-    与「目标语言」（简体中文 / English）；手动指定的原语言优先于识别语言，
+10. 语言选择（Phase 8.1）：设置页支持「原语言」（自动检测 + 已启用语言）
+    与「目标语言」（已启用语言）；手动指定的原语言优先于识别语言，
     LLM Provider 的 Prompt 会带上源语言提示；本地模型目录当前仅提供
     `mlx-community/gemma-4-e2b-it-4bit`（按需下载，不随 App 内置）。
+11. 多语言池与可配置列表（Phase 8.1）：`TranslationLanguageCatalog` 提供 12 种语言；
+    设置页可勾选语言是否出现在「原语言 / 目标语言」Picker 中并调整顺序
+    （`TranslationSettings.visibleLanguageCodes` 持久化）；系统翻译（Apple Translation）
+    仅支持其语言对（运行时 `LanguageAvailability` 检查），不支持的语言对
+    （如马来文 / 菲律宾文）提示改用本地大模型；播放器字幕开关开启后，
+    控制栏显示「字幕语言」按钮（原语言 / 目标语言快捷选择）。
 
 ### 8.4 远程文件与浏览器（Phase 2）
 
