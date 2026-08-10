@@ -11,6 +11,7 @@ struct TranslationSettingsTests {
 
         #expect(!settings.isEnabled)
         #expect(settings.selectedProviderID == .fastNMT)
+        #expect(settings.sourceLanguageCode == nil)
         #expect(settings.targetLanguageCode == TranslationSettings.defaultTargetLanguageCode)
         #expect(!settings.isContextPolishEnabled)
         #expect(settings.localModelDownloadedID == nil)
@@ -24,6 +25,7 @@ struct TranslationSettingsTests {
         let settings = TranslationSettings(suiteName: suite)
         settings.isEnabled = true
         settings.selectedProviderID = .cloudLLM
+        settings.sourceLanguageCode = "zh-Hans"
         settings.targetLanguageCode = "en"
         settings.isContextPolishEnabled = true
         settings.cloudBaseURL = "https://api.example.com/v1"
@@ -34,6 +36,7 @@ struct TranslationSettingsTests {
         let reloaded = TranslationSettings(suiteName: suite)
         #expect(reloaded.isEnabled)
         #expect(reloaded.selectedProviderID == .cloudLLM)
+        #expect(reloaded.sourceLanguageCode == "zh-Hans")
         #expect(reloaded.targetLanguageCode == "en")
         #expect(reloaded.isContextPolishEnabled)
         #expect(reloaded.cloudBaseURL == "https://api.example.com/v1")
@@ -57,6 +60,10 @@ struct TranslationSettingsTests {
         let cloudWithURLKey = settings.engineCacheKey
         #expect(cloudKey != cloudWithURLKey)
 
+        settings.sourceLanguageCode = "zh-Hans"
+        let cloudWithSourceKey = settings.engineCacheKey
+        #expect(cloudWithURLKey != cloudWithSourceKey)
+
         settings.selectedProviderID = .fastNMT
         // 缓存键包含云端配置，切回 Fast NMT 后键值应随之变化。
         #expect(settings.engineCacheKey != cloudWithURLKey)
@@ -70,6 +77,15 @@ struct TranslationSettingsTests {
         #expect(languages.map(\.code) == ["zh-Hans", "en"])
         #expect(TranslationTargetLanguageCatalog.language(for: "zh-Hans").promptName == "Simplified Chinese")
         #expect(TranslationTargetLanguageCatalog.language(for: "xx").code == "zh-Hans")
+    }
+
+    @Test func sourceLanguageCatalogExposesAutomaticChineseAndEnglish() {
+        let languages = TranslationSourceLanguageCatalog.all
+        #expect(languages.map(\.code) == [nil, "zh-Hans", "en"])
+        #expect(TranslationSourceLanguageCatalog.language(for: nil).code == nil)
+        #expect(TranslationSourceLanguageCatalog.language(for: "zh-Hans").promptName == "Chinese")
+        #expect(TranslationSourceLanguageCatalog.language(for: "zh").promptName == "Chinese")
+        #expect(TranslationSourceLanguageCatalog.language(for: "xx").code == nil)
     }
 
     private func uniqueSuiteName() -> String {

@@ -96,3 +96,50 @@ public enum TranslationTargetLanguageCatalog {
         all.first { $0.code == code } ?? simplifiedChinese
     }
 }
+
+/// 源语言（设置页选项；nil 表示自动检测）。
+public struct TranslationSourceLanguage: Sendable, Hashable {
+    /// Locale 风格语言代码（如 zh-Hans / en）；nil = 自动检测。
+    public let code: String?
+    public let displayName: String
+    /// 用于本地 LLM Prompt 的英文语言名；nil 时由 LLM 自行判断。
+    public let promptName: String?
+
+    public init(code: String?, displayName: String, promptName: String?) {
+        self.code = code
+        self.displayName = displayName
+        self.promptName = promptName
+    }
+}
+
+public enum TranslationSourceLanguageCatalog {
+    public static let automatic = TranslationSourceLanguage(
+        code: nil,
+        displayName: "自动检测",
+        promptName: nil
+    )
+    public static let simplifiedChinese = TranslationSourceLanguage(
+        code: "zh-Hans",
+        displayName: "简体中文",
+        promptName: "Chinese"
+    )
+    public static let english = TranslationSourceLanguage(
+        code: "en",
+        displayName: "English",
+        promptName: "English"
+    )
+
+    public static let all: [TranslationSourceLanguage] = [
+        automatic, simplifiedChinese, english,
+    ]
+
+    public static func language(for code: String?) -> TranslationSourceLanguage {
+        guard let code else { return automatic }
+        if let exact = all.first(where: { $0.code == code }) {
+            return exact
+        }
+        // 兼容 Whisper 的 ISO 639-1 代码（如 "zh" → "zh-Hans"）。
+        return all.first { $0.code?.lowercased().hasPrefix(code.lowercased()) == true }
+            ?? automatic
+    }
+}

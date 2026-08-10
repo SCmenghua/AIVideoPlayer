@@ -27,6 +27,7 @@ struct TranslationSettingsCard: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 header
                 providerPicker(vm)
+                sourceLanguagePicker(vm)
                 targetLanguagePicker(vm)
                 providerSection(vm)
                 contextPolishToggle(vm)
@@ -95,6 +96,21 @@ struct TranslationSettingsCard: View {
         )) {
             ForEach(TranslationProviderCatalog.all, id: \.id) { provider in
                 Text(provider.displayName).tag(provider.id)
+            }
+        }
+        .pickerStyle(.menu)
+    }
+
+    private func sourceLanguagePicker(_ vm: TranslationSettingsViewModel) -> some View {
+        Picker("原语言", selection: Binding(
+            get: { vm.settings.sourceLanguageCode },
+            set: { newValue in
+                vm.settings.sourceLanguageCode = newValue
+                rebuildPipeline()
+            }
+        )) {
+            ForEach(TranslationSourceLanguageCatalog.all, id: \.code) { language in
+                Text(language.displayName).tag(language.code)
             }
         }
         .pickerStyle(.menu)

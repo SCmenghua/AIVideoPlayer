@@ -23,6 +23,11 @@ public final class TranslationSettings {
         didSet { persist() }
     }
 
+    /// 源语言代码（nil = 自动检测：优先用识别语言，未识别时由 Provider 兜底）。
+    public var sourceLanguageCode: String? {
+        didSet { persist() }
+    }
+
     /// 剧情理解润色（仅本地 / 云端 LLM 生效）。
     public var isContextPolishEnabled: Bool {
         didSet { persist() }
@@ -57,6 +62,7 @@ public final class TranslationSettings {
 
     private static let enabledKey = "translation.enabled.v1"
     private static let providerKey = "translation.provider.v1"
+    private static let sourceLanguageKey = "translation.sourceLanguage.v1"
     private static let targetLanguageKey = "translation.targetLanguage.v1"
     private static let contextPolishKey = "translation.contextPolish.v1"
     private static let cloudBaseURLKey = "translation.cloud.baseURL.v1"
@@ -76,6 +82,8 @@ public final class TranslationSettings {
         ) ?? .fastNMT
         self.targetLanguageCode = defaults.string(forKey: Self.targetLanguageKey)
             ?? Self.defaultTargetLanguageCode
+        let storedSource = defaults.string(forKey: Self.sourceLanguageKey)
+        self.sourceLanguageCode = (storedSource?.isEmpty == false) ? storedSource : nil
         self.isContextPolishEnabled = defaults.bool(forKey: Self.contextPolishKey)
         self.cloudBaseURL = defaults.string(forKey: Self.cloudBaseURLKey) ?? ""
         self.cloudModelName = defaults.string(forKey: Self.cloudModelKey) ?? ""
@@ -93,6 +101,8 @@ public final class TranslationSettings {
             cloudModelName,
             selectedLocalModelID,
             localModelDownloadedID ?? "",
+            sourceLanguageCode ?? "",
+            targetLanguageCode,
         ].joined(separator: "|")
     }
 
@@ -100,6 +110,7 @@ public final class TranslationSettings {
         let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         defaults.set(isEnabled, forKey: Self.enabledKey)
         defaults.set(selectedProviderID.rawValue, forKey: Self.providerKey)
+        defaults.set(sourceLanguageCode ?? "", forKey: Self.sourceLanguageKey)
         defaults.set(targetLanguageCode, forKey: Self.targetLanguageKey)
         defaults.set(isContextPolishEnabled, forKey: Self.contextPolishKey)
         defaults.set(cloudBaseURL, forKey: Self.cloudBaseURLKey)

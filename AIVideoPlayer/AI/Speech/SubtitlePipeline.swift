@@ -339,7 +339,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
             translated = try await engine.translate(
                 segment.originalText,
-                from: currentLanguage,
+                from: translationSettings.sourceLanguageCode ?? currentLanguage,
                 to: translationSettings.targetLanguageCode,
                 context: context
             )
