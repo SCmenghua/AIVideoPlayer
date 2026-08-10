@@ -58,8 +58,8 @@ flowchart TB
 | `DesignSystem/` | Liquid Glass 组件（GlassCard / GlassBadge / GlassIconButton / GlassProminentButton / GlassTogglePill）、Theme 设计令牌 | 1 |
 | `Features/Browser/` | 浏览器（地址栏/历史/收藏 + WKWebView）、媒体提取入口与远程文件浏览（WebDAV 目录导航） | 2 → 4 |
 | `Features/Player/` | 播放器 UI 与状态（PlayerView + PlayerViewModel） | 3 → 6/7.6-7.9 |
-| `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加 + 共享字幕记录（SubtitleStatusCard / SubtitleOverlay + ViewModel / SubtitleTranscriptStore） | ✅ 5/6 → 8.5 |
-| `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 状态统计 / 字幕记录）+ 翻译服务） | 1（占位）→ 5/7/8.5 |
+| `Features/Subtitle/` | AI 字幕状态卡 + 整句字幕叠加（双语/单语）+ 共享字幕记录（SubtitleStatusCard / SubtitleOverlay + ViewModel / SubtitleTranscriptStore） | ✅ 5/6 → 8.6 |
+| `Features/Settings/` | 设置页（隐私说明 + AI 字幕设置（开关 / 状态统计 / 字幕语言 / 字幕记录 / 字幕显示）+ 翻译服务） | 1（占位）→ 5/7/8.5-8.6 |
 | `Core/Protocols/` | 12 个核心协议（见第 4 节） | 1 → 7 |
 | `Core/Models/` | 12 个数据模型（见第 5 节） | 1 → 7 |
 | `Core/Mock/` | Mock 数据与 Mock 实现（浏览器/凭据/状态） | 1-2 |
@@ -264,8 +264,8 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 1. 每个 Provider 都实现 `TranslationEngine` 协议；云端额外实现
    `TranslationConnectionTesting`（测试连接），通过依赖注入接入字幕管线；
    译文写入 `SubtitleSegment.translatedText`。
-2. 设置页提供 Provider 选择与对应配置（Base URL / API Key / Model / Language）；
-   目标语言暂提供简体中文 / English，结构上留足多语言扩展。
+2. 设置页提供 Provider 选择与对应配置（Base URL / API Key / Model）；
+   目标语言在独立「字幕语言」卡片选择（Phase 8.6，12 种语言）。
 3. 隐私：Fast NMT 与 Local LLM 完全本地；Cloud LLM 必须先行展示隐私提示；
    API Key 只存 Keychain。
 4. 上下文窗口与压缩策略由独立组件管理（`TranslationContextProvider`：滑动窗口 +
@@ -279,16 +279,16 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
    进度 / 失败重试 / 取消）、已下载模型管理与删除；下载完成后才能启用该 Provider。
 7. Cloud LLM 配置提供「测试连接」按钮：向配置的服务发起一次最小请求，
    验证 baseUrl / apiKey / modelName 可用；测试成功才允许保存启用，失败需给出可读错误提示。
-8. 语言选择（Phase 8.1）：设置页支持「原语言」（自动检测 + 已启用语言）
-    与「目标语言」（已启用语言）；手动指定的原语言优先于识别语言，
-    LLM Provider 的 Prompt 会带上源语言提示；本地模型目录当前仅提供
-    `mlx-community/gemma-4-e2b-it-4bit`（按需下载，不随 App 内置）。
-9. 多语言池与可配置列表（Phase 8.1）：`TranslationLanguageCatalog` 提供 12 种语言；
-    设置页可勾选语言是否出现在「原语言 / 目标语言」Picker 中并调整顺序
-    （`TranslationSettings.visibleLanguageCodes` 持久化）；系统翻译（Apple Translation）
-    仅支持其语言对（运行时 `LanguageAvailability` 检查），不支持的语言对
-    （如马来文 / 菲律宾文）提示改用本地大模型；播放器字幕开关开启后，
-    控制栏显示「字幕语言」按钮（原语言 / 目标语言快捷选择）。
+8. 语言选择（Phase 8.6）：设置页独立「字幕语言」卡片——「原语言」提供
+    自动检测 + 12 种语言（简体中文 / English / 日本語 / 한국어 / Bahasa Melayu /
+    Filipino / ไทย / Tiếng Việt / Bahasa Indonesia / Français / Deutsch / Español），
+    「翻译语言」同样 12 种；系统翻译（Apple Translation）仅支持其语言对
+    （运行时 `LanguageAvailability` 检查），不支持时给出可读提示。
+9. 语言生效机制（Phase 8.6）：源语言手动指定时，Whisper 识别直接使用该语言
+    （不再等待自动检测），翻译源语言同步切换；自动检测时识别语言跟随模型判断、
+    翻译源语言由识别结果映射（如识别 "zh" → 翻译源 "zh-Hans"）；
+    切换源 / 目标语言会重建翻译引擎（`engineCacheKey` 包含两种语言代码），
+    Fast NMT 按新语言对初始化；选择持久化于 UserDefaults。
 
 ### 8.4 远程文件与浏览器（Phase 2）
 
@@ -316,7 +316,7 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 6. 取消与状态：URLSession 请求随 Task 取消，解析过程 `checkCancellation()`；`extractedMedia`
    显式表达 loading / ready / empty / error / cancelled。
 
-### 8.6 SubtitleOverlay（Phase 6 → 8.5 重构）
+### 8.6 SubtitleOverlay（Phase 6 → 8.5/8.6）
 
 1. 共享数据源：`Features/Subtitle/SubtitleTranscriptStore`（@MainActor @Observable）——
    字幕管线每条识别 / 翻译结果（原文 + 译文）写入这里，有界保留最近 200 条；
@@ -326,12 +326,14 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
    `SubtitleTranscriptStore`，按播放光标计算当前句子（整句一次性出现，不逐词跳动）；
    播放器 Tab 反复进出 / 全屏切换不会中断显示链路（不再消费单次迭代的 AsyncStream）；
    拖动位移换算为归一化坐标（边界 0.08...0.92）；换片 / 管线关闭时清空记录与当前字幕。
-3. `SubtitleDisplaySettings`：字号（小 / 中 / 大）与字幕中心点归一化位置，
-   UserDefaults 持久化，提供 `resetPosition()`；由 `AppEnvironment` 全局共享
-   （播放器叠加层与设置页使用同一实例）。
-4. `SubtitleOverlay` 视图：双语整句显示（原文 + 译文，译文缺失只显示原文），
-   原生 Liquid Glass 玻璃条（不使用任何模拟玻璃 API）；整句一次性出现 / 消失动画；
-   `DragGesture` 拖动调整位置；叠加在播放画面之上、控制栏之下。
+3. `SubtitleDisplaySettings`：字号（小 / 中 / 大）、双语显示开关与字幕中心点
+   归一化位置，UserDefaults 持久化，提供 `resetPosition()`；由 `AppEnvironment`
+   全局共享（播放器叠加层与设置页使用同一实例）。
+4. `SubtitleOverlay` 视图（Phase 8.6）：双语显示开启时上行原文（小字号，
+   约为译文一半）、下行译文（主行大字号）；关闭时只显示译文一行
+   （译文缺失时显示原文）；原生 Liquid Glass 玻璃条（不使用任何模拟玻璃 API）；
+   整句一次性出现 / 消失动画；`DragGesture` 拖动调整位置；
+   叠加在播放画面之上、控制栏之下。
 5. 接入：`PlayerView` 与 `FullscreenPlayerView` 在「字幕开关开启且管线激活」时
    渲染 Overlay（`SubtitleLayer`）；播放器字幕开关打开时会自动激活共享管线
    （不再要求先去设置页 / 首页单独开启）；管线已在别处激活时播放器默认显示字幕；
@@ -340,6 +342,10 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 6. 设置页「字幕记录」卡片（`SubtitleTranscriptCard`）：展示最近已识别字幕的
    原文 + 译文 + 时间，支持一键清空；用于排查「识别已产出但播放器无字幕」，
    可直接确认识别 / 翻译结果是否到达显示链路。
+7. 设置页「字幕语言」卡片（`SubtitleLanguageCard`，Phase 8.6，与字幕记录同层级）：
+   原语言（自动检测 + 12 种语言）与翻译语言（12 种语言）选择 + 双语显示开关；
+   修改即持久化并调用 `SubtitlePipeline.rebuildTranslationEngine()`，
+   保证下次识别 / 翻译立即按新选择生效。
 
 ### 8.7 打包与分发（Release IPA / 自签）
 
@@ -482,7 +488,12 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     不再消费单次迭代的 AsyncStream，修复 Tab 反复进出后字幕丢失）；实时路径 partial
     不再按播放位置丢弃；设置页新增「字幕记录」卡片（已识别字幕原文 + 译文 + 清空），
     用于排查「识别已产出但播放器无字幕」。
-24. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+24. **Phase 8.6（已完成，打包 0.8.6）**：新增字幕语言与双语显示——设置页新增
+    独立「字幕语言」卡片（原语言自动检测 + 12 种 / 翻译语言 12 种 / 双语显示开关）；
+    手动指定源语言后 Whisper 识别与翻译源语言立即生效（自动检测时跟随识别结果，
+    识别 "zh" → 翻译源 "zh-Hans"）；切换语言重建翻译引擎；双语显示开启时
+    上行原文（约译文一半字号）、下行译文，关闭时只显示译文。
+25. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

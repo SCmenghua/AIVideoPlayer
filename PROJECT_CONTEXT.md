@@ -48,6 +48,11 @@
 AsyncStream，修复 Tab 反复进出 / 全屏切换后字幕丢失）；实时路径 partial 不再按
 播放位置丢弃；设置页新增「字幕记录」卡片（已识别字幕原文 + 译文 + 时间 + 清空），
 用于排查「识别已产出但播放器无字幕」。
+**Phase 8.6**（已完成，2026-08-10 打包 0.8.6）：新增字幕语言与双语显示——设置页
+新增独立「字幕语言」卡片（与「字幕记录」同层级）：原语言（自动检测 + 12 种语言，
+控制 Whisper 识别与翻译源语言）、翻译语言（12 种语言，译文输出语言）、双语显示
+开关（开启时上行原文小字、下行译文大字；关闭时只显示译文）；手动指定源语言后
+识别与翻译立即按该语言生效，切换语言会重建翻译引擎；选择与开关均持久化。
 **Phase 9 & Phase 9+**（规划中）：完成 Liquid Glass 深化（变形过渡）、性能、
 测试与错误处理。
 上一阶段：**Phase 7.13 —— 移除文件来源导入**（已完成；Phase 7.5–7.13
@@ -65,6 +70,9 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   用于排查「识别已产出但播放器无字幕」；
 - Phase 8.5 起**超前识别（Lead-Ahead）已删除**（设置开关 / Δ 领先窗口 /
   播放前预读等待全部移除），详见 docs/ARCHITECTURE.md 8.2.1。
+- Phase 8.6 起字幕语言可配置：设置页「字幕语言」卡片选择原语言（自动检测 +
+  12 种语言）与翻译语言（12 种语言），并可用「双语显示」开关切换
+  原文 + 译文两行 / 仅译文一行（译文为主行大字号，原文约为其一半）。
 
 ## 工作流程（提交约定）
 
@@ -91,10 +99,16 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
   （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-当前代码基线：0.8.5（Phase 8.5，2026-08-10 重构；0.8.2 – 0.8.4 全部失败弃用）。
+当前代码基线：0.8.6（Phase 8.6，2026-08-10；0.8.2 – 0.8.4 全部失败弃用）。
 
 ## 已完成
 
+- **Phase 8.6（2026-08-10 打包 0.8.6）**：新增字幕语言与双语显示——设置页新增
+  独立「字幕语言」卡片（原语言 / 翻译语言 / 双语显示开关，与「字幕记录」同层级）；
+  原语言支持自动检测 + 12 种语言，手动指定后 Whisper 识别与翻译源语言立即生效，
+  自动检测时翻译源语言跟随识别结果；翻译语言 12 种，切换语言重建翻译引擎；
+  双语显示开启时上行原文（约译文一半字号）、下行译文（主行大字），关闭时只显示
+  译文；设置持久化（源 / 目标语言 + 双语开关）；`MARKETING_VERSION` 提升至 0.8.6。
 - **Phase 8.4 终止与二次回退**（2026-08-10）：实测仍无法使用，结束 Phase 8.4；
   代码基线再次回退至 Phase 8.1 / 0.8.1（commit `4449b16`），保留说明文档并记录；
   **Phase 8.2 – Phase 8.4 全部失败**，实现已弃用；后续所有 Phase 忽略这几次代码，
@@ -271,6 +285,6 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
 | 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
 | 安全存储 | Keychain（已接入）、UserDefaults |
 | AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；实时路径 5 秒窗口） |
-| 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain） |
+| 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain）；源 / 目标语言 12 种可选 + 自动检测（Phase 8.6） |
 | 工程 | XcodeGen（project.yml 生成工程）；GitHub Actions：主 CI（build/test）+ release-ipa（unsigned IPA → GitHub Release） |
 | 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |

@@ -91,6 +91,64 @@ struct SubtitlePipelineTranslationTests {
         #expect(translator.callCount == 0)
     }
 
+    @Test func manualSourceLanguageIsPassedToTranslator() async throws {
+        let settings = makeTranslationSettings(enabled: true)
+        settings.sourceLanguageCode = "ja"
+        let recognizer = MockSpeechRecognizer()
+        let translator = MockTranslator(translated: "こんにちは")
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            translationSettings: settings,
+            recognizer: recognizer,
+            translator: translator,
+            transcript: transcript
+        )
+
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+
+        let segment = await firstSegment(from: transcript)
+        #expect(segment?.translatedText == "こんにちは")
+        #expect(translator.lastSource == "ja")
+    }
+
+    @Test func manualChineseSourceUsesTranslationCode() async throws {
+        let settings = makeTranslationSettings(enabled: true)
+        settings.sourceLanguageCode = "zh"
+        let recognizer = MockSpeechRecognizer()
+        let translator = MockTranslator()
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            translationSettings: settings,
+            recognizer: recognizer,
+            translator: translator,
+            transcript: transcript
+        )
+
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "你好",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+
+        _ = await firstSegment(from: transcript)
+        // 源语言选简体中文时，识别用 "zh"，翻译源用 "zh-Hans"（Locale 语言代码）。
+        #expect(translator.lastSource == "zh-Hans")
+    }
+
     @Test func translationFailurePassesThroughOriginal() async throws {
         let settings = makeTranslationSettings(enabled: true)
         let recognizer = MockSpeechRecognizer()

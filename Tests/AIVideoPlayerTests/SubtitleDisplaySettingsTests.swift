@@ -10,6 +10,8 @@ struct SubtitleDisplaySettingsTests {
         let settings = SubtitleDisplaySettings(suiteName: uniqueSuiteName())
 
         #expect(settings.fontSize == .medium)
+        #expect(settings.isBilingualEnabled == SubtitleDisplaySettings.defaultIsBilingualEnabled)
+        #expect(settings.isBilingualEnabled)
         #expect(settings.normalizedPosition == SubtitleDisplaySettings.defaultPosition)
     }
 
@@ -17,10 +19,12 @@ struct SubtitleDisplaySettingsTests {
         let suite = uniqueSuiteName()
         let first = SubtitleDisplaySettings(suiteName: suite)
         first.fontSize = .large
+        first.isBilingualEnabled = false
         first.setPosition(CGPoint(x: 0.3, y: 0.4))
 
         let second = SubtitleDisplaySettings(suiteName: suite)
         #expect(second.fontSize == .large)
+        #expect(!second.isBilingualEnabled)
         #expect(second.normalizedPosition == CGPoint(x: 0.3, y: 0.4))
     }
 
@@ -45,10 +49,15 @@ struct SubtitleDisplaySettingsTests {
         #expect(settings.normalizedPosition == SubtitleDisplaySettings.defaultPosition)
     }
 
-    @Test func fontSizesExposePointSizes() {
-        #expect(SubtitleFontSize.small.originalPointSize < SubtitleFontSize.medium.originalPointSize)
-        #expect(SubtitleFontSize.medium.originalPointSize < SubtitleFontSize.large.originalPointSize)
-        #expect(SubtitleFontSize.large.translationPointSize < SubtitleFontSize.large.originalPointSize)
+    @Test func fontSizesExposeTranslationMainAndOriginalHalf() {
+        #expect(SubtitleFontSize.small.translationPointSize < SubtitleFontSize.medium.translationPointSize)
+        #expect(SubtitleFontSize.medium.translationPointSize < SubtitleFontSize.large.translationPointSize)
+        // 双语模式下源语言约为翻译语言的一半（主行为译文）。
+        #expect(SubtitleFontSize.medium.originalPointSize < SubtitleFontSize.medium.translationPointSize)
+        #expect(
+            SubtitleFontSize.medium.originalPointSize
+                == SubtitleFontSize.medium.translationPointSize * 0.55
+        )
     }
 
     private func uniqueSuiteName() -> String {

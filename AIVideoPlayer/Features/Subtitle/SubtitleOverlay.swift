@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// 播放器字幕叠加层（Phase 6）：
-/// - 整句按播放光标对齐一次性出现，双语显示（原文 + 译文，译文缺失只显示原文）；
+/// 播放器字幕叠加层（Phase 6 → 8.6）：
+/// - 整句按播放光标对齐一次性出现；
+/// - 双语显示开启：上行原文（小字号）、下行译文（大字号）；
+///   关闭：只显示译文一行（译文缺失时显示原文）；
 /// - 原生 Liquid Glass 玻璃条；
 /// - DragGesture 拖动调整位置，归一化坐标经 SubtitleDisplaySettings 持久化。
 struct SubtitleOverlay: View {
@@ -41,12 +43,27 @@ struct SubtitleOverlay: View {
 
     private func subtitleBubble(_ segment: SubtitleSegment) -> some View {
         VStack(spacing: AppTheme.Spacing.xxs) {
-            Text(segment.originalText)
-                .font(.system(size: viewModel.fontSize.originalPointSize, weight: .semibold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
             if let translated = segment.translatedText, !translated.isEmpty {
-                Text(translated)
+                if viewModel.isBilingualEnabled {
+                    // 双语：上行原文（约译文一半大小），下行译文（主行）。
+                    Text(segment.originalText)
+                        .font(.system(size: viewModel.fontSize.originalPointSize, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .multilineTextAlignment(.center)
+                    Text(translated)
+                        .font(.system(size: viewModel.fontSize.translationPointSize, weight: .medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                } else {
+                    // 单语：只显示译文。
+                    Text(translated)
+                        .font(.system(size: viewModel.fontSize.translationPointSize, weight: .medium))
+                        .foregroundStyle(.white)
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                // 译文缺失：只显示原文（主行字号）。
+                Text(segment.originalText)
                     .font(.system(size: viewModel.fontSize.translationPointSize, weight: .medium))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)

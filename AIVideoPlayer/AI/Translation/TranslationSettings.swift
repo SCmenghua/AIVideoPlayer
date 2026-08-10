@@ -7,6 +7,7 @@ import Observation
 @Observable
 public final class TranslationSettings {
     public static let defaultTargetLanguageCode = TranslationTargetLanguageCatalog.simplifiedChinese.code
+    public static let defaultSourceLanguageCode = TranslationSourceLanguageCatalog.autoCode
 
     /// 翻译总开关（默认关闭；启用对应 Provider 前需满足就绪条件）。
     public var isEnabled: Bool {
@@ -20,6 +21,11 @@ public final class TranslationSettings {
 
     /// 目标语言代码（如 zh-Hans / en）。
     public var targetLanguageCode: String {
+        didSet { persist() }
+    }
+
+    /// 源语言代码（视频语音；"auto" = 自动检测，其余为 Whisper 代码如 zh / ja / en）。
+    public var sourceLanguageCode: String {
         didSet { persist() }
     }
 
@@ -58,6 +64,7 @@ public final class TranslationSettings {
     private static let enabledKey = "translation.enabled.v1"
     private static let providerKey = "translation.provider.v1"
     private static let targetLanguageKey = "translation.targetLanguage.v1"
+    private static let sourceLanguageKey = "translation.sourceLanguage.v1"
     private static let contextPolishKey = "translation.contextPolish.v1"
     private static let cloudBaseURLKey = "translation.cloud.baseURL.v1"
     private static let cloudModelKey = "translation.cloud.model.v1"
@@ -76,6 +83,8 @@ public final class TranslationSettings {
         ) ?? .fastNMT
         self.targetLanguageCode = defaults.string(forKey: Self.targetLanguageKey)
             ?? Self.defaultTargetLanguageCode
+        self.sourceLanguageCode = defaults.string(forKey: Self.sourceLanguageKey)
+            ?? Self.defaultSourceLanguageCode
         self.isContextPolishEnabled = defaults.bool(forKey: Self.contextPolishKey)
         self.cloudBaseURL = defaults.string(forKey: Self.cloudBaseURLKey) ?? ""
         self.cloudModelName = defaults.string(forKey: Self.cloudModelKey) ?? ""
@@ -89,6 +98,8 @@ public final class TranslationSettings {
     public var engineCacheKey: String {
         [
             selectedProviderID.rawValue,
+            sourceLanguageCode,
+            targetLanguageCode,
             cloudBaseURL,
             cloudModelName,
             selectedLocalModelID,
@@ -101,6 +112,7 @@ public final class TranslationSettings {
         defaults.set(isEnabled, forKey: Self.enabledKey)
         defaults.set(selectedProviderID.rawValue, forKey: Self.providerKey)
         defaults.set(targetLanguageCode, forKey: Self.targetLanguageKey)
+        defaults.set(sourceLanguageCode, forKey: Self.sourceLanguageKey)
         defaults.set(isContextPolishEnabled, forKey: Self.contextPolishKey)
         defaults.set(cloudBaseURL, forKey: Self.cloudBaseURLKey)
         defaults.set(cloudModelName, forKey: Self.cloudModelKey)

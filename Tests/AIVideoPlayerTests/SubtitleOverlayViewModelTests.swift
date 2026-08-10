@@ -74,6 +74,15 @@ struct SubtitleOverlayViewModelTests {
         #expect(overlay.fontSize == SubtitleFontSize.large)
     }
 
+    @Test func bilingualEnabledComesFromDisplaySettings() {
+        let settings = SubtitleDisplaySettings(suiteName: uniqueSuiteName())
+        let overlay = makeOverlay(transcript: SubtitleTranscriptStore(), displaySettings: settings)
+
+        #expect(overlay.isBilingualEnabled)
+        settings.isBilingualEnabled = false
+        #expect(!overlay.isBilingualEnabled)
+    }
+
     // MARK: - 辅助
 
     private func uniqueSuiteName() -> String {

@@ -294,7 +294,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
             translated = try await engine.translate(
                 segment.originalText,
-                from: currentLanguage,
+                from: effectiveTranslationSource,
                 to: translationSettings.targetLanguageCode,
                 context: context
             )
@@ -327,6 +327,22 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         cachedTranslationEngine = engine
         cachedEngineKey = key
         return engine
+    }
+
+    /// 翻译源语言：手动选择 → 翻译代码；自动检测 → 识别语言对应的翻译代码。
+    private var effectiveTranslationSource: String? {
+        TranslationSourceLanguageCatalog.translationCode(
+            for: translationSettings.sourceLanguageCode,
+            detected: currentLanguage
+        )
+    }
+
+    /// 识别语言：手动选择 → Whisper 代码；自动检测 → 已检测语言（首窗 nil 自动检测）。
+    private var effectiveRecognitionLanguage: String? {
+        TranslationSourceLanguageCatalog.recognitionCode(
+            for: translationSettings.sourceLanguageCode,
+            detected: currentLanguage
+        )
     }
 
     /// 写入字幕记录并累计统计。
@@ -368,7 +384,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     sampleRate: buffer.sampleRateValue,
                     windowStart: windowStart,
                     windowDuration: windowSize,
-                    language: currentLanguage,
+                    language: effectiveRecognitionLanguage,
                     emitPartial: true
                 )
                 guard self.generation == generation else { return }

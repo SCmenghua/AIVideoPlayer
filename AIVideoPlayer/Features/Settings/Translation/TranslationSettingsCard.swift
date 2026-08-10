@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// 设置页「翻译服务」卡片（Phase 7）：
-/// Provider 选择 / 目标语言 / 云端配置与测试连接 / 本地模型下载 / 启用开关。
+/// Provider 选择 / 云端配置与测试连接 / 本地模型下载 / 启用开关。
+/// 目标语言已移至独立「字幕语言」卡片（Phase 8.6）。
 struct TranslationSettingsCard: View {
     @Environment(AppEnvironment.self) private var environment
     @State private var viewModel: TranslationSettingsViewModel?
@@ -27,7 +28,6 @@ struct TranslationSettingsCard: View {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 header
                 providerPicker(vm)
-                targetLanguagePicker(vm)
                 providerSection(vm)
                 contextPolishToggle(vm)
                 enableToggle(vm)
@@ -100,21 +100,6 @@ struct TranslationSettingsCard: View {
         .pickerStyle(.menu)
     }
 
-    private func targetLanguagePicker(_ vm: TranslationSettingsViewModel) -> some View {
-        Picker("目标语言", selection: Binding(
-            get: { vm.settings.targetLanguageCode },
-            set: { newValue in
-                vm.settings.targetLanguageCode = newValue
-                rebuildPipeline()
-            }
-        )) {
-            ForEach(TranslationTargetLanguageCatalog.all, id: \.code) { language in
-                Text(language.displayName).tag(language.code)
-            }
-        }
-        .pickerStyle(.menu)
-    }
-
     @ViewBuilder
     private func providerSection(_ vm: TranslationSettingsViewModel) -> some View {
         switch vm.settings.selectedProviderID {
@@ -176,7 +161,7 @@ struct TranslationSettingsCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("启用翻译")
                     .font(.subheadline.weight(.medium))
-                Text("final 字幕翻译后显示译文（原文 + 译文）")
+                Text("final 字幕翻译后显示译文（双语 / 单语由「字幕语言」卡片控制）")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

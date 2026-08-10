@@ -30,6 +30,7 @@ final class SubtitleOverlayViewModel {
     }
 
     var fontSize: SubtitleFontSize { displaySettings.fontSize }
+    var isBilingualEnabled: Bool { displaySettings.isBilingualEnabled }
     var normalizedPosition: CGPoint { displaySettings.normalizedPosition }
 
     /// 播放光标更新：按字幕记录对齐，整句一次性出现。

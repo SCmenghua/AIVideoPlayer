@@ -64,15 +64,19 @@ public enum TranslationProviderCatalog {
     }
 }
 
-/// 目标语言（设置页选项；后续可扩展更多语言）。
+/// 字幕语言（设置页选项）：目标语言（翻译输出）与源语言（视频语音）共用同一语言池。
+/// `code` 为翻译 / Locale 语言代码（如 zh-Hans / ja）；`whisperCode` 为识别引擎代码
+/// （ISO-639-1，如 zh / ja），中文两者不同，其余语言一致。
 public struct TranslationTargetLanguage: Sendable, Hashable {
     public let code: String
+    public let whisperCode: String
     public let displayName: String
     /// 用于 Prompt 的英文语言名。
     public let promptName: String
 
-    public init(code: String, displayName: String, promptName: String) {
+    public init(code: String, whisperCode: String, displayName: String, promptName: String) {
         self.code = code
+        self.whisperCode = whisperCode
         self.displayName = displayName
         self.promptName = promptName
     }
@@ -80,19 +84,138 @@ public struct TranslationTargetLanguage: Sendable, Hashable {
 
 public enum TranslationTargetLanguageCatalog {
     public static let simplifiedChinese = TranslationTargetLanguage(
-        code: "zh-Hans",
+        code: "zh-Hans", whisperCode: "zh",
         displayName: "简体中文",
         promptName: "Simplified Chinese"
     )
     public static let english = TranslationTargetLanguage(
-        code: "en",
+        code: "en", whisperCode: "en",
         displayName: "English",
         promptName: "English"
     )
+    public static let japanese = TranslationTargetLanguage(
+        code: "ja", whisperCode: "ja",
+        displayName: "日本語",
+        promptName: "Japanese"
+    )
+    public static let korean = TranslationTargetLanguage(
+        code: "ko", whisperCode: "ko",
+        displayName: "한국어",
+        promptName: "Korean"
+    )
+    public static let malay = TranslationTargetLanguage(
+        code: "ms", whisperCode: "ms",
+        displayName: "Bahasa Melayu",
+        promptName: "Malay"
+    )
+    public static let filipino = TranslationTargetLanguage(
+        code: "fil", whisperCode: "fil",
+        displayName: "Filipino",
+        promptName: "Filipino"
+    )
+    public static let thai = TranslationTargetLanguage(
+        code: "th", whisperCode: "th",
+        displayName: "ไทย",
+        promptName: "Thai"
+    )
+    public static let vietnamese = TranslationTargetLanguage(
+        code: "vi", whisperCode: "vi",
+        displayName: "Tiếng Việt",
+        promptName: "Vietnamese"
+    )
+    public static let indonesian = TranslationTargetLanguage(
+        code: "id", whisperCode: "id",
+        displayName: "Bahasa Indonesia",
+        promptName: "Indonesian"
+    )
+    public static let french = TranslationTargetLanguage(
+        code: "fr", whisperCode: "fr",
+        displayName: "Français",
+        promptName: "French"
+    )
+    public static let german = TranslationTargetLanguage(
+        code: "de", whisperCode: "de",
+        displayName: "Deutsch",
+        promptName: "German"
+    )
+    public static let spanish = TranslationTargetLanguage(
+        code: "es", whisperCode: "es",
+        displayName: "Español",
+        promptName: "Spanish"
+    )
 
-    public static let all: [TranslationTargetLanguage] = [simplifiedChinese, english]
+    public static let all: [TranslationTargetLanguage] = [
+        simplifiedChinese, english, japanese, korean, malay, filipino,
+        thai, vietnamese, indonesian, french, german, spanish,
+    ]
 
     public static func language(for code: String) -> TranslationTargetLanguage {
         all.first { $0.code == code } ?? simplifiedChinese
+    }
+}
+
+/// 源语言（视频语音）选项：`code` 为 Whisper 识别代码（ISO-639-1），
+/// `translationCode` 为翻译时使用的代码（如 zh → zh-Hans）。
+public struct TranslationSourceLanguage: Sendable, Hashable {
+    public let code: String
+    public let translationCode: String
+    public let displayName: String
+    public let promptName: String
+
+    public init(code: String, translationCode: String, displayName: String, promptName: String) {
+        self.code = code
+        self.translationCode = translationCode
+        self.displayName = displayName
+        self.promptName = promptName
+    }
+}
+
+public enum TranslationSourceLanguageCatalog {
+    /// 自动检测的识别代码（默认值）。
+    public static let autoCode = "auto"
+    public static let auto = TranslationSourceLanguage(
+        code: autoCode,
+        translationCode: "en",
+        displayName: "自动检测",
+        promptName: "Auto-detect"
+    )
+
+    /// 可选源语言：自动检测 + 12 种语言（与目标语言池一致）。
+    public static var all: [TranslationSourceLanguage] {
+        [auto] + TranslationTargetLanguageCatalog.all.map {
+            TranslationSourceLanguage(
+                code: $0.whisperCode,
+                translationCode: $0.code,
+                displayName: $0.displayName,
+                promptName: $0.promptName
+            )
+        }
+    }
+
+    /// 按 Whisper 识别代码查找源语言；找不到返回 nil。
+    public static func language(for code: String) -> TranslationSourceLanguage? {
+        all.first { $0.code == code }
+    }
+
+    /// 解析翻译源语言代码：手动选择 → 其翻译代码；自动检测 → 识别语言对应的翻译代码
+    /// （识别语言不在语言池时原样返回，如 "en"）。
+    public static func translationCode(
+        for selectedCode: String,
+        detected: String?
+    ) -> String? {
+        if selectedCode == autoCode {
+            guard let detected else { return nil }
+            return language(for: detected)?.translationCode ?? detected
+        }
+        return language(for: selectedCode)?.translationCode ?? selectedCode
+    }
+
+    /// 解析识别语言代码：手动选择 → 其 Whisper 代码；自动检测 → 已检测语言（首窗 nil）。
+    public static func recognitionCode(
+        for selectedCode: String,
+        detected: String?
+    ) -> String? {
+        if selectedCode == autoCode { return detected }
+        return language(for: selectedCode)?.code ?? selectedCode
     }
 }

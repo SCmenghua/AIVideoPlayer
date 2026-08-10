@@ -12,6 +12,8 @@ struct TranslationSettingsTests {
         #expect(!settings.isEnabled)
         #expect(settings.selectedProviderID == .fastNMT)
         #expect(settings.targetLanguageCode == TranslationSettings.defaultTargetLanguageCode)
+        #expect(settings.sourceLanguageCode == TranslationSettings.defaultSourceLanguageCode)
+        #expect(settings.sourceLanguageCode == TranslationSourceLanguageCatalog.autoCode)
         #expect(!settings.isContextPolishEnabled)
         #expect(settings.localModelDownloadedID == nil)
         #expect(settings.selectedLocalModelID == LocalModelCatalog.gemma4E2B.id)
@@ -25,6 +27,7 @@ struct TranslationSettingsTests {
         settings.isEnabled = true
         settings.selectedProviderID = .cloudLLM
         settings.targetLanguageCode = "en"
+        settings.sourceLanguageCode = "ja"
         settings.isContextPolishEnabled = true
         settings.cloudBaseURL = "https://api.example.com/v1"
         settings.cloudModelName = "test-model"
@@ -35,6 +38,7 @@ struct TranslationSettingsTests {
         #expect(reloaded.isEnabled)
         #expect(reloaded.selectedProviderID == .cloudLLM)
         #expect(reloaded.targetLanguageCode == "en")
+        #expect(reloaded.sourceLanguageCode == "ja")
         #expect(reloaded.isContextPolishEnabled)
         #expect(reloaded.cloudBaseURL == "https://api.example.com/v1")
         #expect(reloaded.cloudModelName == "test-model")
@@ -62,14 +66,47 @@ struct TranslationSettingsTests {
         #expect(settings.engineCacheKey != cloudWithURLKey)
         #expect(settings.engineCacheKey != fastNMTKey)
 
+        // 语言变化也进入缓存键：切换源 / 目标语言应触发翻译引擎重建。
+        let fastNMTKeyAfterCloud = settings.engineCacheKey
+        settings.sourceLanguageCode = "ja"
+        #expect(settings.engineCacheKey != fastNMTKeyAfterCloud)
+        let jaKey = settings.engineCacheKey
+        settings.targetLanguageCode = "en"
+        #expect(settings.engineCacheKey != jaKey)
+
         clearSuite(suite)
     }
 
-    @Test func targetLanguageCatalogExposesSimplifiedChineseAndEnglish() {
+    @Test func targetLanguageCatalogExposesTwelveLanguages() {
         let languages = TranslationTargetLanguageCatalog.all
-        #expect(languages.map(\.code) == ["zh-Hans", "en"])
+        #expect(languages.map(\.code) == [
+            "zh-Hans", "en", "ja", "ko", "ms", "fil",
+            "th", "vi", "id", "fr", "de", "es",
+        ])
         #expect(TranslationTargetLanguageCatalog.language(for: "zh-Hans").promptName == "Simplified Chinese")
+        #expect(TranslationTargetLanguageCatalog.language(for: "zh-Hans").whisperCode == "zh")
+        #expect(TranslationTargetLanguageCatalog.language(for: "ja").whisperCode == "ja")
         #expect(TranslationTargetLanguageCatalog.language(for: "xx").code == "zh-Hans")
+    }
+
+    @Test func sourceLanguageCatalogResolvesTranslationAndRecognitionCodes() {
+        // 自动检测 + 12 种语言。
+        #expect(TranslationSourceLanguageCatalog.all.count == 13)
+        #expect(TranslationSourceLanguageCatalog.language(for: "auto")?.displayName == "自动检测")
+        #expect(TranslationSourceLanguageCatalog.language(for: "zh")?.translationCode == "zh-Hans")
+        #expect(TranslationSourceLanguageCatalog.language(for: "ja")?.translationCode == "ja")
+
+        // 手动指定：识别用 Whisper 代码，翻译用翻译代码。
+        #expect(TranslationSourceLanguageCatalog.recognitionCode(for: "zh", detected: nil) == "zh")
+        #expect(TranslationSourceLanguageCatalog.translationCode(for: "zh", detected: nil) == "zh-Hans")
+
+        // 自动检测：识别用已检测语言，翻译映射到翻译代码。
+        #expect(TranslationSourceLanguageCatalog.recognitionCode(for: "auto", detected: "zh") == "zh")
+        #expect(TranslationSourceLanguageCatalog.translationCode(for: "auto", detected: "zh") == "zh-Hans")
+        #expect(TranslationSourceLanguageCatalog.translationCode(for: "auto", detected: nil) == nil)
+
+        // 已检测语言不在语言池时原样返回（如 Whisper 的 "yue" 等）。
+        #expect(TranslationSourceLanguageCatalog.translationCode(for: "auto", detected: "yue") == "yue")
     }
 
     private func uniqueSuiteName() -> String {

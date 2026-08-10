@@ -18,8 +18,8 @@ public enum SubtitleFontSize: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 原文字号。
-    public var originalPointSize: CGFloat {
+    /// 翻译语言（主行）字号。
+    public var translationPointSize: CGFloat {
         switch self {
         case .small: 15
         case .medium: 18
@@ -27,19 +27,21 @@ public enum SubtitleFontSize: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    /// 译文字号（略小于原文，形成层级）。
-    public var translationPointSize: CGFloat {
-        originalPointSize * 0.85
+    /// 源语言（双语模式上行）字号：约为翻译语言的一半，形成「译文为主」的层级。
+    public var originalPointSize: CGFloat {
+        translationPointSize * 0.55
     }
 }
 
-/// 字幕叠加层显示设置（Phase 6），UserDefaults 持久化：
-/// 字号与字幕中心点归一化位置（相对播放画面 0...1）。
+/// 字幕叠加层显示设置（Phase 6 → 8.6），UserDefaults 持久化：
+/// 字号、双语显示开关与字幕中心点归一化位置（相对播放画面 0...1）。
 /// 由 AppEnvironment 全局共享：播放器叠加层与设置页使用同一实例。
 @MainActor
 @Observable
 public final class SubtitleDisplaySettings {
     public static let defaultFontSize: SubtitleFontSize = .medium
+    /// 双语显示默认开启（上行原文、下行译文；关闭后只显示译文）。
+    public static let defaultIsBilingualEnabled = true
     /// 字幕中心点默认位置：水平居中、偏下。
     public static let defaultPosition = CGPoint(x: 0.5, y: 0.78)
     /// 归一化位置边界（避免字幕被拖出画面）。
@@ -49,10 +51,16 @@ public final class SubtitleDisplaySettings {
         didSet { persist() }
     }
 
+    /// 双语显示开关（Phase 8.6）。
+    public var isBilingualEnabled: Bool {
+        didSet { persist() }
+    }
+
     /// 字幕中心点归一化位置（相对播放画面，0...1）。
     public private(set) var normalizedPosition: CGPoint
 
     private static let fontSizeKey = "subtitle.display.fontSize.v1"
+    private static let bilingualKey = "subtitle.display.bilingual.v1"
     private static let positionXKey = "subtitle.display.positionX.v1"
     private static let positionYKey = "subtitle.display.positionY.v1"
     private let suiteName: String?
@@ -67,6 +75,10 @@ public final class SubtitleDisplaySettings {
         } else {
             self.fontSize = Self.defaultFontSize
         }
+
+        self.isBilingualEnabled = defaults.object(forKey: Self.bilingualKey) == nil
+            ? Self.defaultIsBilingualEnabled
+            : defaults.bool(forKey: Self.bilingualKey)
 
         if defaults.object(forKey: Self.positionXKey) != nil,
            defaults.object(forKey: Self.positionYKey) != nil {
@@ -98,6 +110,7 @@ public final class SubtitleDisplaySettings {
     private func persist() {
         let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         defaults.set(fontSize.rawValue, forKey: Self.fontSizeKey)
+        defaults.set(isBilingualEnabled, forKey: Self.bilingualKey)
         defaults.set(normalizedPosition.x, forKey: Self.positionXKey)
         defaults.set(normalizedPosition.y, forKey: Self.positionYKey)
     }

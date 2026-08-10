@@ -207,6 +207,30 @@ struct SubtitlePipelineTests {
         #expect(recognizer.transcriptionCalls[1].language == "zh")
     }
 
+    @Test func manualSourceLanguageIsPassedToRecognition() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline()
+        let recognizer = MockSpeechRecognizer()
+        let translationSettings = TranslationSettings(suiteName: uniqueSuiteName())
+        translationSettings.sourceLanguageCode = "ja"
+        let pipeline = makePipeline(
+            source: source,
+            recognizer: recognizer,
+            translationSettings: translationSettings
+        )
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        emitSeconds(source, seconds: 5, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        // 手动指定源语言后，首个窗口直接使用该语言，不再等待自动检测。
+        #expect(recognizer.transcriptionCalls.first?.language == "ja")
+    }
+
     @Test func laggingWindowsAreSkippedToCatchUpWithPlayback() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
@@ -233,10 +257,13 @@ struct SubtitlePipelineTests {
     private func makePipeline(
         source: MockAudioPipeline,
         recognizer: MockSpeechRecognizer,
-        transcript: SubtitleTranscriptStore = SubtitleTranscriptStore()
+        transcript: SubtitleTranscriptStore = SubtitleTranscriptStore(),
+        translationSettings: TranslationSettings? = nil
     ) -> SubtitlePipeline {
         SubtitlePipeline(
             transcript: transcript,
+            translationSettings: translationSettings
+                ?? TranslationSettings(suiteName: uniqueSuiteName()),
             recognizerFactory: { recognizer },
             playerSourceFactory: { _ in source },
             readerSourceFactory: { _ in source }

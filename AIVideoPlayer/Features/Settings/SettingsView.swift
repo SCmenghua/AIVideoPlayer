@@ -8,6 +8,7 @@ struct SettingsView: View {
         ScrollView {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
+                subtitleLanguageCard
                 subtitleTranscriptCard
                 subtitleDisplayCard
                 translationCard
@@ -100,6 +101,12 @@ struct SettingsView: View {
 
     private var subtitleTranscriptCard: some View {
         SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
+    }
+
+    // MARK: - 字幕语言（Phase 8.6）
+
+    private var subtitleLanguageCard: some View {
+        SubtitleLanguageCard()
     }
 
     private func sectionCard(icon: String, tint: Color, title: String, lines: [String]) -> some View {
