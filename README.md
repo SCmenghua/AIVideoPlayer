@@ -116,16 +116,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.12）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.7.13）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.12）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.7.13）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.7.x` → 下一次 `0.7.(x+1)`），文档中的 Phase 编号同步递增
-（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.12，下一次打包应为 0.7.13。
+（`Phase 7.x` → `Phase 7.(x+1)`）。当前基线 0.7.13，下一次打包应为 0.7.14。
 
 > IPA 未签名，必须经自签工具重签；需要 iOS 26 及以上设备。
 
@@ -155,14 +155,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
   全屏默认方向、横/竖屏单按钮切换）+ 浏览器主页标签页、返回主页与左缘右滑返回，CI 通过
 - ✅ Phase 7.10 完成：横屏识别修复（preferredTransform + 全屏入口重新检测）、
   横/竖屏切换修复（刷新方向掩码 + 失败重试）+ 主页媒体来源
-  （网络 WebDAV / 相册 / 文件，多来源展示），CI 通过
+  （网络 WebDAV / 相册，多来源展示），CI 通过
 - ✅ Phase 7.11 完成：实测反馈修复——相册视频导出后播放（修复崩溃）、
   文件来源改用系统 fileImporter、媒体来源编辑模式删除、全屏自动横屏
   检测与旋转重试优化，CI 通过
 - ✅ Phase 7.12 完成：文件来源导入改为复制到 App 沙盒
   （Documents/MediaFiles），修复书签授权跨启动失效导致的导入失败，CI 通过
+- ✅ Phase 7.13 完成：移除文件来源导入功能（多次修复未稳定，保留枚举值与
+  占位入口便于后期恢复），媒体来源保留 WebDAV 与相册，CI 通过
 - 🔄 Phase 7.x 系列进行中：Phase 8 之前用 7.x 的数个小版本修好播放器功能
-  （当前基线 0.7.12 / Phase 7.12，下一次打包 0.7.13 / Phase 7.13）
+  （当前基线 0.7.13 / Phase 7.13，下一次打包 0.7.14 / Phase 7.14）
 
 ## 后续开发路线
 
@@ -180,10 +182,11 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 | 7.7 | 播放器状态与进度修复（播放按钮状态错乱、进度条兜底、版本 0.7.7） | ✅ 完成 |
 | 7.8 | 播放器状态与进度兜底（权威状态 + 节拍器 + VM 双通道 + 时长未知禁拖，版本 0.7.8） | ✅ 完成 |
 | 7.9 | 播放器细节优化（设置二级菜单、删除音量、横竖屏检测与默认方向、横/竖屏单按钮）+ 主页标签页（版本 0.7.9） | ✅ 完成 |
-| 7.10 | 横屏识别与方向切换修复 + 主页媒体来源（WebDAV / 相册 / 文件）（版本 0.7.10） | ✅ 完成 |
+| 7.10 | 横屏识别与方向切换修复 + 主页媒体来源（WebDAV / 相册）（版本 0.7.10） | ✅ 完成 |
 | 7.11 | 实测反馈修复（相册崩溃 / 文件选择器 / 来源删除 / 自动横屏）（版本 0.7.11） | ✅ 完成 |
 | 7.12 | 文件来源导入复制到 App 沙盒（修复跨启动访问失效）（版本 0.7.12） | ✅ 完成 |
-| 7.13+（Phase 8 之前） | 继续用 7.x 的数个小版本修好播放器功能（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | 🔄 进行中 |
+| 7.13 | 移除文件来源导入（保留扩展点与占位入口），媒体来源保留 WebDAV / 相册（版本 0.7.13） | ✅ 完成 |
+| 7.14+（Phase 8 之前） | 继续用 7.x 的数个小版本修好播放器功能（每次打包版本递增 0.7.x → 0.7.(x+1)，Phase 编号同步） | 🔄 进行中 |
 | 8 | 修好语音识别功能与翻译功能（当前为半成品状态） | ⬜ 未开始 |
 | 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 

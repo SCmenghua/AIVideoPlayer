@@ -1,9 +1,16 @@
 import Foundation
 
-/// 媒体来源类型：网络（当前仅 WebDAV）/ 相册 / 文件。
+/// 媒体来源类型：网络（当前仅 WebDAV）/ 相册。
+///
+/// 后期扩展提示：`.files`（文件 App 导入）在 Phase 7.13 因导入不稳定已下线，
+/// 但**保留该枚举值**——一是兼容旧数据解码（已保存的 .files 来源不会导致
+/// 整个来源列表解析失败），二是为后续恢复文件导入能力预留扩展点。
+/// 恢复时参考 MediaSourcesViewModel 中「文件来源」预留注释与
+/// MediaSourcesSection 的占位入口（FilesSourceUnavailableView）。
 public enum MediaSourceKind: String, Codable, Sendable, CaseIterable, Identifiable {
     case webDAV
     case photoLibrary
+    /// 已下线（Phase 7.13）：文件 App 导入功能移除，保留枚举值。
     case files
 
     public var id: String { rawValue }
@@ -25,7 +32,7 @@ public enum MediaSourceKind: String, Codable, Sendable, CaseIterable, Identifiab
     }
 }
 
-/// 主页媒体来源条目。WebDAV 来源关联服务器配置 ID；相册/文件来源无附加配置。
+/// 主页媒体来源条目。WebDAV 来源关联服务器配置 ID；相册来源无附加配置。
 public struct MediaSource: Identifiable, Hashable, Sendable, Codable {
     public let id: UUID
     public var name: String
@@ -44,22 +51,6 @@ public struct MediaSource: Identifiable, Hashable, Sendable, Codable {
         self.name = name
         self.kind = kind
         self.webDAVProfileID = webDAVProfileID
-        self.createdAt = createdAt
-    }
-}
-
-/// 文件来源中已导入的视频文件（复制到 App 沙盒，跨启动可播放）。
-public struct PickedVideoFile: Identifiable, Hashable, Sendable, Codable {
-    public let id: UUID
-    public let name: String
-    /// 复制到 App Documents/MediaFiles 下的本地文件 URL。
-    public let localURL: URL
-    public let createdAt: Date
-
-    public init(id: UUID = UUID(), name: String, localURL: URL, createdAt: Date = .now) {
-        self.id = id
-        self.name = name
-        self.localURL = localURL
         self.createdAt = createdAt
     }
 }

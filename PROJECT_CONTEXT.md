@@ -17,7 +17,7 @@
 **Phase 8**（规划中）：修好语音识别功能与翻译功能（二者当前仍为半成品状态）。
 **Phase 9 & Phase 9+**（规划中）：完成 Liquid Glass 深化（变形过渡）、性能、
 测试与错误处理。
-上一阶段：**Phase 7.12 —— 实测反馈修复**（已完成；Phase 7.5–7.12
+上一阶段：**Phase 7.13 —— 移除文件来源导入**（已完成；Phase 7.5–7.13
 已整体收尾）。
 
 ## 设计提案（AI 先听一步：超前实时字幕）
@@ -54,9 +54,17 @@
   `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
   打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
   （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-  当前基线：0.7.12（Phase 7.12），下一次打包应为 0.7.13（Phase 7.13）。
+  当前基线：0.7.13（Phase 7.13），下一次打包应为 0.7.14（Phase 7.14）。
 
 ## 已完成
+
+- **Phase 7.13**：移除文件来源导入功能——「文件 App 导入视频」经多次修复
+  （书签授权 → 复制到沙盒）仍不稳定，按用户要求整体下线；删除
+  `FilesMediaSourceView` / `PickedVideoFile` / `PickedFileStoring` /
+  `UserDefaultsPickedFileStore` 及相关单测；保留 `MediaSourceKind.files`
+  枚举值与来源占位入口（兼容旧数据解码），模型 / VM / 视图均留有恢复步骤
+  注释；媒体来源保留网络（WebDAV）与相册两类；
+  `MARKETING_VERSION` 提升至 0.7.13。
 
 - **Phase 7.12**：文件来源导入修复——iOS 文档选择器临时授权无法靠普通书签
   跨会话保持，导入时改为把文件复制到 App Documents/MediaFiles 并登记本地
@@ -73,7 +81,7 @@
   `preferredTransform` 修正旋转元数据，全屏入口检测未完成时重新检测并等待结论；
   请求旋转前先刷新 supportedInterfaceOrientations、横屏同时请求左右方向、
   失败自动重试，切换按钮按真实界面方向判断；主页「添加服务器」升级为
-  「添加媒体来源」（网络 WebDAV / 相册 / 文件，多个来源均展示在主页），
+  「添加媒体来源」（网络 WebDAV / 相册，多个来源均展示在主页），
   相册来源列出系统视频、文件来源用安全作用域书签持久化；新增
   `MediaSource` / `PickedVideoFile` 模型与单测；`MARKETING_VERSION` 提升至 0.7.10。
 

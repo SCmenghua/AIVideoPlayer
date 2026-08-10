@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 主页「媒体来源」区域：展示所有来源（网络 / 相册 / 文件），点击打开。
+/// 主页「媒体来源」区域：展示所有来源（网络 / 相册），点击打开。
 struct MediaSourcesSection: View {
     let viewModel: MediaSourcesViewModel
     let onPlayMedia: (MediaItem) -> Void
@@ -56,14 +56,16 @@ struct MediaSourcesSection: View {
             PhotoLibraryVideosView(onPlayMedia: onPlayMedia)
         }
         .sheet(item: $activeFilesSource) { _ in
-            FilesMediaSourceView(viewModel: viewModel, onPlayMedia: onPlayMedia)
+            // 文件来源 Phase 7.13 下线：先展示占位页；后期恢复导入能力时
+            // 替换为文件导入视图（FilesMediaSourceView）。
+            FilesSourceUnavailableView()
         }
     }
 
     private var emptyState: some View {
         VStack(spacing: AppTheme.Spacing.sm) {
             addCard
-            Text("添加网络（WebDAV）、相册或文件来源后，可在这里直接浏览并播放视频")
+            Text("添加网络（WebDAV）或相册来源后，可在这里直接浏览并播放视频")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -150,6 +152,29 @@ struct MediaSourcesSection: View {
             activePhotoSource = source
         case .files:
             activeFilesSource = source
+        }
+    }
+}
+
+/// 文件来源占位页（Phase 7.13 起下线）。
+/// 后期恢复文件导入时，将本视图替换为实际的文件选择与列表视图。
+private struct FilesSourceUnavailableView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ContentUnavailableView(
+                "文件来源暂不可用",
+                systemImage: "folder",
+                description: Text("文件导入功能已在当前版本移除，后续版本将重新支持从文件 App 导入视频。")
+            )
+            .navigationTitle("文件视频")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
+            }
         }
     }
 }

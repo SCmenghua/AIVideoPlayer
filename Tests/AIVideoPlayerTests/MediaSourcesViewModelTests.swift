@@ -11,7 +11,6 @@ struct MediaSourcesViewModelTests {
             sourceStore: sourceStore,
             profileStore: UserDefaultsProfileStore(suiteName: "test.ms.profiles.\(UUID().uuidString)"),
             credentialStore: InMemoryCredentialStore(),
-            pickedFileStore: MockPickedFileStore(),
             browser: MockRemoteFileBrowser()
         )
         let rootURL = try #require(URL(string: "https://nas.example.local/dav/"))
@@ -30,7 +29,6 @@ struct MediaSourcesViewModelTests {
             sourceStore: MockMediaSourceStore(),
             profileStore: UserDefaultsProfileStore(suiteName: "test.ms.profiles.\(UUID().uuidString)"),
             credentialStore: InMemoryCredentialStore(),
-            pickedFileStore: MockPickedFileStore(),
             browser: FailingRemoteFileBrowser()
         )
         let rootURL = try #require(URL(string: "https://nas.example.local/dav/"))
@@ -47,8 +45,7 @@ struct MediaSourcesViewModelTests {
         let viewModel = MediaSourcesViewModel(
             sourceStore: sourceStore,
             profileStore: UserDefaultsProfileStore(suiteName: "test.ms.profiles.\(UUID().uuidString)"),
-            credentialStore: InMemoryCredentialStore(),
-            pickedFileStore: MockPickedFileStore()
+            credentialStore: InMemoryCredentialStore()
         )
 
         viewModel.addPhotoLibrarySource()
@@ -69,7 +66,6 @@ struct MediaSourcesViewModelTests {
             sourceStore: MockMediaSourceStore(),
             profileStore: profileStore,
             credentialStore: InMemoryCredentialStore(),
-            pickedFileStore: MockPickedFileStore(),
             browser: MockRemoteFileBrowser()
         )
         let rootURL = try #require(URL(string: "https://nas.example.local/dav/"))
@@ -83,27 +79,6 @@ struct MediaSourcesViewModelTests {
         #expect(profileStore.loadProfiles().isEmpty)
     }
 
-    @Test func pickedFilesAddAndRemove() {
-        let pickedStore = MockPickedFileStore()
-        let file = PickedVideoFile(
-            name: "clip.mov",
-            localURL: URL(fileURLWithPath: "/tmp/clip.mov")
-        )
-        try? pickedStore.addFile(file)
-
-        let viewModel = MediaSourcesViewModel(
-            sourceStore: MockMediaSourceStore(),
-            profileStore: UserDefaultsProfileStore(suiteName: "test.ms.profiles.\(UUID().uuidString)"),
-            credentialStore: InMemoryCredentialStore(),
-            pickedFileStore: pickedStore
-        )
-
-        #expect(viewModel.pickedFiles.count == 1)
-
-        viewModel.removePickedFile(file)
-        #expect(viewModel.pickedFiles.isEmpty)
-        #expect(pickedStore.loadFiles().isEmpty)
-    }
 }
 
 private final class MockMediaSourceStore: MediaSourceStoring, @unchecked Sendable {
@@ -120,23 +95,6 @@ private final class MockMediaSourceStore: MediaSourceStoring, @unchecked Sendabl
 
     func removeSource(id: UUID) throws {
         sources.removeAll { $0.id == id }
-    }
-}
-
-private final class MockPickedFileStore: PickedFileStoring, @unchecked Sendable {
-    private var files: [PickedVideoFile] = []
-
-    func loadFiles() -> [PickedVideoFile] {
-        files
-    }
-
-    func addFile(_ file: PickedVideoFile) throws {
-        files.removeAll { $0.id == file.id }
-        files.insert(file, at: 0)
-    }
-
-    func removeFile(id: UUID) throws {
-        files.removeAll { $0.id == id }
     }
 }
 

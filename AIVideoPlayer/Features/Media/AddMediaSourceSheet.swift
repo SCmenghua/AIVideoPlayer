@@ -17,7 +17,8 @@ struct AddMediaSourceSheet: View {
             Form {
                 Section("来源类型") {
                     Picker("类型", selection: $kind) {
-                        ForEach(MediaSourceKind.allCases) { kind in
+                        // 文件来源已下线（Phase 7.13），不参与添加；恢复时移除此过滤。
+                        ForEach(MediaSourceKind.allCases.filter { $0 != .files }) { kind in
                             Label(kind.title, systemImage: kind.systemImage).tag(kind)
                         }
                     }
@@ -53,8 +54,9 @@ struct AddMediaSourceSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 case .files:
+                    // 文件来源已下线：此分支不可达（选择器已过滤），保留以备后期恢复。
                     Section {
-                        Label("将访问文件 App 中的视频，添加后可在来源内继续选取文件。", systemImage: "folder")
+                        Label("文件来源已下线，后续版本将重新支持。", systemImage: "folder")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -124,6 +126,7 @@ struct AddMediaSourceSheet: View {
             viewModel.addPhotoLibrarySource(name: name)
             dismiss()
         case .files:
+            // 文件来源已下线（Phase 7.13）：保留调用占位，恢复时重新启用。
             viewModel.addFilesSource(name: name)
             dismiss()
         }

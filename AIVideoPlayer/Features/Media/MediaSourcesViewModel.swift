@@ -1,34 +1,34 @@
 import Foundation
 import Observation
 
-/// 主页「媒体来源」管理：网络（WebDAV）/ 相册 / 文件三类来源的增删与展示。
+/// 主页「媒体来源」管理：网络（WebDAV）/ 相册两类来源的增删与展示。
+///
+/// 后期扩展提示：文件来源（MediaSourceKind.files）已在 Phase 7.13 下线，
+/// 相关导入代码（复制到沙盒 / 书签持久化）已移除；恢复时在 `addFilesSource`
+/// 占位处重新接入文件导入实现，并在 MediaSourcesSection 中替换
+/// FilesSourceUnavailableView 占位视图。
 @MainActor
 @Observable
 final class MediaSourcesViewModel {
     private(set) var sources: [MediaSource] = []
-    private(set) var pickedFiles: [PickedVideoFile] = []
     private(set) var lastError: String?
 
     private let sourceStore: any MediaSourceStoring
     private let profileStore: any RemoteServerProfileStoring
     private let credentialStore: any CredentialStoring
-    private let pickedFileStore: any PickedFileStoring
     private let browser: any RemoteFileBrowsing
 
     init(
         sourceStore: any MediaSourceStoring = UserDefaultsMediaSourceStore(),
         profileStore: any RemoteServerProfileStoring = UserDefaultsProfileStore(),
         credentialStore: any CredentialStoring = KeychainCredentialStore(),
-        pickedFileStore: any PickedFileStoring = UserDefaultsPickedFileStore(),
         browser: any RemoteFileBrowsing = WebDAVFileBrowser()
     ) {
         self.sourceStore = sourceStore
         self.profileStore = profileStore
         self.credentialStore = credentialStore
-        self.pickedFileStore = pickedFileStore
         self.browser = browser
         self.sources = sourceStore.loadSources()
-        self.pickedFiles = pickedFileStore.loadFiles()
     }
 
     // MARK: - 来源增删
@@ -63,6 +63,7 @@ final class MediaSourcesViewModel {
         addSource(kind: .photoLibrary, name: name, fallback: "相册")
     }
 
+    /// 文件来源（Phase 7.13 下线）：占位方法，后续恢复文件导入时在此实现。
     func addFilesSource(name: String = "") {
         addSource(kind: .files, name: name, fallback: "文件")
     }
@@ -101,40 +102,12 @@ final class MediaSourcesViewModel {
         return trimmed.isEmpty ? fallback : trimmed
     }
 
-    // MARK: - 文件来源（复制到 App 沙盒，避免文档选择器授权过期）
-
-    /// 把文件选择器返回的文件复制到 App 沙盒并登记。
-    func addPickedFiles(urls: [URL]) {
-        for url in urls {
-            _ = url.startAccessingSecurityScopedResource()
-            defer { url.stopAccessingSecurityScopedResource() }
-            guard let copiedURL = Self.copyToAppStorage(from: url) else { continue }
-            try? pickedFileStore.addFile(
-                PickedVideoFile(name: url.lastPathComponent, localURL: copiedURL)
-            )
-        }
-        pickedFiles = pickedFileStore.loadFiles()
-    }
-
-    func removePickedFile(_ file: PickedVideoFile) {
-        try? FileManager.default.removeItem(at: file.localURL)
-        try? pickedFileStore.removeFile(id: file.id)
-        pickedFiles = pickedFileStore.loadFiles()
-    }
-
-    private static func copyToAppStorage(from url: URL) -> URL? {
-        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("MediaFiles", isDirectory: true)
-        let ext = url.pathExtension
-        let target = directory
-            .appendingPathComponent(UUID().uuidString)
-            .appendingPathExtension(ext.isEmpty ? "mov" : ext)
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            try FileManager.default.copyItem(at: url, to: target)
-            return target
-        } catch {
-            return nil
-        }
-    }
+    // MARK: - 文件来源（Phase 7.13 下线，预留扩展点）
+    //
+    // 原「从文件 App 导入视频」实现（复制到 Documents/MediaFiles + 本地 URL
+    // 持久化）因导入稳定性问题已在 Phase 7.13 移除。恢复时建议：
+    // 1. 在 PickedVideoFile 模型恢复（或重新设计文件记录）；
+    // 2. 在下方新增 `addPickedFiles(urls:)` / `removePickedFile(_:)`；
+    // 3. 在 MediaSourcesSection 中把 FilesSourceUnavailableView 替换为
+    //    FilesMediaSourceView。
 }

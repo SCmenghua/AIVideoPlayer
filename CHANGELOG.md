@@ -10,6 +10,21 @@
 
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 
+## [0.7.13] - 2026-08-10
+
+### Removed（Phase 7.13 移除文件来源导入）
+
+- 版本号提升至 0.7.13（Phase 7.13 移除文件来源导入）
+- 移除「文件 App 导入视频」功能：该功能经多次修复（书签授权 → 复制到沙盒）
+  仍不稳定，按用户要求整体下线；相册与 WebDAV 来源不受影响
+- 删除文件导入相关代码与存储：`FilesMediaSourceView`、`PickedVideoFile`、
+  `PickedFileStoring`、`UserDefaultsPickedFileStore` 及对应单测
+
+### Changed（Phase 7.13）
+
+- 保留 `MediaSourceKind.files` 枚举值与来源占位入口：兼容旧数据解码，并为
+  后期恢复文件导入预留扩展点（模型 / VM / 视图均留有注释说明恢复步骤）
+
 ## [0.7.12] - 2026-08-10
 
 ### Fixed（Phase 7.12 实测反馈修复）
