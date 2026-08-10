@@ -58,14 +58,9 @@ struct PlayerView: View {
             Task { await subtitleOverlay.reset() }
         }
         .onChange(of: environment.subtitlePipeline.isActive) { _, isActive in
-            // 管线激活 / 关闭时同步播放器字幕开关：
-            // 在设置页（或首页）开启识别后切回播放器，字幕开关自动点亮；
-            // 管线关闭时熄灭开关并清空当前字幕，避免显示过期内容。
-            viewModel.isSubtitleEnabled = isActive
-            guard let subtitleOverlay else { return }
-            if !isActive {
-                Task { await subtitleOverlay.reset() }
-            }
+            // 管线关闭：清空当前字幕，避免显示过期内容。
+            guard !isActive, let subtitleOverlay else { return }
+            Task { await subtitleOverlay.reset() }
         }
     }
 

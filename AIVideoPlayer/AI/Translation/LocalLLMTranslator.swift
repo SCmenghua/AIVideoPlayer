@@ -49,7 +49,6 @@ public final class LocalLLMTranslator: TranslationEngine {
         let session = try await ensureLoaded()
         let prompt = Self.buildPrompt(
             text: text,
-            sourceLanguage: sourceLanguage,
             targetLanguage: targetLanguage,
             context: context
         )
@@ -97,30 +96,20 @@ public final class LocalLLMTranslator: TranslationEngine {
 
     static func buildPrompt(
         text: String,
-        sourceLanguage: String?,
         targetLanguage: String,
         context: TranslationContext?
     ) -> String {
         let target = TranslationTargetLanguageCatalog.language(for: targetLanguage).promptName
-        let sourceHint = sourceLanguage.flatMap {
-            TranslationSourceLanguageCatalog.language(for: $0).promptName
-        }
-        let instruction: String
-        if let sourceHint {
-            instruction = "翻译下面这行\(sourceHint)字幕为 \(target)。只输出译文："
-        } else {
-            instruction = "翻译下面这行字幕为 \(target)。只输出译文："
-        }
         if let context, !context.isEmpty {
             return """
             最近的剧情上下文（保持翻译连贯）：
             \(context.text)
 
-            \(instruction)
+            翻译下面这行字幕为 \(target)。只输出译文：
             \(text)
             """
         }
-        return "\(instruction)\n\(text)"
+        return "翻译下面这行字幕为 \(target)。只输出译文：\n\(text)"
     }
 }
 
