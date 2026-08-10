@@ -1,4 +1,4 @@
-import AVFoundation
+﻿import AVFoundation
 import Foundation
 
 /// AVPlayer 封装（Phase 3）。
@@ -22,7 +22,8 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     private let stateContinuation: AsyncStream<PlaybackState>.Continuation
     private let progressContinuation: AsyncStream<PlaybackProgress>.Continuation
 
-    /// `nonisolated(unsafe)`：仅 MainActor 方法与 deinit 访问（deinit 无隔离，
+    /// 
+onisolated(unsafe)：仅 MainActor 方法与 deinit 访问（deinit 无隔离，
     /// 无法读取 actor 隔离的非 Sendable 存储属性；属性本身只在本类内使用，
     /// 且 deinit 时对象不再被并发访问，安全）。
     nonisolated(unsafe) private var timeObserver: Any?
@@ -33,6 +34,10 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     nonisolated(unsafe) private var tickerTask: Task<Void, Never>?
     /// 分辨率检测任务：换片时取消旧检测，避免旧结果覆盖新媒体。
     nonisolated(unsafe) private var resolutionTask: Task<Void, Never>?
+    /// 上次报告的时间，用于减少频繁的 UI 更新
+    private var lastReportedTime: TimeInterval = 0
+    /// 是否正在等待缓冲恢复播放
+    private var isWaitingForBuffer = false
 
     deinit {
         tickerTask?.cancel()
@@ -72,6 +77,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         rate = 1
         isLandscapeVideo = false
         isResolutionKnown = false
+        isWaitingForBuffer = false
         setState(.loading)
         detectResolution(for: item, asset: playerItem.asset)
         do {
@@ -106,7 +112,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     public func pause() async {
         avPlayer.pause()
         // 立即同步状态：即使 KVO 回调未送达，播放按钮也能马上切回播放态。
-        // 播放结束态保留给 replay 逻辑（从 0 重播），不被 pause 覆盖。
+        // 播放结束态保留给 replay 逻辑（从 0 重播），不让 pause 覆盖。
         if state != .ended {
             setState(.paused)
         }
@@ -147,7 +153,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     // MARK: - Private
 
     /// 检测当前视频横竖屏（宽 > 高为横屏）。异步进行，不阻塞加载完成。
-    /// 使用播放器已加载的 asset（而非按 URL 重新创建），远程 / HLS 也能识别。
+    /// 使用播放器已加载的 asset（而非拿 URL 重新创建），远程 / HLS 也能识别。
     private func detectResolution(for item: MediaItem, asset: AVAsset) {
         resolutionTask?.cancel()
         isResolutionKnown = false
@@ -179,13 +185,24 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     /// 与 KVO / 周期观察者双通道并存：
     /// 1) 周期观察者回调异常未送达时，时间与进度仍能驱动 UI；
     /// 2) timeControlStatus KVO 未送达时，状态也能在下一拍收敛。
+    /// 
+    /// BUG FIX: 将 ticker 从每 0.5s 的同步 currentTime() 调用改为使用周期观察者的缓存值，
+    /// 减少主线程阻塞，避免长视频 UI 卡顿崩溃。
     private func startTicker() {
         tickerTask?.cancel()
         tickerTask = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(500))
                 guard let self else { return }
-                self.emitProgress(at: self.avPlayer.currentTime().seconds)
+                // 不再直接调用 avPlayer.currentTime()，而是使用周期观察者更新的 currentTime
+                // 只有在时间变化超过阈值时才更新 UI，减少不必要的刷新
+                let duration = self.currentItemDuration
+                if abs(self.currentTime - self.lastReportedTime) > 0.1 || duration != self.duration {
+                    self.lastReportedTime = self.currentTime
+                    self.progressContinuation.yield(
+                        PlaybackProgress(currentTime: self.currentTime, duration: duration, rate: self.avPlayer.rate)
+                    )
+                }
                 self.handleTimeControlStatus(self.avPlayer.timeControlStatus)
             }
         }
@@ -201,13 +218,17 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         }
 
         // 周期进度回调（主队列）。
+        // BUG FIX: 使用周期观察者更新内部 currentTime，而不是在 ticker 中同步调用
         timeObserver = avPlayer.addPeriodicTimeObserver(
             forInterval: CMTime(seconds: 0.5, preferredTimescale: 600),
             queue: .main
         ) { [weak self] time in
             let seconds = time.seconds
             Task { @MainActor in
-                self?.emitProgress(at: seconds)
+                guard let self else { return }
+                // 更新内部缓存的时间，供 ticker 使用
+                self.currentTime = seconds.isFinite ? seconds : 0
+                self.emitProgress(at: self.currentTime)
             }
         }
 
@@ -217,7 +238,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
             object: nil,
             queue: .main
         ) { [weak self] notification in
-            // 非隔离上下文只提取 Sendable 的标识，避免把 Notification 传入 MainActor。
+            // 非隔离上下文只可提及 Sendable 的标识，避免把 Notification 传入 MainActor。
             let endedItemID = (notification.object as? AVPlayerItem).map(ObjectIdentifier.init)
             Task { @MainActor in
                 guard let self,
@@ -231,19 +252,64 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         }
     }
 
+    /// BUG FIX: 处理网络视频缓冲问题
+    /// 当 AVPlayer 进入 waitingToPlayAtSpecifiedRate 状态时，需要监听 isPlaybackLikelyToKeepUp
+    /// 属性，当缓冲就绪时自动恢复播放
     private func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus) {
         switch status {
         case .playing:
+            isWaitingForBuffer = false
             setState(.playing)
         case .paused:
-            if state == .playing {
+            if state == .playing && !isWaitingForBuffer {
                 setState(.paused)
             }
         case .waitingToPlayAtSpecifiedRate:
-            // 缓冲中：保持当前状态，避免 UI 抖动。
-            break
+            // 网络视频缓冲：检查是否因为缓冲不足而暂停
+            if state == .playing {
+                guard let item = avPlayer.currentItem else { return }
+                // 检查缓冲状态
+                if item.isPlaybackLikelyToKeepUp {
+                    // 缓冲已就绪，自动恢复播放
+                    avPlayer.play()
+                    isWaitingForBuffer = false
+                } else {
+                    // 仍在缓冲，标记状态但不改变 UI 显示（避免闪烁）
+                    isWaitingForBuffer = true
+                    // 开始监听缓冲就绪
+                    observeBufferStatus(for: item)
+                }
+            }
         @unknown default:
             break
+        }
+    }
+
+    /// 监听网络视频的缓冲状态，当缓冲就绪时自动恢复播放
+    private func observeBufferStatus(for item: AVPlayerItem) {
+        // 使用 KVO 监听 isPlaybackLikelyToKeepUp
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            // 最多等待 10 秒
+            let maxAttempts = 20
+            var attempts = 0
+            while self.isWaitingForBuffer && attempts < maxAttempts {
+                try? await Task.sleep(for: .milliseconds(500))
+                attempts += 1
+                
+                guard self.avPlayer.currentItem === item,
+                      self.state == .playing,
+                      self.isWaitingForBuffer else {
+                    break
+                }
+                
+                if item.isPlaybackLikelyToKeepUp {
+                    // 缓冲就绪，恢复播放
+                    self.avPlayer.play()
+                    self.isWaitingForBuffer = false
+                    break
+                }
+            }
         }
     }
 
