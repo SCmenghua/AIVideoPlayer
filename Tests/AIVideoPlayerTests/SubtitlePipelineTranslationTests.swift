@@ -190,6 +190,38 @@ struct SubtitlePipelineTranslationTests {
         #expect(sawTranslating)
     }
 
+    @Test func settingsSourceLanguageOverridesDetectedLanguage() async throws {
+        let settings = makeTranslationSettings(enabled: true)
+        // 用户在设置中手动指定源语言为简体中文。
+        settings.sourceLanguageCode = "zh-Hans"
+        let recognizer = MockSpeechRecognizer()
+        let translator = MockTranslator(translated: "译文")
+        let pipeline = makePipeline(
+            translationSettings: settings,
+            recognizer: recognizer,
+            translator: translator
+        )
+
+        let collect = Task {
+            await pipeline.toggle()
+            recognizer.emit(
+                SubtitleSegment(
+                    startTime: 0,
+                    endTime: 1,
+                    originalText: "你好",
+                    confidence: 0.9,
+                    isPartial: false
+                )
+            )
+            return await firstSegment(from: pipeline)
+        }
+
+        _ = await collect.value
+        #expect(translator.callCount == 1)
+        // 设置中的源语言优先于识别器检测到的语言。
+        #expect(translator.lastSource == "zh-Hans")
+    }
+
     // MARK: - 辅助
 
     private func makeTranslationSettings(enabled: Bool) -> TranslationSettings {

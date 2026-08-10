@@ -23,6 +23,16 @@ public final class TranslationSettings {
         didSet { persist() }
     }
 
+    /// 源语言代码（nil = 自动检测：优先用识别语言，未识别时由 Provider 兜底）。
+    public var sourceLanguageCode: String? {
+        didSet { persist() }
+    }
+
+    /// 已启用的语言代码（有序）：决定源 / 目标语言 Picker 的选项与顺序。
+    public var visibleLanguageCodes: [String] {
+        didSet { persist() }
+    }
+
     /// 剧情理解润色（仅本地 / 云端 LLM 生效）。
     public var isContextPolishEnabled: Bool {
         didSet { persist() }
@@ -57,7 +67,9 @@ public final class TranslationSettings {
 
     private static let enabledKey = "translation.enabled.v1"
     private static let providerKey = "translation.provider.v1"
+    private static let sourceLanguageKey = "translation.sourceLanguage.v1"
     private static let targetLanguageKey = "translation.targetLanguage.v1"
+    private static let visibleLanguagesKey = "translation.visibleLanguages.v1"
     private static let contextPolishKey = "translation.contextPolish.v1"
     private static let cloudBaseURLKey = "translation.cloud.baseURL.v1"
     private static let cloudModelKey = "translation.cloud.model.v1"
@@ -76,6 +88,17 @@ public final class TranslationSettings {
         ) ?? .fastNMT
         self.targetLanguageCode = defaults.string(forKey: Self.targetLanguageKey)
             ?? Self.defaultTargetLanguageCode
+        let storedSource = defaults.string(forKey: Self.sourceLanguageKey)
+        self.sourceLanguageCode = (storedSource?.isEmpty == false) ? storedSource : nil
+        let allCodes = TranslationLanguageCatalog.all.map(\.code)
+        let storedVisible = defaults.stringArray(forKey: Self.visibleLanguagesKey)
+        if let storedVisible, !storedVisible.isEmpty {
+            // 精确保持用户勾选与排序（不在列表中的语言视为「未呈现」，
+            // 不自动加回；语言池新增语言需用户手动勾选）。
+            self.visibleLanguageCodes = storedVisible.filter { allCodes.contains($0) }
+        } else {
+            self.visibleLanguageCodes = allCodes
+        }
         self.isContextPolishEnabled = defaults.bool(forKey: Self.contextPolishKey)
         self.cloudBaseURL = defaults.string(forKey: Self.cloudBaseURLKey) ?? ""
         self.cloudModelName = defaults.string(forKey: Self.cloudModelKey) ?? ""
@@ -93,6 +116,8 @@ public final class TranslationSettings {
             cloudModelName,
             selectedLocalModelID,
             localModelDownloadedID ?? "",
+            sourceLanguageCode ?? "",
+            targetLanguageCode,
         ].joined(separator: "|")
     }
 
@@ -100,12 +125,64 @@ public final class TranslationSettings {
         let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         defaults.set(isEnabled, forKey: Self.enabledKey)
         defaults.set(selectedProviderID.rawValue, forKey: Self.providerKey)
+        defaults.set(sourceLanguageCode ?? "", forKey: Self.sourceLanguageKey)
         defaults.set(targetLanguageCode, forKey: Self.targetLanguageKey)
+        defaults.set(visibleLanguageCodes, forKey: Self.visibleLanguagesKey)
         defaults.set(isContextPolishEnabled, forKey: Self.contextPolishKey)
         defaults.set(cloudBaseURL, forKey: Self.cloudBaseURLKey)
         defaults.set(cloudModelName, forKey: Self.cloudModelKey)
         defaults.set(cloudPrivacyConsentAcknowledged, forKey: Self.cloudConsentKey)
         defaults.set(selectedLocalModelID, forKey: Self.localModelKey)
         defaults.set(localModelDownloadedID ?? "", forKey: Self.localDownloadedKey)
+    }
+
+    // MARK: - 语言列表管理
+
+    /// 切换语言是否在列表中呈现。
+    public func toggleLanguageVisibility(_ code: String) {
+        if visibleLanguageCodes.contains(code) {
+            visibleLanguageCodes.removeAll { $0 == code }
+        } else {
+            visibleLanguageCodes.append(code)
+        }
+    }
+
+    /// 上移语言（排序越靠前越优先显示）。
+    public func moveLanguageUp(_ code: String) {
+        guard let index = visibleLanguageCodes.firstIndex(of: code), index > 0 else { return }
+        visibleLanguageCodes.swapAt(index, index - 1)
+    }
+
+    /// 下移语言。
+    public func moveLanguageDown(_ code: String) {
+        guard let index = visibleLanguageCodes.firstIndex(of: code),
+              index < visibleLanguageCodes.count - 1 else { return }
+        visibleLanguageCodes.swapAt(index, index + 1)
+    }
+
+    /// 当前可见的源语言选项（自动检测 + 已启用语言）。
+    public var visibleSourceLanguages: [TranslationSourceLanguage] {
+        [TranslationSourceLanguageCatalog.automatic] + TranslationLanguageCatalog.all
+            .filter { visibleLanguageCodes.contains($0.code) }
+            .map {
+                TranslationSourceLanguage(
+                    code: $0.code,
+                    displayName: $0.displayName,
+                    promptName: $0.promptName
+                )
+            }
+    }
+
+    /// 当前可见的目标语言选项。
+    public var visibleTargetLanguages: [TranslationTargetLanguage] {
+        TranslationLanguageCatalog.all
+            .filter { visibleLanguageCodes.contains($0.code) }
+            .map {
+                TranslationTargetLanguage(
+                    code: $0.code,
+                    displayName: $0.displayName,
+                    promptName: $0.promptName
+                )
+            }
     }
 }

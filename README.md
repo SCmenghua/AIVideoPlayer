@@ -119,16 +119,16 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.3）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.4）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.3）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.4）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。
-当前基线 0.8.3（Phase 8.3），下一次打包应为 0.8.4（Phase 8.4）。
+当前基线 0.8.4（Phase 8.4，2026-08-10 打包），下一次打包应为 0.8.5（Phase 8.5）。
 
 > GitHub Actions 打包的 IPA 不含本地 `test.mp4`（约 9 MB，git 忽略）：
 > 调试入口在设备上会回退到构建时下载的 `sample.mp4` / 远程示例；
@@ -184,6 +184,10 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 - ✅ Phase 8.3 完结（打包 0.8.3）：实测反馈修复——播放器字幕开关随识别管线
   自动同步、实时字幕显示修复、设置页语言与 Provider 选择器交互修复、
   语言菜单分栏标注原语言 / 目标语言；仍有实测 bug，留待 Phase 8.4 修复
+- ✅ Phase 8.4 完成（打包 0.8.4）：在 0.8.1 基线上重建多语言与源/目标语言——
+  全语言池 12 种（含日文等），设置页可勾选呈现并排序；设置页与播放器均可调整
+  「原语言 / 目标语言」；播放器字幕语言按钮紧邻字幕开关、开启字幕后才出现，
+  菜单分栏明确标注原语言 / 目标语言（0.8.2/0.8.3 实现曾因字幕回归回退）
 
 ## 后续开发路线
 

@@ -48,7 +48,7 @@ struct SettingsView: View {
     // MARK: - AI 字幕（Phase 5）
 
     private var aiSubtitleCard: some View {
-        GlassCard(tint: .blue) {
+        GlassCard(tint: .blue, isInteractive: true) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 HStack(spacing: AppTheme.Spacing.sm) {
                     Image(systemName: "waveform")
@@ -158,7 +158,7 @@ struct SettingsView: View {
     // MARK: - 字幕显示（Phase 6）
 
     private var subtitleDisplayCard: some View {
-        GlassCard(tint: .cyan) {
+        GlassCard(tint: .cyan, isInteractive: true) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
                 HStack(spacing: AppTheme.Spacing.sm) {
                     Image(systemName: "captions.bubble")
