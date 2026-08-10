@@ -32,7 +32,7 @@ public final class SubtitleTranscriptStore {
     /// 多个 partial 重叠时取最近写入的一条（代表最新识别进度）。
     public func segment(at time: TimeInterval) -> SubtitleSegment? {
         let candidates = segments.filter {
-            $0.startTime <= time && time < $0.endTime
+            $0.startTime <= time && time < Self.displayEndTime(of: $0)
         }
         return candidates.last(where: { !$0.isPartial }) ?? candidates.last
     }
@@ -56,5 +56,13 @@ public final class SubtitleTranscriptStore {
 
     private static func overlaps(_ lhs: SubtitleSegment, _ rhs: SubtitleSegment) -> Bool {
         lhs.startTime < rhs.endTime && rhs.startTime < lhs.endTime
+    }
+
+    /// 显示用结束时间：零 / 负时长片段按最小可显示窗口兜底，
+    /// 避免时间戳异常的 final 永远无法命中播放光标（显示链路丢字幕）。
+    private static func displayEndTime(of segment: SubtitleSegment) -> TimeInterval {
+        segment.endTime > segment.startTime
+            ? segment.endTime
+            : segment.startTime + SubtitleSegment.minimumDisplayDuration
     }
 }

@@ -14,6 +14,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public private(set) var transcribedWindowCount = 0
     /// 已产出并写入字幕记录的字幕条数（partial / final 均计入）。
     public private(set) var emittedSegmentCount = 0
+    /// 已成功翻译并写入译文的字幕条数（final 段，翻译成功 +1）。
+    public private(set) var translatedSegmentCount = 0
+    /// 最近一次翻译失败原因（成功 / 尚未翻译时为 nil），供设置页诊断展示。
+    public private(set) var lastTranslationError: String?
     public let statusStream: AsyncStream<AISubtitleStatus>
 
     private let translationSettings: TranslationSettings
@@ -279,6 +283,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             return
         }
 
+        Log.app.debug("开始翻译 final 段 start=\(segment.startTime, format: .fixed(precision: 1))s 源=\(self.effectiveTranslationSource ?? "nil") 目标=\(self.translationSettings.targetLanguageCode) 文本=\(segment.originalText.prefix(40))")
         let previousState = status.state
         setStatus(state: .translating)
         var translated: String?
@@ -301,10 +306,15 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         } catch {
             // 单句翻译失败不打断字幕：原样写入原文。
             translated = nil
+            lastTranslationError = (error as? LocalizedError)?.errorDescription
+                ?? error.localizedDescription
+            Log.app.error("翻译失败：\(self.lastTranslationError ?? "未知错误")（源=\(self.effectiveTranslationSource ?? "nil")，目标=\(self.translationSettings.targetLanguageCode)）")
         }
         guard active, !Task.isCancelled else { return }
 
         if let translated, !translated.isEmpty {
+            translatedSegmentCount += 1
+            lastTranslationError = nil
             contextProvider.record(original: segment.originalText, translated: translated)
             var enriched = segment
             enriched.translatedText = translated

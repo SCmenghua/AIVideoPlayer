@@ -5,11 +5,12 @@ import Testing
 @MainActor
 struct TranslationSettingsTests {
 
-    @Test func defaultsAreDisabledWithFastNMTAndChinese() {
+    @Test func defaultsEnableLocalFastNMTWithChineseTarget() {
         let suite = uniqueSuiteName()
         let settings = TranslationSettings(suiteName: suite)
 
-        #expect(!settings.isEnabled)
+        // Phase 8.7：默认启用翻译（默认 Provider 为完全本地的 Fast NMT）。
+        #expect(settings.isEnabled)
         #expect(settings.selectedProviderID == .fastNMT)
         #expect(settings.targetLanguageCode == TranslationSettings.defaultTargetLanguageCode)
         #expect(settings.sourceLanguageCode == TranslationSettings.defaultSourceLanguageCode)

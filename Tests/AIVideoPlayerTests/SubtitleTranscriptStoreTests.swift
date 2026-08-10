@@ -66,6 +66,25 @@ struct SubtitleTranscriptStoreTests {
         #expect(store.segment(at: 0.5) == nil)
     }
 
+    @Test func zeroDurationSegmentStillMatchesPlaybackCursor() {
+        let store = SubtitleTranscriptStore()
+        // 时间戳异常（end == start）的 final 按最小可显示时长兜底，
+        // 避免「翻译已产出但字幕不显示」。
+        store.append(
+            SubtitleSegment(
+                startTime: 10,
+                endTime: 10,
+                originalText: "零时长",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+
+        #expect(store.segment(at: 10)?.originalText == "零时长")
+        #expect(store.segment(at: 10.4)?.originalText == "零时长")
+        #expect(store.segment(at: 10.6) == nil)
+    }
+
     @Test func storeCapsMemoryAndKeepsNewest() {
         let store = SubtitleTranscriptStore()
         for index in 0..<300 {

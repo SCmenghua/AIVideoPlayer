@@ -214,6 +214,7 @@ struct SubtitlePipelineTests {
         let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
         let translationSettings = TranslationSettings(suiteName: uniqueSuiteName())
+        translationSettings.isEnabled = false
         translationSettings.sourceLanguageCode = "ja"
         let pipeline = makePipeline(
             source: source,
@@ -260,10 +261,15 @@ struct SubtitlePipelineTests {
         transcript: SubtitleTranscriptStore = SubtitleTranscriptStore(),
         translationSettings: TranslationSettings? = nil
     ) -> SubtitlePipeline {
+        let settings = translationSettings ?? {
+            let defaults = TranslationSettings(suiteName: uniqueSuiteName())
+            // 识别链路测试保持翻译关闭，避免真实 Fast NMT 在 CI 上被调用。
+            defaults.isEnabled = false
+            return defaults
+        }()
         SubtitlePipeline(
             transcript: transcript,
-            translationSettings: translationSettings
-                ?? TranslationSettings(suiteName: uniqueSuiteName()),
+            translationSettings: settings,
             recognizerFactory: { recognizer },
             playerSourceFactory: { _ in source },
             readerSourceFactory: { _ in source }

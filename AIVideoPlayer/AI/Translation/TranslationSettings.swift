@@ -77,7 +77,11 @@ public final class TranslationSettings {
     public init(suiteName: String? = nil) {
         self.suiteName = suiteName
         let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
-        self.isEnabled = defaults.bool(forKey: Self.enabledKey)
+        // 翻译默认开启（默认 Provider 为完全本地的 Fast NMT，无需隐私确认）：
+        // 用户打开 AI 字幕即可看到译文，避免「只显示原文」的困惑。
+        self.isEnabled = defaults.object(forKey: Self.enabledKey) == nil
+            ? true
+            : defaults.bool(forKey: Self.enabledKey)
         self.selectedProviderID = TranslationProviderID(
             rawValue: defaults.string(forKey: Self.providerKey) ?? ""
         ) ?? .fastNMT

@@ -178,6 +178,66 @@ struct SubtitlePipelineTranslationTests {
         #expect(translator.callCount == 1)
     }
 
+    @Test func successfulTranslationIncrementsCountAndClearsError() async throws {
+        let settings = makeTranslationSettings(enabled: true)
+        let recognizer = MockSpeechRecognizer()
+        let translator = MockTranslator(translated: "你好")
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            translationSettings: settings,
+            recognizer: recognizer,
+            translator: translator,
+            transcript: transcript
+        )
+
+        await pipeline.toggle()
+        #expect(pipeline.translatedSegmentCount == 0)
+        #expect(pipeline.lastTranslationError == nil)
+
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+        let segment = await firstSegment(from: transcript)
+        #expect(segment?.translatedText == "你好")
+        #expect(pipeline.translatedSegmentCount == 1)
+        #expect(pipeline.lastTranslationError == nil)
+    }
+
+    @Test func failedTranslationRecordsErrorAndDoesNotCount() async throws {
+        let settings = makeTranslationSettings(enabled: true)
+        let recognizer = MockSpeechRecognizer()
+        let translator = MockTranslator()
+        translator.error = FastNMTError.unsupportedLanguagePair
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(
+            translationSettings: settings,
+            recognizer: recognizer,
+            translator: translator,
+            transcript: transcript
+        )
+
+        await pipeline.toggle()
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "Hello",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+        let segment = await firstSegment(from: transcript)
+        #expect(segment?.translatedText == nil)
+        #expect(pipeline.translatedSegmentCount == 0)
+        #expect(pipeline.lastTranslationError == "系统翻译不支持当前语言对。")
+    }
+
     @Test func contextPolishSuppliesContextAfterFirstTranslation() async throws {
         let settings = makeTranslationSettings(enabled: true)
         settings.isContextPolishEnabled = true

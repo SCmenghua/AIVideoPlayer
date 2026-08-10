@@ -191,10 +191,17 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
             for segment in result.segments {
                 let text = Self.cleanedText(segment.text)
                 guard !text.isEmpty else { continue }
+                // 防御：时间戳异常（end <= start / 为 0）时收敛为最小可显示时长，
+                // 避免「翻译已产出但字幕不显示」（零时长片段永远无法命中播放光标）。
+                let start = windowStart + Double(segment.start)
+                let end = max(
+                    windowStart + Double(segment.end),
+                    start + SubtitleSegment.minimumDisplayDuration
+                )
                 continuation.yield(
                     SubtitleSegment(
-                        startTime: windowStart + Double(segment.start),
-                        endTime: windowStart + Double(segment.end),
+                        startTime: start,
+                        endTime: end,
                         originalText: text,
                         confidence: Self.confidence(from: segment.avgLogprob),
                         isPartial: false

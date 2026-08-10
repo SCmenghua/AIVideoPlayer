@@ -10,6 +10,7 @@ struct SettingsView: View {
                 aiSubtitleCard
                 subtitleLanguageCard
                 subtitleTranscriptCard
+                subtitleTranslationCard
                 subtitleDisplayCard
                 translationCard
                 sectionCard(
@@ -85,7 +86,7 @@ struct SettingsView: View {
                         + (environment.subtitlePipeline.status.language.map { " · 识别语言：\($0)" } ?? ""))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("已转写 \(environment.subtitlePipeline.transcribedWindowCount) 个窗口 · 已产出 \(environment.subtitlePipeline.emittedSegmentCount) 条字幕")
+                    Text("已转写 \(environment.subtitlePipeline.transcribedWindowCount) 个窗口 · 已产出 \(environment.subtitlePipeline.emittedSegmentCount) 条字幕 · 已翻译 \(environment.subtitlePipeline.translatedSegmentCount) 条")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -101,6 +102,15 @@ struct SettingsView: View {
 
     private var subtitleTranscriptCard: some View {
         SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
+    }
+
+    // MARK: - 翻译记录（Phase 8.7）
+
+    private var subtitleTranslationCard: some View {
+        SubtitleTranslationCard(
+            transcript: environment.subtitleTranscript,
+            pipeline: environment.subtitlePipeline
+        )
     }
 
     // MARK: - 字幕语言（Phase 8.6）
