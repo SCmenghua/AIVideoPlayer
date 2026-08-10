@@ -134,9 +134,9 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 仓库提供两个 GitHub Actions 手动工作流：
 
 1. **Package IPA (unsigned)**（推荐日常测试）：构建未签名 IPA，同时上传为
-   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.7）；
+   Actions 工件并发布到 GitHub Release（可填版本号，默认 0.8.8）；
 2. **Build & Release IPA**：构建未签名 IPA 并创建 GitHub Release
-   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.7）。
+   （`AIVideoPlayer-<版本>-unsigned.ipa`，可填版本号，默认 0.8.8）。
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
@@ -148,7 +148,7 @@ Bark 推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`�
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。
-当前基线 0.8.7（Phase 8.7，2026-08-10；0.8.2–0.8.4 全部失败弃用）。
+当前基线 0.8.8（Phase 8.8，2026-08-11；0.8.2–0.8.4 全部失败弃用）。
 
 > ⚠️ **Phase 8.2 – Phase 8.4 全部失败（2026-08-10 标记）**：实测无法正常使用，
 > 实现已回退弃用；后续所有 Phase 将忽略这几次代码，未来从 Phase 8.1 / 0.8.1
@@ -214,6 +214,10 @@ Bark 推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`�
   翻译默认关闭导致 final 段从不调用翻译引擎；现在默认开启（本地 Fast NMT），
   翻译成功条数 / 失败原因可观测（设置页显示 + OSLog），零时长 final 兜底，
   新增设置页独立「翻译记录」卡片（原文 + 译文 + 时间 + 失败提示）
+- ✅ Phase 8.8 完成（打包 0.8.8）：修复两个播放器 bug——大视频（1h 以上）
+  UI 冻结但音频继续（AVAssetReader 解码循环从主线程移入后台任务）；
+  网络资源播放约 2 秒后回到暂停、画面不动（网络媒体不再用 AVAssetReader 与
+  AVPlayer 抢同一 URL，改走实时 Tap；HLS 不支持 Tap 则跳过音频采集、播放正常）
 - ❌ Phase 8.2 失败（打包 0.8.2，代码已弃用）：翻译功能增强——系统翻译 / 本地大模型
   （Gemma 4 E2B 按需下载）/ 云端 API 可选；原语言与目标语言选择；多语言池
   12 种、设置页可勾选呈现并排序；播放器字幕开启后出现「字幕语言」按钮
@@ -255,6 +259,7 @@ Bark 推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`�
 | 8.5 | 删除超前识别；重构字幕显示链路（共享字幕记录存储 + Overlay 直读）；设置页新增「字幕记录」原文 / 译文调试查看（打包 0.8.5） | ✅ 完成 |
 | 8.6 | 字幕语言与双语显示：设置页「字幕语言」卡片（原语言自动检测 + 12 种 / 翻译语言 12 种 / 双语显示开关），切换语言真实生效并重建翻译引擎（打包 0.8.6） | ✅ 完成 |
 | 8.7 | 修复翻译不显示：翻译默认开启（本地 Fast NMT）、翻译计数与失败原因可观测、零时长 final 兜底；设置页「翻译记录」卡片（打包 0.8.7） | ✅ 完成 |
+| 8.8 | 修复播放器两个 bug：大视频 UI 冻结（读取器解码移出主线程）；网络资源播放停摆（本地才用读取器、网络走 Tap、HLS 跳过采集）（打包 0.8.8） | ✅ 完成 |
 | 9 & 9+ | Liquid Glass 深化（变形过渡）、性能、测试与错误处理 | ⬜ 未开始 |
 
 #### AI 实时字幕（实时路径）
@@ -272,6 +277,10 @@ final 到达后收敛为整句并即时翻译；字幕仍按播放光标对齐�
 - Phase 8.7 起翻译默认开启：final 段识别后立即翻译写入译文；设置页「翻译记录」
   卡片展示已成功翻译的字幕（原文 + 译文 + 时间）与翻译失败原因，便于确认
   系统翻译是否真的被调用。
+- Phase 8.8 起音频来源选路：本地文件（file://）用 AVAssetReader 预读（后台解码）；
+  网络媒体（网页直链 / WebDAV）用实时 MTAudioProcessingTap，避免第二个读取器
+  与 AVPlayer 抢占同一 URL 导致播放停摆；HLS 不支持 Tap，跳过音频采集
+  （字幕状态提示不可用），播放保持正常。
 - Phase 8.5 起**已删除超前识别（Lead-Ahead）**：不再有设置开关 / Δ 领先窗口 /
   播放前预读等待，管线统一走实时路径（详细设计见
   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 8.2.1）。

@@ -3,6 +3,18 @@ import CoreMedia
 import Foundation
 import WhisperKit
 
+/// 媒体流类型判定（音频采集选路用）。
+enum MediaStreamKind {
+    static func isHLS(url: URL) -> Bool {
+        ["m3u8", "m3u"].contains(url.pathExtension.lowercased())
+    }
+
+    static func isHLS(item: AVPlayerItem) -> Bool {
+        guard let urlAsset = item.asset as? AVURLAsset else { return false }
+        return isHLS(url: urlAsset.url)
+    }
+}
+
 /// 音频来源类型。
 public enum AudioSourceKind: Sendable, Equatable {
     case player
@@ -50,6 +62,8 @@ public protocol AudioPipeline: AnyObject {
 /// 基于 AVAssetReader 的音频管线：以高于实时的速度解码 PCM，向识别器供料。
 /// 本地 / 渐进式媒体适用；
 /// HLS 等 AVAssetReader 无法读取的来源在 `start` 时抛错，由上层回退到 PlayerAudioPipeline。
+/// 注意：`copyNextSampleBuffer` 是同步阻塞调用，解码循环必须跑在后台任务，
+/// 绝不能在主线程解码大文件（否则 UI 冻结、音频仍继续）。
 @MainActor
 public final class AssetReaderAudioPipeline: AudioPipeline {
     public let sourceKind: AudioSourceKind = .player
@@ -57,12 +71,8 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
 
     private let item: MediaItem
     private let continuation: AsyncStream<PCMChunk>.Continuation
-    private var reader: AVAssetReader?
-    private var audioOutput: AVAssetReaderTrackOutput?
     private var consumeTask: Task<Void, Never>?
     private var isRunning = false
-    private var baseTime: TimeInterval = 0
-    private var accumulatedFrames: Int = 0
 
     private let sampleRate = AudioResampler.whisperSampleRate
 
@@ -75,10 +85,20 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
 
     public func start(at playbackTime: TimeInterval) async throws {
         guard !isRunning else { return }
-        try await prepareReader(at: playbackTime)
+        let prepared = try await prepareReader(at: playbackTime)
         isRunning = true
-        consumeTask = Task { [weak self] in
-            await self?.consume()
+        // 把 reader 放进后台盒后由 detached 任务解码：reader 只在后台线程访问，
+        // 避免同步阻塞的 copyNextSampleBuffer 占用主线程（大视频 UI 崩溃）。
+        let box = ReaderBox(
+            reader: prepared.reader,
+            output: prepared.output,
+            continuation: continuation,
+            baseTime: prepared.baseTime,
+            sampleRate: sampleRate
+        )
+        consumeTask = Task.detached(priority: .utility) { [weak box] in
+            guard let box else { return }
+            await box.consume()
         }
     }
 
@@ -86,20 +106,15 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
         isRunning = false
         consumeTask?.cancel()
         consumeTask = nil
-        reader?.cancelReading()
-        reader = nil
-        audioOutput = nil
     }
 
     public func reset(to playbackTime: TimeInterval) async {
         await stop()
-        baseTime = playbackTime
-        accumulatedFrames = 0
     }
 
     // MARK: - Private
 
-    private func prepareReader(at time: TimeInterval) async throws {
+    private func prepareReader(at time: TimeInterval) async throws -> PreparedReader {
         let asset = AVURLAsset(url: item.url)
         let audioTracks = try await asset.loadTracks(withMediaType: .audio)
         guard let audioTrack = audioTracks.first else {
@@ -136,16 +151,44 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
             throw AudioPipelineError.readerFailed(reader.error?.localizedDescription ?? "读取器启动失败")
         }
 
+        return PreparedReader(reader: reader, output: output, baseTime: time)
+    }
+}
+
+/// 主线程准备好的读取器（只在本类 MainActor 作用域内传递）。
+private struct PreparedReader {
+    let reader: AVAssetReader
+    let output: AVAssetReaderTrackOutput
+    let baseTime: TimeInterval
+}
+
+/// 后台解码盒：AVAssetReader / TrackOutput 只在 consume 后台任务中访问，
+/// AsyncStream continuation 线程安全，可跨线程 yield PCM 块。
+private final class ReaderBox: @unchecked Sendable {
+    private let reader: AVAssetReader
+    private let output: AVAssetReaderTrackOutput
+    private let continuation: AsyncStream<PCMChunk>.Continuation
+    private let baseTime: TimeInterval
+    private let sampleRate: Double
+    private var accumulatedFrames: Int = 0
+
+    init(
+        reader: AVAssetReader,
+        output: AVAssetReaderTrackOutput,
+        continuation: AsyncStream<PCMChunk>.Continuation,
+        baseTime: TimeInterval,
+        sampleRate: Double
+    ) {
         self.reader = reader
-        self.audioOutput = output
-        self.baseTime = time
-        self.accumulatedFrames = 0
+        self.output = output
+        self.continuation = continuation
+        self.baseTime = baseTime
+        self.sampleRate = sampleRate
     }
 
-    private func consume() async {
+    func consume() async {
         while !Task.isCancelled {
-            guard let reader, let audioOutput else { return }
-            guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
+            guard let sampleBuffer = output.copyNextSampleBuffer() else {
                 switch reader.status {
                 case .completed, .cancelled, .failed:
                     return
@@ -160,11 +203,17 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
             if let floats = Self.convertToFloat(sampleBuffer) {
                 let start = baseTime + Double(accumulatedFrames) / sampleRate
                 accumulatedFrames += floats.count
+                // 取消后不再投递，避免 seek / reset 后旧读取器继续污染新时间线。
+                guard !Task.isCancelled else { return }
                 continuation.yield(
                     PCMChunk(samples: floats, sampleRate: sampleRate, startTime: start)
                 )
             }
         }
+    }
+
+    deinit {
+        reader.cancelReading()
     }
 
     private static func convertToFloat(_ sampleBuffer: CMSampleBuffer) -> [Float]? {
@@ -213,6 +262,11 @@ public final class PlayerAudioPipeline: AudioPipeline {
         guard !isRunning else { return }
         guard let player = engine.player, let item = player.currentItem else {
             throw AudioPipelineError.captureUnavailable("播放器未加载媒体")
+        }
+        // HLS：MTAudioProcessingTap 不支持 HTTP Live Streaming，挂 audioMix
+        // 反而会导致播放停摆（2 秒左右回到暂停、画面不动）；直接抛错让上层跳过采集。
+        guard !MediaStreamKind.isHLS(item: item) else {
+            throw AudioPipelineError.captureUnavailable("HLS 媒体不支持音频采集")
         }
         baseTime = playbackTime
         tapBox.resetTime(base: playbackTime)

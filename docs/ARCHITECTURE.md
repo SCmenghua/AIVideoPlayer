@@ -189,9 +189,16 @@ Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地�
    从 App 内置资源加载；应用内没有模型下载 / 选择步骤（只有 Phase 7 翻译 LLM 才需用户选择下载）。
 3. `AudioPipeline`（AI/Speech，负责从播放器或麦克风取音频）：
    - `AssetReaderAudioPipeline`：AVAssetReader 以高于实时的速度解码 PCM（16kHz 单声道），
-     本地 / 渐进式媒体适用；
+     仅限本地文件（file://）使用；解码循环必须跑在后台任务——`copyNextSampleBuffer`
+     是同步阻塞调用，主线程解码大文件（1h 以上）会长时间占用主线程，
+     表现为 UI 冻结 / 崩溃但音频仍继续（Phase 8.8 修复）；
    - `PlayerAudioPipeline`：MTAudioProcessingTap 挂到当前 AVPlayerItem 的 audioMix 实时捕获 PCM，
-     HLS / 读取器不可用时的降级路径；
+     用于所有网络媒体（网页直链 / WebDAV）；**禁止**对网络媒体使用 AVAssetReader——
+     第二个读取器与 AVPlayer 同时拉取同一 URL 会抢占带宽，播放器约 2 秒后停摆
+     （画面不动、回到暂停态，拖动进度条却能取到帧，Phase 8.8 修复）；
+   - **HLS 媒体不采集音频**：MTAudioProcessingTap 不支持 HTTP Live Streaming，
+     对 HLS 挂 audioMix 反而会破坏播放；`SubtitlePipeline.makeSource` 与
+     `PlayerAudioPipeline.start` 均对 HLS 直接跳过（字幕状态提示不可用），播放不受影响；
    - `MicrophoneAudioPipeline`：WhisperKit AudioProcessor 实时采集（partial → final）。
 4. `SpeechRecognizer` 实现：`AI/Speech/WhisperKitSpeechRecognizer`，把 WhisperKit 的 partial / final
    映射为 `SubtitleSegment` 并写入 `AsyncStream`；窗口转写自动重采样到 16kHz、
@@ -506,7 +513,15 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     Fast NMT），管线增加翻译计数与失败原因（设置页显示 + OSLog），
     零 / 负时长 final 按 0.5s 最小窗口兜底；新增设置页独立「翻译记录」卡片
     （原文 + 译文 + 时间 + 已翻译总数 + 失败提示）。
-26. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+26. **Phase 8.8（已完成，打包 0.8.8）**：修复两个播放器 bug——① 大视频
+    （1h 以上）播放时 UI 冻结 / 崩溃但音频继续：AVAssetReader 解码循环此前
+    跑在主线程，`copyNextSampleBuffer()` 同步阻塞长时间占用主线程；解码循环
+    移入后台任务（`ReaderBox`）。② 网络资源播放约 2 秒后回到暂停、画面不动、
+    拖动进度条却能取帧：音频来源选路此前总先尝试 AVAssetReader，网络媒体被
+    第二个读取器与 AVPlayer 同时拉取同一 URL、抢占带宽导致播放器停摆；现在
+    本地文件（file://）才用读取器，网络媒体一律走实时 Tap，HLS 不支持 Tap
+    （挂 audioMix 会破坏播放）则跳过音频采集、播放保持正常；补充来源选路单测。
+27. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

@@ -213,12 +213,27 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     // MARK: - 管线组装
 
     private func makeSource(engine: any PlaybackEngine, at time: TimeInterval) async -> (any AudioPipeline)? {
-        if let item = engine.currentItem {
+        guard let item = engine.currentItem else {
+            setStatus(state: .error)
+            return nil
+        }
+        // 本地文件（file://）用 AVAssetReader 预读：解码快于实时，识别跟得上。
+        if item.url.isFileURL {
             let reader = readerSourceFactory(item)
             if (try? await reader.start(at: time)) != nil {
                 return reader
             }
         }
+        // HLS：MTAudioProcessingTap 不支持 HTTP Live Streaming，挂 audioMix
+        // 会破坏播放；不采集音频，播放保持正常，字幕状态提示不可用。
+        guard !MediaStreamKind.isHLS(url: item.url) else {
+            Log.app.notice("HLS 媒体不支持音频采集，跳过字幕来源（播放不受影响）")
+            setStatus(state: .error)
+            return nil
+        }
+        // 网络媒体（Web / WebDAV）只用实时 Tap：绝不能用 AVAssetReader 与
+        // AVPlayer 同时读同一 URL——第二个读取器会抢占带宽，播放器约 2 秒后
+        // 停摆（画面不动、回到暂停态），拖动进度条却能取到帧。
         let tapSource = playerSourceFactory(engine)
         if (try? await tapSource.start(at: time)) != nil {
             return tapSource

@@ -19,6 +19,30 @@
 - Phase 3 播放器全屏/方向需求已记录至架构文档（2026-08-09）。
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.8] - 2026-08-11
+
+### Fixed（Phase 8.8 播放器两个 bug）
+
+- **大视频播放 UI 冻结（声音继续）**：`AssetReaderAudioPipeline` 的解码循环
+  此前跑在主线程——`AVAssetReaderTrackOutput.copyNextSampleBuffer()` 是同步阻塞调用，
+  播放大文件（如 1 小时以上视频）时整条音轨被高速解码，主线程被长时间占用，
+  表现为 UI 冻结 / 崩溃但音频仍继续；现在解码循环移入后台任务，主线程只负责
+  组装与投递，不再被解码占用
+- **网络媒体无法播放（播放约 2 秒后回到暂停、画面不动）**：音频来源选路
+  此前总是先尝试 `AVAssetReader`，网络媒体（网页直链 / WebDAV）会被第二个
+  读取器与 AVPlayer 同时拉取同一 URL——读取器抢占带宽后播放器缓冲枯竭停摆；
+  现在网络媒体一律走实时 `MTAudioProcessingTap`（不产生额外网络请求），
+  只有本地文件（file://）才用读取器预读
+- **HLS 网络流不再被音频采集破坏**：`MTAudioProcessingTap` 不支持 HTTP Live
+  Streaming，对 HLS 挂 `audioMix` 反而会导致播放停摆；现在 HLS 媒体跳过音频采集
+  （字幕状态提示不可用），播放保持正常
+
+### Changed（Phase 8.8）
+
+- `SubtitlePipeline.makeSource` 选路规则：本地文件 → 读取器；网络非 HLS → Tap；
+  HLS → 不采集；`PlayerAudioPipeline.start` 对 HLS 直接抛「无法采集」错误作为兜底
+- 版本号提升至 0.8.8（Phase 8.8），两个 IPA 工作流默认版本同步为 0.8.8
+
 ## [0.8.7] - 2026-08-10
 
 ### Fixed（Phase 8.7 翻译不显示的根因修复）

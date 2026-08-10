@@ -253,7 +253,126 @@ struct SubtitlePipelineTests {
         #expect(!recognizer.transcriptionCalls.contains { $0.windowStart == 5 })
     }
 
+    // MARK: - 音频来源选路（Phase 8.8）
+
+    @Test func localMediaUsesReaderSourceInsteadOfTap() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(
+            MediaItem(
+                title: "local",
+                url: URL(fileURLWithPath: "/tmp/local.mp4"),
+                kind: .video,
+                source: .local
+            )
+        )
+        let recorder = FactoryCallRecorder()
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makeSourceSelectionPipeline(
+            engine: engine,
+            recognizer: recognizer,
+            recorder: recorder
+        )
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+
+        // 本地文件用 AVAssetReader 预读（解码快于实时），不挂 Tap。
+        #expect(recorder.readerCalls == 1)
+        #expect(recorder.tapCalls == 0)
+    }
+
+    @Test func networkMediaUsesPlayerTapInsteadOfReader() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(
+            MediaItem(
+                title: "web",
+                url: makeTestURL("https://example.com/video.mp4"),
+                kind: .video,
+                source: .web
+            )
+        )
+        let recorder = FactoryCallRecorder()
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makeSourceSelectionPipeline(
+            engine: engine,
+            recognizer: recognizer,
+            recorder: recorder
+        )
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+
+        // 网络媒体绝不能用第二个 AVAssetReader 与 AVPlayer 抢同一 URL，
+        // 必须走实时 Tap，否则播放器约 2 秒后停摆。
+        #expect(recorder.readerCalls == 0)
+        #expect(recorder.tapCalls == 1)
+    }
+
+    @Test func hlsMediaSkipsAudioCaptureWithoutBreakingPlayback() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(
+            MediaItem(
+                title: "hls",
+                url: makeTestURL("https://example.com/stream.m3u8"),
+                kind: .video,
+                source: .web
+            )
+        )
+        let recorder = FactoryCallRecorder()
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makeSourceSelectionPipeline(
+            engine: engine,
+            recognizer: recognizer,
+            recorder: recorder
+        )
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+
+        // HLS 不支持 MTAudioProcessingTap：挂 audioMix 反而会破坏播放，
+        // 因此两个来源都不创建，管线保持激活但状态提示不可用。
+        #expect(recorder.readerCalls == 0)
+        #expect(recorder.tapCalls == 0)
+        #expect(pipeline.status.state == .error)
+        #expect(pipeline.isActive)
+    }
+
     // MARK: - 辅助
+
+    private func makeSourceSelectionPipeline(
+        engine: any PlaybackEngine,
+        recognizer: MockSpeechRecognizer,
+        recorder: FactoryCallRecorder
+    ) -> SubtitlePipeline {
+        let readerSource = MockAudioPipeline()
+        let tapSource = MockAudioPipeline()
+        return SubtitlePipeline(
+            transcript: SubtitleTranscriptStore(),
+            translationSettings: makeDisabledSettings(),
+            recognizerFactory: { recognizer },
+            playerSourceFactory: { _ in
+                recorder.recordTap()
+                return tapSource
+            },
+            readerSourceFactory: { _ in
+                recorder.recordReader()
+                return readerSource
+            }
+        )
+    }
+
+    private func makeDisabledSettings() -> TranslationSettings {
+        let settings = TranslationSettings(suiteName: uniqueSuiteName())
+        settings.isEnabled = false
+        return settings
+    }
+
+    private func makeTestURL(_ string: String) -> URL {
+        guard let url = URL(string: string) else {
+            preconditionFailure("无法构造测试 URL：\(string)")
+        }
+        return url
+    }
 
     private func makePipeline(
         source: MockAudioPipeline,
@@ -339,6 +458,29 @@ private final class MockAudioPipeline: AudioPipeline {
 
     func emit(_ chunk: PCMChunk) {
         continuation.yield(chunk)
+    }
+}
+
+/// 记录 reader / tap 工厂调用次数（@MainActor 工厂闭包内自增）。
+private final class FactoryCallRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _readerCalls = 0
+    private var _tapCalls = 0
+
+    var readerCalls: Int {
+        lock.withLock { _readerCalls }
+    }
+
+    var tapCalls: Int {
+        lock.withLock { _tapCalls }
+    }
+
+    func recordReader() {
+        lock.withLock { _readerCalls += 1 }
+    }
+
+    func recordTap() {
+        lock.withLock { _tapCalls += 1 }
     }
 }
 
