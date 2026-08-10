@@ -85,15 +85,16 @@ struct MediaSourcesViewModelTests {
 
     @Test func pickedFilesAddAndRemove() {
         let pickedStore = MockPickedFileStore()
+        let file = PickedVideoFile(name: "clip.mov", bookmarkData: Data([1, 2, 3]))
+        try? pickedStore.addFile(file)
+
         let viewModel = MediaSourcesViewModel(
             sourceStore: MockMediaSourceStore(),
             profileStore: UserDefaultsProfileStore(suiteName: "test.ms.profiles.\(UUID().uuidString)"),
             credentialStore: InMemoryCredentialStore(),
             pickedFileStore: pickedStore
         )
-        let file = PickedVideoFile(name: "clip.mov", bookmarkData: Data([1, 2, 3]))
 
-        try? pickedStore.addFile(file)
         #expect(viewModel.pickedFiles.count == 1)
 
         viewModel.removePickedFile(file)
