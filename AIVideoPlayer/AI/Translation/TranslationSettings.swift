@@ -93,10 +93,9 @@ public final class TranslationSettings {
         let allCodes = TranslationLanguageCatalog.all.map(\.code)
         let storedVisible = defaults.stringArray(forKey: Self.visibleLanguagesKey)
         if let storedVisible, !storedVisible.isEmpty {
-            // 只保留池内仍存在的语言，并补上新增语言（保持用户排序）。
-            let known = storedVisible.filter { allCodes.contains($0) }
-            let missing = allCodes.filter { !known.contains($0) }
-            self.visibleLanguageCodes = known + missing
+            // 精确保持用户勾选与排序（不在列表中的语言视为「未呈现」，
+            // 不自动加回；语言池新增语言需用户手动勾选）。
+            self.visibleLanguageCodes = storedVisible.filter { allCodes.contains($0) }
         } else {
             self.visibleLanguageCodes = allCodes
         }
