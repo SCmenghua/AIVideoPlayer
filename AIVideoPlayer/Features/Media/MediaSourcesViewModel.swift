@@ -101,41 +101,40 @@ final class MediaSourcesViewModel {
         return trimmed.isEmpty ? fallback : trimmed
     }
 
-    // MARK: - 文件来源（Files App 安全作用域书签）
+    // MARK: - 文件来源（复制到 App 沙盒，避免文档选择器授权过期）
 
-    /// 把文件选择器返回的 URL 转为安全作用域书签并持久化。
+    /// 把文件选择器返回的文件复制到 App 沙盒并登记。
     func addPickedFiles(urls: [URL]) {
         for url in urls {
-            guard url.startAccessingSecurityScopedResource() else { continue }
+            _ = url.startAccessingSecurityScopedResource()
             defer { url.stopAccessingSecurityScopedResource() }
-            // iOS 不支持 .withSecurityScope（仅 macOS）；普通书签即可持久化文件地址。
-            guard let bookmark = try? url.bookmarkData(
-                options: [],
-                includingResourceValuesForKeys: nil,
-                relativeTo: nil
-            ) else { continue }
+            guard let copiedURL = Self.copyToAppStorage(from: url) else { continue }
             try? pickedFileStore.addFile(
-                PickedVideoFile(name: url.lastPathComponent, bookmarkData: bookmark)
+                PickedVideoFile(name: url.lastPathComponent, localURL: copiedURL)
             )
         }
         pickedFiles = pickedFileStore.loadFiles()
     }
 
     func removePickedFile(_ file: PickedVideoFile) {
+        try? FileManager.default.removeItem(at: file.localURL)
         try? pickedFileStore.removeFile(id: file.id)
         pickedFiles = pickedFileStore.loadFiles()
     }
 
-    /// 解析书签为可播放 URL（返回前已开始安全作用域访问）。
-    func resolvePickedFileURL(_ file: PickedVideoFile) -> URL? {
-        var isStale = false
-        guard let url = try? URL(
-            resolvingBookmarkData: file.bookmarkData,
-            options: [],
-            relativeTo: nil,
-            bookmarkDataIsStale: &isStale
-        ) else { return nil }
-        _ = url.startAccessingSecurityScopedResource()
-        return url
+    private static func copyToAppStorage(from url: URL) -> URL? {
+        let directory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MediaFiles", isDirectory: true)
+        let ext = url.pathExtension
+        let target = directory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(ext.isEmpty ? "mov" : ext)
+        do {
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            try FileManager.default.copyItem(at: url, to: target)
+            return target
+        } catch {
+            return nil
+        }
     }
 }

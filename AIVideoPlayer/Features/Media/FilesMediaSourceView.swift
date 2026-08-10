@@ -80,11 +80,10 @@ struct FilesMediaSourceView: View {
     }
 
     private func play(_ file: PickedVideoFile) {
-        guard let url = viewModel.resolvePickedFileURL(file) else { return }
         onPlayMedia(
             MediaItem(
                 title: file.name,
-                url: url,
+                url: file.localURL,
                 kind: .video,
                 source: .local
             )

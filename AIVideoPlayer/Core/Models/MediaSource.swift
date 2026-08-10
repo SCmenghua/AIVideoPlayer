@@ -48,17 +48,18 @@ public struct MediaSource: Identifiable, Hashable, Sendable, Codable {
     }
 }
 
-/// 文件来源中手动选取的视频文件（安全作用域书签，跨启动可用）。
+/// 文件来源中已导入的视频文件（复制到 App 沙盒，跨启动可播放）。
 public struct PickedVideoFile: Identifiable, Hashable, Sendable, Codable {
     public let id: UUID
     public let name: String
-    public let bookmarkData: Data
+    /// 复制到 App Documents/MediaFiles 下的本地文件 URL。
+    public let localURL: URL
     public let createdAt: Date
 
-    public init(id: UUID = UUID(), name: String, bookmarkData: Data, createdAt: Date = .now) {
+    public init(id: UUID = UUID(), name: String, localURL: URL, createdAt: Date = .now) {
         self.id = id
         self.name = name
-        self.bookmarkData = bookmarkData
+        self.localURL = localURL
         self.createdAt = createdAt
     }
 }

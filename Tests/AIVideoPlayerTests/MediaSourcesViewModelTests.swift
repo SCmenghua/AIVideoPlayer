@@ -85,7 +85,10 @@ struct MediaSourcesViewModelTests {
 
     @Test func pickedFilesAddAndRemove() {
         let pickedStore = MockPickedFileStore()
-        let file = PickedVideoFile(name: "clip.mov", bookmarkData: Data([1, 2, 3]))
+        let file = PickedVideoFile(
+            name: "clip.mov",
+            localURL: URL(fileURLWithPath: "/tmp/clip.mov")
+        )
         try? pickedStore.addFile(file)
 
         let viewModel = MediaSourcesViewModel(

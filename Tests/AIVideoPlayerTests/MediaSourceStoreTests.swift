@@ -18,11 +18,15 @@ struct MediaSourceStoreTests {
 
     @Test func pickedFileStoreAddRemove() throws {
         let store = UserDefaultsPickedFileStore(suiteName: "test.pickedFiles.\(UUID().uuidString)")
-        let file = PickedVideoFile(name: "clip.mov", bookmarkData: Data([1, 2, 3]))
+        let file = PickedVideoFile(
+            name: "clip.mov",
+            localURL: try #require(URL(string: "file:///tmp/clip.mov"))
+        )
 
         try store.addFile(file)
         #expect(store.loadFiles().count == 1)
         #expect(store.loadFiles().first?.name == "clip.mov")
+        #expect(store.loadFiles().first?.localURL == file.localURL)
 
         try store.removeFile(id: file.id)
         #expect(store.loadFiles().isEmpty)
