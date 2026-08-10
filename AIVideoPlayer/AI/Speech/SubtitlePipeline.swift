@@ -372,9 +372,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     /// 写入字幕记录并累计统计。
-    private func forwardSegment(_ segment: SubtitleSegment) {
-        emittedSegmentCount += 1
-        transcript.append(segment)
+    nonisolated private func forwardSegment(_ segment: SubtitleSegment) {
+        Task { @MainActor in
+            emittedSegmentCount += 1
+            transcript.append(segment)
+        }
     }
 
     private func runRecognitionLoop(generation: Int) async {
