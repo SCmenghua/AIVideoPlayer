@@ -8,6 +8,11 @@ iOS 26 原生 Liquid Glass 设计规范，架构面向可扩展与长期维护�
 字幕采用「AI 先听一步」的超前识别设计：播放器先缓存 2–10 秒音频，Whisper 提前转写并翻译，
 字幕按整句一次出现，并支持拖动与样式调整（详见下文「AI 实时字幕：超前识别」）。
 
+## 术语约定
+
+- 「设置页」：应用主界面下方三个选项卡 Browser / Player / Setting 中的 **Setting**。
+- 「播放器页」：应用主界面下方三个选项卡中的 **Player**。
+
 ## 当前功能（Phase 7）
 
 - 三 Tab 入口：Browser / Player / Settings，各自独立 NavigationStack，系统 Liquid Glass Tab Bar
@@ -125,6 +130,11 @@ xcodebuild test -project AIVideoPlayer.xcodeproj -scheme AIVideoPlayer \
 
 两者均构建**未签名的 iphoneos Release 版**，打包成标准 `Payload/` 结构的 IPA；
 用自签工具（Sideloadly / AltStore / 爱思助手 等）导入 IPA，用自己的 Apple ID 签名安装。
+
+**CI 与打包流程约定**：push 后 Codex 主动监控 GitHub Actions 结果——CI 通过则按版本
+约定直接触发 IPA 打包，打包结束后通过 Bark 推送通知用户；CI 失败则尝试拉取日志修复，
+多次尝试仍无法拉取时通过 Bark 通知用户帮忙下载日志。
+Bark 推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`。
 
 **版本约定**：同一 Phase 内每打包一次 IPA，下一次打包版本递增一个小版本
 （上一次 `0.x.y` → 下一次 `0.x.(y+1)`），文档中的 Phase 编号同步递增。

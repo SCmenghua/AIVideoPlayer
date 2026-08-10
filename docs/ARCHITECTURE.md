@@ -399,6 +399,10 @@ AI 管线状态，与播放光标解耦；READY 表示当前播放位置的句�
 5. 版本约定：同一 Phase 内每次打包 IPA 后，下一次打包版本递增一个小版本
    （如 `0.8.0` → `0.8.1`），文档中的 Phase 编号同步递增；
    打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流的默认版本号。
+6. CI 监控与通知约定：push 后 Codex 主动监控 `swift-ci.yml` 运行结果——通过则直接触发
+   `package-ipa.yml`（`Package IPA (unsigned)`）打包，打包结束后通过 Bark 推送通知用户；
+   失败则尝试拉取日志修复，多次尝试仍无法拉取时通过 Bark 推送通知用户帮忙下载日志。
+   推送链接：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`。
 
 ### 8.8 播放器换片复位与状态机（Phase 7.6/7.7）
 
