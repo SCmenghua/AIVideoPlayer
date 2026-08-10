@@ -1,4 +1,3 @@
-import AVFoundation
 import Photos
 import SwiftUI
 
@@ -92,39 +91,25 @@ struct PhotoLibraryVideosView: View {
     }
 
     private func play(_ asset: PHAsset) {
-        let options = PHVideoRequestOptions()
-        options.deliveryMode = .highQualityFormat
-        options.isNetworkAccessAllowed = true
         let title = title(for: asset)
-
-        PHImageManager.default().requestAVAsset(forVideo: asset, options: options) { avAsset, _, _ in
-            // 在回调线程上解析可播放 URL（导出另有回调），只把 Sendable 的 URL 交给主线程。
-            Self.resolvePlayableURL(avAsset: avAsset, asset: asset) { url in
-                Task { @MainActor in
-                    guard let url else { return }
-                    onPlayMedia(
-                        MediaItem(
-                            title: title,
-                            url: url,
-                            kind: .video,
-                            source: .local
-                        )
+        // Photos 的内部 URL 不能直接交给新的 AVPlayerItem（会崩溃/无法播放），
+        // 统一导出到 App 沙盒临时目录后按普通文件播放。
+        Self.exportToTemporaryFile(asset: asset) { url in
+            Task { @MainActor in
+                guard let url else { return }
+                onPlayMedia(
+                    MediaItem(
+                        title: title,
+                        url: url,
+                        kind: .video,
+                        source: .local
                     )
-                }
+                )
             }
         }
     }
 
-    private static func resolvePlayableURL(
-        avAsset: AVAsset?,
-        asset: PHAsset,
-        completion: @escaping (URL?) -> Void
-    ) {
-        if let urlAsset = avAsset as? AVURLAsset {
-            completion(urlAsset.url)
-            return
-        }
-        // 无法直接取得 URL（如 iCloud 资源）时导出到临时目录。
+    private static func exportToTemporaryFile(asset: PHAsset, completion: @escaping (URL?) -> Void) {
         guard let resource = PHAssetResource.assetResources(for: asset)
             .first(where: { $0.type == .video }) else {
             completion(nil)
@@ -134,7 +119,9 @@ struct PhotoLibraryVideosView: View {
         let url = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(ext.isEmpty ? "mov" : ext)
-        PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: nil) { error in
+        let options = PHAssetResourceRequestOptions()
+        options.isNetworkAccessAllowed = true
+        PHAssetResourceManager.default().writeData(for: resource, toFile: url, options: options) { error in
             completion(error == nil ? url : nil)
         }
     }

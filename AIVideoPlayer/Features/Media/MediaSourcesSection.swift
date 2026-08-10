@@ -9,11 +9,24 @@ struct MediaSourcesSection: View {
     @State private var activeWebDAVSource: MediaSource?
     @State private var activePhotoSource: MediaSource?
     @State private var activeFilesSource: MediaSource?
+    @State private var isEditing = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
-            Text("媒体来源")
-                .font(.headline)
+            HStack {
+                Text("媒体来源")
+                    .font(.headline)
+                Spacer()
+                if !viewModel.sources.isEmpty {
+                    Button(isEditing ? "完成" : "编辑") {
+                        withAnimation(.snappy) {
+                            isEditing.toggle()
+                        }
+                    }
+                    .font(.subheadline)
+                    .buttonStyle(.plain)
+                }
+            }
 
             if viewModel.sources.isEmpty {
                 emptyState
@@ -77,39 +90,56 @@ struct MediaSourcesSection: View {
     }
 
     private func sourceCard(_ source: MediaSource) -> some View {
-        Button {
-            open(source)
-        } label: {
-            HStack(spacing: AppTheme.Spacing.sm) {
-                Image(systemName: source.kind.systemImage)
-                    .font(.title3)
-                    .foregroundStyle(.tint)
-                    .frame(width: 28)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(source.name)
-                        .font(.body.weight(.medium))
-                        .lineLimit(1)
-                    Text(source.kind.title)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+        HStack(spacing: AppTheme.Spacing.sm) {
+            if isEditing {
+                Button {
+                    viewModel.removeSource(source)
+                    if viewModel.sources.isEmpty {
+                        isEditing = false
+                    }
+                } label: {
+                    Image(systemName: "minus.circle.fill")
+                        .font(.title2)
+                        .foregroundStyle(.red)
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                .buttonStyle(.plain)
+                .accessibilityLabel("删除媒体来源 \(source.name)")
             }
-            .padding(AppTheme.Spacing.md)
-            .glassEffect(.regular.tint(.blue).interactive(), in: .rect(cornerRadius: AppTheme.CornerRadius.md))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("打开 \(source.name)")
-        .contextMenu {
-            Button(role: .destructive) {
-                viewModel.removeSource(source)
+
+            Button {
+                open(source)
             } label: {
-                Label("删除媒体来源", systemImage: "trash")
+                HStack(spacing: AppTheme.Spacing.sm) {
+                    Image(systemName: source.kind.systemImage)
+                        .font(.title3)
+                        .foregroundStyle(.tint)
+                        .frame(width: 28)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(source.name)
+                            .font(.body.weight(.medium))
+                            .lineLimit(1)
+                        Text(source.kind.title)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.tertiary)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .contextMenu {
+                Button(role: .destructive) {
+                    viewModel.removeSource(source)
+                } label: {
+                    Label("删除媒体来源", systemImage: "trash")
+                }
             }
         }
+        .padding(AppTheme.Spacing.md)
+        .glassEffect(.regular.tint(.blue).interactive(), in: .rect(cornerRadius: AppTheme.CornerRadius.md))
     }
 
     private func open(_ source: MediaSource) {

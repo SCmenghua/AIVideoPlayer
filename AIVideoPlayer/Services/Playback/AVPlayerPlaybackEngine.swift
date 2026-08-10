@@ -73,7 +73,7 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         isLandscapeVideo = false
         isResolutionKnown = false
         setState(.loading)
-        detectResolution(for: item)
+        detectResolution(for: item, asset: playerItem.asset)
         do {
             try await waitUntilReady(playerItem)
         } catch is CancellationError {
@@ -132,8 +132,11 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     /// 重新检测并等待横竖屏结果（全屏入口使用）。
     /// 检测失败 / 超时按竖屏处理，返回当前结论。
     public func resolveVideoOrientation(timeout: TimeInterval = 2) async -> Bool {
-        guard let item = currentItem else { return isLandscapeVideo }
-        detectResolution(for: item)
+        guard let item = currentItem,
+              let asset = avPlayer.currentItem?.asset else {
+            return isLandscapeVideo
+        }
+        detectResolution(for: item, asset: asset)
         let deadline = ContinuousClock.now + .seconds(timeout)
         while !isResolutionKnown, ContinuousClock.now < deadline {
             try? await Task.sleep(for: .milliseconds(50))
@@ -144,12 +147,12 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     // MARK: - Private
 
     /// 检测当前视频横竖屏（宽 > 高为横屏）。异步进行，不阻塞加载完成。
-    private func detectResolution(for item: MediaItem) {
+    /// 使用播放器已加载的 asset（而非按 URL 重新创建），远程 / HLS 也能识别。
+    private func detectResolution(for item: MediaItem, asset: AVAsset) {
         resolutionTask?.cancel()
         isResolutionKnown = false
         resolutionTask = Task { [weak self] in
             guard let self else { return }
-            let asset = AVURLAsset(url: item.url)
             guard !Task.isCancelled,
                   let tracks = try? await asset.loadTracks(withMediaType: .video),
                   let track = tracks.first else {

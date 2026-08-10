@@ -65,9 +65,16 @@ struct FilesMediaSourceView: View {
                 }
             }
         }
-        .sheet(isPresented: $showsPicker) {
-            VideoDocumentPicker { urls in
+        .fileImporter(
+            isPresented: $showsPicker,
+            allowedContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie, .video],
+            allowsMultipleSelection: true
+        ) { result in
+            switch result {
+            case .success(let urls):
                 viewModel.addPickedFiles(urls: urls)
+            case .failure:
+                break
             }
         }
     }
@@ -82,49 +89,5 @@ struct FilesMediaSourceView: View {
                 source: .local
             )
         )
-    }
-}
-
-/// 文件 App 视频选择器（支持多选，返回安全作用域 URL）。
-private struct VideoDocumentPicker: UIViewControllerRepresentable {
-    let onPicked: ([URL]) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
-        let picker = UIDocumentPickerViewController(
-            forOpeningContentTypes: [.movie, .mpeg4Movie, .quickTimeMovie, .video]
-        )
-        picker.allowsMultipleSelection = true
-        picker.delegate = context.coordinator
-        return picker
-    }
-
-    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(onPicked: onPicked, dismiss: dismiss)
-    }
-
-    @MainActor
-    final class Coordinator: NSObject, UIDocumentPickerDelegate {
-        private let onPicked: ([URL]) -> Void
-        private let dismiss: DismissAction
-
-        init(onPicked: @escaping ([URL]) -> Void, dismiss: DismissAction) {
-            self.onPicked = onPicked
-            self.dismiss = dismiss
-        }
-
-        func documentPicker(
-            _ controller: UIDocumentPickerViewController,
-            didPickDocumentsAt urls: [URL]
-        ) {
-            onPicked(urls)
-            dismiss()
-        }
-
-        func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
-            dismiss()
-        }
     }
 }

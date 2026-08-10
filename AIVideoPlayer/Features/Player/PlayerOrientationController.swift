@@ -55,7 +55,7 @@ public enum PlayerOrientationController {
 
     /// 应用目标方向：先刷新 supportedInterfaceOrientations，再请求几何更新。
     /// 横屏请求同时允许左右两个方向（避免单一方向掩码被系统拒绝）；
-    /// 失败时延迟重试一次，覆盖首次请求时方向掩码尚未就绪的竞态。
+    /// 失败或方向未变化时延迟重试，覆盖掩码刷新与全屏转场的竞态。
     private static func applyOrientation(landscape: Bool) {
         let mask: UIInterfaceOrientationMask = landscape ? .landscape : .portrait
 
@@ -67,22 +67,34 @@ public enum PlayerOrientationController {
             .rootViewController?
             .setNeedsUpdateOfSupportedInterfaceOrientations()
 
+        requestOrientation(mask: mask, attemptsLeft: 2)
+    }
+
+    private static func requestOrientation(mask: UIInterfaceOrientationMask, attemptsLeft: Int) {
         guard let scene = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
-            .first else {
-            return
-        }
+            .first else { return }
 
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
-            // 首次请求可能因掩码刷新时序失败：延迟重试一次。
+            // 请求失败（掩码刷新时序 / 系统限制）：短暂延迟后重试。
+            guard attemptsLeft > 0 else { return }
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(150))
-                guard let retryScene = UIApplication.shared.connectedScenes
-                    .compactMap({ $0 as? UIWindowScene })
-                    .first else { return }
-                retryScene.requestGeometryUpdate(.iOS(interfaceOrientations: mask)) { _ in
-                    // 仍失败（系统锁定 / iPad 多任务等）：保持现状，不强制回退。
-                }
+                try? await Task.sleep(for: .milliseconds(200))
+                requestOrientation(mask: mask, attemptsLeft: attemptsLeft - 1)
+            }
+        }
+
+        // 请求成功但方向未变（如全屏转场期间被忽略）：延迟校验后仍不符则重试。
+        guard attemptsLeft > 0 else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard let scene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first else { return }
+            let isLandscapeNow = scene.interfaceOrientation.isLandscape
+            let targetLandscape = mask.contains(.landscape)
+            if isLandscapeNow != targetLandscape {
+                requestOrientation(mask: mask, attemptsLeft: attemptsLeft - 1)
             }
         }
     }
