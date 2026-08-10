@@ -217,6 +217,48 @@ struct SubtitlePipelineTests {
         #expect(recognizer.lastCall?.windowStart == 30)
     }
 
+    @Test func detectedLanguageIsPassedToNextWindow() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline(canReadAhead: true)
+        let recognizer = MockSpeechRecognizer()
+        recognizer.outcome = RecognitionOutcome(language: "zh", segmentCount: 1)
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        emitSeconds(source, seconds: 12, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 2 }
+        // 首窗自动检测（language=nil），之后把检测结果传给后续窗口，
+        // 避免中文等短音频逐窗口重复检测失败导致空结果。
+        #expect(recognizer.transcriptionCalls[0].language == nil)
+        #expect(recognizer.transcriptionCalls[1].language == "zh")
+    }
+
+    @Test func laggingWindowsAreSkippedToCatchUpWithPlayback() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline(canReadAhead: true)
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        // 播放已推进到 30s（识别尚未处理任何窗口）：游标应跳过 0..30。
+        pipeline.updatePlaybackPosition(30)
+        emitSeconds(source, seconds: 40, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        // 0..30 之间的窗口已落后于播放光标，应被跳过而不是继续逐个转写。
+        #expect(recognizer.transcriptionCalls.first?.windowStart == 30)
+        #expect(!recognizer.transcriptionCalls.contains { $0.windowStart == 5 })
+    }
+
     // MARK: - 辅助
 
     private func makePipeline(
@@ -312,6 +354,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
 
     struct TranscriptionCall {
         let windowStart: TimeInterval
+        let language: String?
         let emitPartial: Bool
     }
 
@@ -350,6 +393,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         sampleRate: Double,
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
+        language: String?,
         emitPartial: Bool
     ) async throws -> RecognitionOutcome {
         if failuresBeforeSuccess > 0 {
@@ -357,7 +401,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
             throw failureError
         }
         transcriptionCalls.append(
-            TranscriptionCall(windowStart: windowStart, emitPartial: emitPartial)
+            TranscriptionCall(windowStart: windowStart, language: language, emitPartial: emitPartial)
         )
         if outcome.segmentCount > 0 {
             continuation.yield(

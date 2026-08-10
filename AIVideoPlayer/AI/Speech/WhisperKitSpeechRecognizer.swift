@@ -66,6 +66,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                 name: modelFolderName,
                 subdirectory: modelFolderSubdirectory
             )
+            Log.app.info("加载内置 Whisper 模型：\(folder.path)")
+            let loadStart = ContinuousClock.now
             let kit = try await WhisperKit(
                 modelFolder: folder.path,
                 verbose: false,
@@ -73,9 +75,12 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                 load: true,
                 download: false
             )
+            let elapsed = loadStart.duration(to: .now)
+            Log.app.info("Whisper 模型加载成功（\(elapsed.formatted(.units(allowed: [.seconds])))）")
             whisperKit = kit
             state = .listening
         } catch {
+            Log.app.error("Whisper 模型加载失败：\(error.localizedDescription)")
             state = .error
             throw error
         }
@@ -102,6 +107,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         sampleRate: Double,
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
+        language: String?,
         emitPartial: Bool
     ) async throws -> RecognitionOutcome {
         try Task.checkCancellation()
@@ -124,7 +130,10 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         let options = DecodingOptions(
             task: .transcribe,
             temperature: 0.0,
-            usePrefillPrompt: false,
+            // 标准解码路径：检测（或传入）语言后预填 SOT + 语言 + 任务 + 时间戳 token。
+            // 此前关闭 prefill 会让多语言模型缺少语言提示，中文解码不稳定。
+            usePrefillPrompt: true,
+            language: language,
             detectLanguage: true,
             skipSpecialTokens: true,
             wordTimestamps: false,
@@ -133,6 +142,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
             concurrentWorkerCount: 1,
             chunkingStrategy: nil
         )
+
+        Log.app.debug("识别窗口开始 windowStart=\(windowStart, format: .fixed(precision: 1)) samples=\(samples.count) rate=\(sampleRate, format: .fixed(precision: 0)) language=\(language ?? "nil") emitPartial=\(emitPartial)")
 
         // 原始路径：透出 Whisper 的 streaming partial。
         // 注意：TranscriptionCallback 是 @Sendable，只捕获 Sendable 值。
@@ -172,10 +183,10 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
             return RecognitionOutcome(language: nil, segmentCount: 0)
         }
         var segmentCount = 0
-        var language: String?
+        var detectedLanguage = language
         for result in results {
             if !result.language.isEmpty {
-                language = result.language
+                detectedLanguage = result.language
             }
             for segment in result.segments {
                 let text = Self.cleanedText(segment.text)
@@ -192,7 +203,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                 segmentCount += 1
             }
         }
-        return RecognitionOutcome(language: language, segmentCount: segmentCount)
+        Log.app.debug("识别窗口完成 windowStart=\(windowStart, format: .fixed(precision: 1)) segments=\(segmentCount) language=\(detectedLanguage ?? "nil")")
+        return RecognitionOutcome(language: detectedLanguage, segmentCount: segmentCount)
     }
 
     // MARK: - 工具

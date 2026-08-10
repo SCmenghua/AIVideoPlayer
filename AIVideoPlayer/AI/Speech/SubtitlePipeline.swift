@@ -11,6 +11,10 @@ import Observation
 @Observable
 public class SubtitlePipeline: SubtitleStatusProviding {
     public private(set) var status: AISubtitleStatus
+    /// 已完成的识别窗口数（每次成功转写 +1；用户可据此判断识别是否真的在跑）。
+    public private(set) var transcribedWindowCount = 0
+    /// 已产出并转发给字幕层的 segment 数（partial / final 均计入）。
+    public private(set) var emittedSegmentCount = 0
     public let statusStream: AsyncStream<AISubtitleStatus>
     public let segments: AsyncStream<SubtitleSegment>
 
@@ -103,6 +107,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func preparePlayback(from time: TimeInterval) async {
         playbackTime = time
         guard active else { return }
+        Log.app.debug("字幕管线 preparePlayback from=\(time, format: .fixed(precision: 1)) active=\(active)")
         generation += 1
         stopLoops()
         await recognizer?.discardPendingResults()
@@ -121,6 +126,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             self.source = await makeSource(engine: engine, at: time)
         }
         guard let source else { return }
+        Log.app.debug("字幕音频来源就绪 kind=\(source.sourceKind == .microphone ? "mic" : "player") canReadAhead=\(source.canReadAhead)")
 
         buffer.reset(to: time)
         consumeChunks(from: source)
@@ -133,6 +139,13 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     public func handlePlaybackEnded() {
         stopLoops()
+    }
+
+    /// 播放器进度回调：更新当前播放位置。
+    /// 识别循环据此跳过已落后于播放光标的窗口，避免模型转写速度
+    /// 跟不上播放时字幕持续错过（表现为「开了字幕却什么都没有」）。
+    public func updatePlaybackPosition(_ time: TimeInterval) {
+        playbackTime = time
     }
 
     public func handleSeek(to time: TimeInterval) async {
@@ -190,6 +203,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     private func activate() async {
         guard !active else { return }
+        Log.app.info("激活字幕管线")
         active = true
         generation += 1
         currentLanguage = nil
@@ -210,6 +224,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 await preparePlayback(from: engine?.currentTime ?? playbackTime)
             }
         } catch {
+            Log.app.error("字幕管线激活失败：\(error.localizedDescription)")
             active = false
             modelLoaded = false
             setStatus(state: .error)
@@ -217,6 +232,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     private func shutdown() async {
+        Log.app.info("关闭字幕管线")
         generation += 1
         active = false
         stopLoops()
@@ -289,7 +305,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 }
                 if segment.isPartial {
                     // 原始实时路径：逐词 partial 原样透出，不做翻译。
-                    self.segmentsContinuation.yield(segment)
+                    self.forwardSegment(segment)
                 } else {
                     // Phase 7：final 段翻译后透出（超前窗口内译文提前就绪）。
                     await self.translateAndYield(segment)
@@ -304,7 +320,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         guard active, translationSettings.isEnabled,
               let engine = makeTranslationEngine()
         else {
-            segmentsContinuation.yield(segment)
+            forwardSegment(segment)
             return
         }
 
@@ -337,9 +353,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             contextProvider.record(original: segment.originalText, translated: translated)
             var enriched = segment
             enriched.translatedText = translated
-            segmentsContinuation.yield(enriched)
+            forwardSegment(enriched)
         } else {
-            segmentsContinuation.yield(segment)
+            forwardSegment(segment)
         }
 
         if status.state == .translating {
@@ -358,6 +374,12 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         return engine
     }
 
+    /// 转发 segment 到字幕流并累计统计。
+    private func forwardSegment(_ segment: SubtitleSegment) {
+        emittedSegmentCount += 1
+        segmentsContinuation.yield(segment)
+    }
+
     private func runRecognitionLoop(generation: Int) async {
         let leadAhead = shouldUseLeadAhead
         let windowSize: TimeInterval = leadAhead ? max(settings.leadAheadWindow, 5) : 5
@@ -366,7 +388,17 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         while active && self.generation == generation && !Task.isCancelled {
             guard let recognizer else { return }
 
+            // 识别速度跟不上播放时，跳过已落后的窗口：从当前播放位置继续，
+            // 避免把算力浪费在已经播过的音频上（字幕内容会从当前位置开始出现）。
+            if cursor + windowSize <= playbackTime - Self.staleSegmentTolerance {
+                let oldCursor = cursor
+                cursor = max(playbackTime, buffer.captureStart)
+                Log.app.debug("跳过落后识别窗口：\(oldCursor, format: .fixed(precision: 1))s → 播放位置 \(playbackTime, format: .fixed(precision: 1))s")
+            }
+
             guard let samples = buffer.extract(from: cursor, to: cursor + windowSize) else {
+                // 音频尚未缓冲到目标窗口：节流记录，便于确认识别等待的是音频还是模型。
+                logBufferWaitIfNeeded(windowStart: cursor)
                 try? await Task.sleep(for: .milliseconds(120))
                 continue
             }
@@ -382,12 +414,15 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     sampleRate: buffer.sampleRateValue,
                     windowStart: windowStart,
                     windowDuration: windowSize,
+                    language: currentLanguage,
                     emitPartial: !leadAhead
                 )
                 guard self.generation == generation else { return }
                 if let language = outcome.language, !language.isEmpty {
                     currentLanguage = language
                 }
+                transcribedWindowCount += 1
+                Log.app.debug("识别窗口 \(windowStart, format: .fixed(precision: 1))s 完成：segments=\(outcome.segmentCount) language=\(currentLanguage ?? "nil")")
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
             } catch is CancellationError {
                 // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
@@ -414,5 +449,15 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         guard newStatus != status else { return }
         status = newStatus
         statusContinuation.yield(newStatus)
+    }
+
+    /// 音频缓冲等待日志（节流：状态变化或每 3 秒一次，避免刷屏）。
+    private var lastBufferWaitLog: TimeInterval = -.infinity
+
+    private func logBufferWaitIfNeeded(windowStart: TimeInterval) {
+        let now = Date().timeIntervalSince1970
+        guard now - lastBufferWaitLog >= 3 else { return }
+        lastBufferWaitLog = now
+        Log.app.debug("等待音频缓冲：目标窗口 \(windowStart, format: .fixed(precision: 1))s，已捕获到 \(buffer.capturedEnd, format: .fixed(precision: 1))s")
     }
 }

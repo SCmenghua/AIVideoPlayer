@@ -74,6 +74,20 @@ struct SettingsView: View {
                     }
                 }
 
+                // Phase 8.1 诊断：直接展示识别引擎实时状态，
+                // 让用户确认识别是否真的在跑（模型加载 / 转写窗口 / 字幕产出）。
+                VStack(alignment: .leading, spacing: AppTheme.Spacing.xxs) {
+                    Text("识别状态：\(environment.subtitlePipeline.status.state.title)")
+                        .font(.caption.weight(.medium))
+                    Text("模型：\(environment.subtitlePipeline.status.isModelLoaded ? "已加载" : "未加载")"
+                        + (environment.subtitlePipeline.status.language.map { " · 识别语言：\($0)" } ?? ""))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text("已转写 \(environment.subtitlePipeline.transcribedWindowCount) 个窗口 · 已产出 \(environment.subtitlePipeline.emittedSegmentCount) 条字幕")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Toggle(
                     isOn: Binding(
                         get: { environment.subtitleSettings.isLeadAheadEnabled },

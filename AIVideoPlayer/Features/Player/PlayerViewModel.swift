@@ -87,6 +87,8 @@ final class PlayerViewModel {
                 self.currentTime = progress.currentTime
                 self.duration = progress.duration
                 self.rate = progress.rate
+                // 让字幕管线跟随实时播放位置，识别循环可跳过已落后的窗口。
+                self.subtitlePipeline?.updatePlaybackPosition(progress.currentTime)
             }
         }
 
@@ -227,6 +229,7 @@ final class PlayerViewModel {
         currentTime = engine.currentTime
         duration = engine.duration
         rate = engine.rate
+        subtitlePipeline?.updatePlaybackPosition(currentTime)
         // .loading 是加载任务拥有的瞬态：不在此同步，避免 loadTask 开始前
         // 把 .loading 闪回旧状态，或加载失败后把 .failed 打回 .loading。
         let newState = engine.state

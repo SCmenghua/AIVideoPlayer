@@ -166,6 +166,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         sampleRate: Double,
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
+        language: String?,
         emitPartial: Bool
     ) async throws -> RecognitionOutcome {
         RecognitionOutcome(language: nil, segmentCount: 0)
