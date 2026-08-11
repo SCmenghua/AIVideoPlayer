@@ -32,6 +32,7 @@ struct SubtitlePipelineTests {
         #expect(pipeline.status.isModelLoaded)
         #expect(pipeline.status.language == "en")
         #expect(pipeline.emittedSegmentCount >= 1)
+        transcript.flush()
         #expect(!transcript.segments.isEmpty)
     }
 
@@ -134,6 +135,7 @@ struct SubtitlePipelineTests {
             )
         )
         try? await Task.sleep(for: .milliseconds(100))
+        transcript.flush()
         #expect(transcript.segments.count == 1)
         #expect(transcript.segments.first?.isPartial == true)
     }
@@ -164,6 +166,7 @@ struct SubtitlePipelineTests {
         // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
         #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
         #expect(recognizer.transcriptionCalls.count >= 2)
+        transcript.flush()
         #expect(!transcript.segments.isEmpty)
     }
 
