@@ -92,4 +92,8 @@ open AIVideoPlayer.xcodeproj
 
 ## License
 
-个人项目，暂无开源协议。
+本项目采用 **GNU Affero General Public License v3.0 (AGPL-3.0)** 开源协议。
+
+- 你可以自由使用、修改、分发本项目
+- 如果你修改并发布（包括网络服务），必须开源你的修改并采用相同协议
+- 详见 [LICENSE](LICENSE) 文件
