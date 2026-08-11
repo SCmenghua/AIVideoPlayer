@@ -23,21 +23,37 @@ struct AppLoggerWrapper {
 
     func debug(_ message: String) {
         osLogger.debug("\(message)")
-        Log.appLogger?.log(.debug, category: category, message)
+        if let logger = Log.appLogger {
+            Task { @MainActor in
+                logger.log(.debug, category: category, message)
+            }
+        }
     }
 
     func info(_ message: String) {
         osLogger.info("\(message)")
-        Log.appLogger?.log(.info, category: category, message)
+        if let logger = Log.appLogger {
+            Task { @MainActor in
+                logger.log(.info, category: category, message)
+            }
+        }
     }
 
     func warning(_ message: String) {
         osLogger.warning("\(message)")
-        Log.appLogger?.log(.warning, category: category, message)
+        if let logger = Log.appLogger {
+            Task { @MainActor in
+                logger.log(.warning, category: category, message)
+            }
+        }
     }
 
     func error(_ message: String) {
         osLogger.error("\(message)")
-        Log.appLogger?.log(.error, category: category, message)
+        if let logger = Log.appLogger {
+            Task { @MainActor in
+                logger.log(.error, category: category, message)
+            }
+        }
     }
 }
