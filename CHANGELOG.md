@@ -10,6 +10,28 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.17] - 2026-08-12
+
+### Fixed（Phase 8.17 性能优化：修复字幕相关 UI 卡顿）
+
+- **长视频字幕导致 UI 卡顿甚至卡死**：30 分钟视频识别后 UI 完全卡死，3 分钟视频出现明显卡顿，
+  根本原因是设置页的「字幕记录」和「翻译记录」调试卡片观察 `@Observable` 的 `SubtitleTranscriptStore`，
+  每 150ms 字幕更新时触发全量重新渲染（VStack 遍历数百条记录），阻塞主线程；
+  修复分三管齐下：
+  1. **调试卡片默认隐藏**：在 `SubtitleDisplaySettings` 中新增 `showTranscriptCard` 和 
+     `showTranslationCard` 两个 Bool 属性（默认 `false`），并在设置页添加 Toggle 开关，
+     只有主动开启时才渲染调试卡片，避免默认情况下的性能损耗
+  2. **优化卡片渲染算法**：将 `VStack` 替换为 `LazyVStack + ScrollView`，只渲染可见行；
+     使用 `.suffix(20).reversed()` 算法只显示最近 20 条记录（`SubtitleTranscriptStore` 新增 
+     `recentSegments` 计算属性），避免遍历全量数据
+  3. **识别循环移到后台线程**：将 `SubtitlePipeline.runRecognitionLoop` 和相关方法标记为 
+     `nonisolated`，在后台线程执行识别循环，只在需要修改 UI 状态时显式使用 `await MainActor.run`，
+     防止识别操作阻塞主线程
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.17
+
 ## [0.8.16] - 2026-08-12
 
 ### Fixed（Phase 8.16 修复识别循环逻辑 + 音频路由问题）

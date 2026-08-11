@@ -216,7 +216,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     private func makeSource(engine: any PlaybackEngine, at time: TimeInterval) async -> (any AudioPipeline)? {
         guard let item = engine.currentItem else {
-            setStatus(state: .error)
+            await setStatus(state: .error)
             return nil
         }
 
@@ -229,19 +229,19 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
         if isLocalFile && !isHLS {
             // 本地文件：优先用 AssetReader 预读。
-            let reader = readerSourceFactory(item)
+            let reader = await readerSourceFactory(item)
             if (try? await reader.start(at: time)) != nil {
                 return reader
             }
         }
 
         // 网络资源 / HLS / AssetReader 失败回退：用实时 Tap。
-        let tapSource = playerSourceFactory(engine)
+        let tapSource = await playerSourceFactory(engine)
         if (try? await tapSource.start(at: time)) != nil {
             return tapSource
         }
 
-        setStatus(state: .error)
+        await setStatus(state: .error)
         return nil
     }
 
@@ -279,10 +279,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 if segment.isPartial {
                     // 实时路径 partial 原样写入：窗口内整句显示，final 到达后由存储收敛。
                     // 不按播放位置丢弃 partial，避免识别稍慢时「识别已产出但播放器无字幕」。
-                    self.forwardSegment(segment)
+                    await self.forwardSegment(segment)
                 } else {
                     // final 只丢弃整句已播完的过期结果（seek / 暂停恢复竞态）。
-                    if segment.endTime + Self.staleSegmentTolerance < self.playbackTime {
+                    let playbackTime = await self.playbackTime
+                    if segment.endTime + Self.staleSegmentTolerance < playbackTime {
                         continue
                     }
                     await self.translateAndYield(segment)
@@ -295,22 +296,26 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     /// （Overlay 译文缺失只显示原文，不破坏原有行为）。
     /// 翻译在后台线程执行，避免阻塞主线程 UI。
     private func translateAndYield(_ segment: SubtitleSegment) async {
-        guard active, translationSettings.isEnabled,
-              let engine = makeTranslationEngine()
+        guard await active, await translationSettings.isEnabled,
+              let engine = await makeTranslationEngine()
         else {
-            forwardSegment(segment)
+            await forwardSegment(segment)
             return
         }
 
-        Log.app.debug("开始翻译 final 段 start=\(String(format: "%.1f", segment.startTime))s 源=\(self.effectiveTranslationSource ?? "nil") 目标=\(self.translationSettings.targetLanguageCode) 文本=\(segment.originalText.prefix(40))")
-        let previousState = status.state
-        setStatus(state: .translating)
+        let effectiveSource = await effectiveTranslationSource
+        let targetLang = await translationSettings.targetLanguageCode
+        Log.app.debug("开始翻译 final 段 start=\(String(format: "%.1f", segment.startTime))s 源=\(effectiveSource ?? "nil") 目标=\(targetLang) 文本=\(segment.originalText.prefix(40))")
+        let previousState = await status.state
+        await setStatus(state: .translating)
 
         // 翻译在后台线程执行，避免阻塞主线程（系统翻译可能耗时数百毫秒）。
-        let sourceLanguage = effectiveTranslationSource
-        let targetLanguage = translationSettings.targetLanguageCode
+        let sourceLanguage = effectiveSource
+        let targetLanguage = targetLang
         let originalText = segment.originalText
         let context: TranslationContext?
+        let translationSettings = await self.translationSettings
+        let contextProvider = await self.contextProvider
         if translationSettings.isContextPolishEnabled,
            engine.supportsContextPolish,
            contextProvider.hasRecentEntries
@@ -339,21 +344,24 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
         }.value
 
-        guard active, !Task.isCancelled else { return }
+        guard await active, !Task.isCancelled else { return }
 
         if let translated, !translated.isEmpty {
-            translatedSegmentCount += 1
-            lastTranslationError = nil
-            contextProvider.record(original: segment.originalText, translated: translated)
+            await MainActor.run {
+                self.translatedSegmentCount += 1
+                self.lastTranslationError = nil
+                self.contextProvider.record(original: segment.originalText, translated: translated)
+            }
             var enriched = segment
             enriched.translatedText = translated
-            forwardSegment(enriched)
+            await forwardSegment(enriched)
         } else {
-            forwardSegment(segment)
+            await forwardSegment(segment)
         }
 
-        if status.state == .translating {
-            setStatus(state: previousState == .translating ? .ready : previousState)
+        let currentState = await status.state
+        if currentState == .translating {
+            await setStatus(state: previousState == .translating ? .ready : previousState)
         }
     }
 
@@ -385,26 +393,30 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     /// 写入字幕记录并累计统计。
-    private func forwardSegment(_ segment: SubtitleSegment) {
-        emittedSegmentCount += 1
-        transcript.append(segment)
+    private func forwardSegment(_ segment: SubtitleSegment) async {
+        await MainActor.run {
+            self.emittedSegmentCount += 1
+            self.transcript.append(segment)
+        }
     }
 
-    private func runRecognitionLoop(generation: Int) async {
+    nonisolated private func runRecognitionLoop(generation: Int) async {
         let windowSize: TimeInterval = 5
         // 识别前瞻窗口：只识别当前播放位置前后各 10 秒的内容，避免无限识别整个视频
         let maxLookahead: TimeInterval = 10
-        var cursor = buffer.captureStart
+        var cursor = await buffer.captureStart
 
-        while active && self.generation == generation && !Task.isCancelled {
-            guard let recognizer else { return }
+        while await active && await self.generation == generation && !Task.isCancelled {
+            guard let recognizer = await self.recognizer else { return }
 
             // 识别速度跟不上播放时，跳过已落后的窗口：从当前播放位置继续，
             // 避免把算力浪费在已经播过的音频上（字幕内容会从当前位置开始出现）。
+            let playbackTime = await self.playbackTime
             if cursor + windowSize <= playbackTime - Self.staleSegmentTolerance {
                 let oldCursor = cursor
-                cursor = max(playbackTime, buffer.captureStart)
-                Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", self.playbackTime))s")
+                let captureStart = await buffer.captureStart
+                cursor = max(playbackTime, captureStart)
+                Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", playbackTime))s")
             }
 
             // 限制识别进度：只识别播放位置前方 maxLookahead 秒内的音频，
@@ -415,9 +427,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 continue
             }
 
-            guard let samples = buffer.extract(from: cursor, to: cursor + windowSize) else {
+            guard let samples = await buffer.extract(from: cursor, to: cursor + windowSize) else {
                 // 音频尚未缓冲到目标窗口：节流记录，便于确认识别等待的是音频还是模型。
-                logBufferWaitIfNeeded(windowStart: cursor)
+                await logBufferWaitIfNeeded(windowStart: cursor)
                 try? await Task.sleep(for: .milliseconds(120))
                 continue
             }
@@ -428,59 +440,72 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 continue
             }
 
-            setStatus(state: .transcribing)
+            await setStatus(state: .transcribing)
             do {
+                let sampleRate = await buffer.sampleRateValue
+                let effectiveLang = await effectiveRecognitionLanguage
                 let outcome = try await recognizer.transcribe(
                     samples: samples,
-                    sampleRate: buffer.sampleRateValue,
+                    sampleRate: sampleRate,
                     windowStart: windowStart,
                     windowDuration: windowSize,
-                    language: effectiveRecognitionLanguage,
+                    language: effectiveLang,
                     emitPartial: true
                 )
-                guard self.generation == generation else { return }
+                guard await self.generation == generation else { return }
                 if let language = outcome.language, !language.isEmpty {
-                    currentLanguage = language
+                    await MainActor.run { self.currentLanguage = language }
                 }
-                transcribedWindowCount += 1
-                Log.app.debug("识别窗口 \(String(format: "%.1f", windowStart))s 完成：segments=\(outcome.segmentCount) language=\(self.currentLanguage ?? "nil")")
-                setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
+                await MainActor.run {
+                    self.transcribedWindowCount += 1
+                }
+                Log.app.debug("识别窗口 \(String(format: "%.1f", windowStart))s 完成：segments=\(outcome.segmentCount) language=\(await self.currentLanguage ?? "nil")")
+                await setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
                 // 识别成功，推进到下一个窗口
                 cursor += windowSize
             } catch is CancellationError {
                 // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
                 // 或 generation 已变化（新会话接管），此时才应退出。
-                if Task.isCancelled || self.generation != generation || !self.active {
+                if Task.isCancelled || await self.generation != generation || await !self.active {
                     return
                 }
                 // 其余 CancellationError 视作临时不可用：重试当前窗口，不推进 cursor
                 try? await Task.sleep(for: .milliseconds(200))
             } catch {
                 // 单个窗口失败（含模型尚未就绪）：重试当前窗口，不推进 cursor
-                setStatus(state: .listening)
+                await setStatus(state: .listening)
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
     }
 
-    private func setStatus(state: AIState) {
-        let newStatus = AISubtitleStatus(
-            state: state,
-            isModelLoaded: modelLoaded,
-            language: currentLanguage
-        )
-        guard newStatus != status else { return }
-        status = newStatus
-        statusContinuation.yield(newStatus)
+    nonisolated private func setStatus(state: AIState) async {
+        await MainActor.run {
+            let newStatus = AISubtitleStatus(
+                state: state,
+                isModelLoaded: self.modelLoaded,
+                language: self.currentLanguage
+            )
+            guard newStatus != self.status else { return }
+            self.status = newStatus
+            self.statusContinuation.yield(newStatus)
+        }
     }
 
     /// 音频缓冲等待日志（节流：状态变化或每 3 秒一次，避免刷屏）。
     private var lastBufferWaitLog: TimeInterval = -.infinity
 
-    private func logBufferWaitIfNeeded(windowStart: TimeInterval) {
+    nonisolated private func logBufferWaitIfNeeded(windowStart: TimeInterval) async {
         let now = Date().timeIntervalSince1970
-        guard now - lastBufferWaitLog >= 3 else { return }
-        lastBufferWaitLog = now
-        Log.app.debug("等待音频缓冲：目标窗口 \(String(format: "%.1f", windowStart))s，已捕获到 \(String(format: "%.1f", self.buffer.capturedEnd))s")
+        let shouldLog = await MainActor.run {
+            let should = now - self.lastBufferWaitLog >= 3
+            if should {
+                self.lastBufferWaitLog = now
+            }
+            return should
+        }
+        guard shouldLog else { return }
+        let capturedEnd = await buffer.capturedEnd
+        Log.app.debug("等待音频缓冲：目标窗口 \(String(format: "%.1f", windowStart))s，已捕获到 \(String(format: "%.1f", capturedEnd))s")
     }
 }

@@ -29,9 +29,16 @@ struct SubtitleTranslationCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, AppTheme.Spacing.xs)
                 } else {
-                    ForEach(Array(translated.reversed().prefix(20)), id: \.id) { segment in
-                        translationRow(segment)
+                    // Phase 8.17 优化：使用 LazyVStack + ScrollView，只渲染可见行
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 4) {
+                            let recent = Array(translated.suffix(20).reversed())
+                            ForEach(recent, id: \.id) { segment in
+                                translationRow(segment)
+                            }
+                        }
                     }
+                    .frame(maxHeight: 300)
                 }
             }
         }

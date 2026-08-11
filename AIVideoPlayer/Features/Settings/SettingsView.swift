@@ -92,6 +92,14 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
+                // Phase 8.17 调试卡片开关
+                VStack(spacing: AppTheme.Spacing.xs) {
+                    Toggle("显示字幕记录（调试）", isOn: showTranscriptCardBinding)
+                        .font(.caption)
+                    Toggle("显示翻译记录（调试）", isOn: showTranslationCardBinding)
+                        .font(.caption)
+                }
+
                 Text("音频永远不会离开设备。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -102,16 +110,24 @@ struct SettingsView: View {
     // MARK: - 字幕记录（Phase 8.5 调试）
 
     private var subtitleTranscriptCard: some View {
-        SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
+        Group {
+            if environment.subtitleDisplaySettings.showTranscriptCard {
+                SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
+            }
+        }
     }
 
     // MARK: - 翻译记录（Phase 8.7）
 
     private var subtitleTranslationCard: some View {
-        SubtitleTranslationCard(
-            transcript: environment.subtitleTranscript,
-            pipeline: environment.subtitlePipeline
-        )
+        Group {
+            if environment.subtitleDisplaySettings.showTranslationCard {
+                SubtitleTranslationCard(
+                    transcript: environment.subtitleTranscript,
+                    pipeline: environment.subtitlePipeline
+                )
+            }
+        }
     }
 
     // MARK: - 字幕语言（Phase 8.6）
@@ -189,6 +205,20 @@ struct SettingsView: View {
         Binding(
             get: { environment.subtitleDisplaySettings.fontSize },
             set: { environment.subtitleDisplaySettings.fontSize = $0 }
+        )
+    }
+
+    private var showTranscriptCardBinding: Binding<Bool> {
+        Binding(
+            get: { environment.subtitleDisplaySettings.showTranscriptCard },
+            set: { environment.subtitleDisplaySettings.showTranscriptCard = $0 }
+        )
+    }
+
+    private var showTranslationCardBinding: Binding<Bool> {
+        Binding(
+            get: { environment.subtitleDisplaySettings.showTranslationCard },
+            set: { environment.subtitleDisplaySettings.showTranslationCard = $0 }
         )
     }
 }

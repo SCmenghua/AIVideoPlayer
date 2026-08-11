@@ -38,11 +38,15 @@ struct SubtitleTranscriptCard: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.vertical, AppTheme.Spacing.xs)
                 } else {
-                    // 最近条目在前：直接逆序取，避免整表排序。
-                    let recent = transcript.segments.reversed()
-                    ForEach(Array(recent.prefix(20)), id: \.id) { segment in
-                        transcriptRow(segment)
+                    // Phase 8.17 优化：使用 LazyVStack + ScrollView，只渲染可见行
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 4) {
+                            ForEach(transcript.recentSegments, id: \.id) { segment in
+                                transcriptRow(segment)
+                            }
+                        }
                     }
+                    .frame(maxHeight: 300)
                 }
             }
         }

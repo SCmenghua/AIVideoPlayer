@@ -16,6 +16,11 @@ public final class SubtitleTranscriptStore {
 
     public private(set) var segments: [SubtitleSegment] = []
 
+    /// 最近 20 条字幕（优化卡片性能，Phase 8.17）。
+    public var recentSegments: [SubtitleSegment] {
+        Array(segments.suffix(20).reversed())
+    }
+
     /// 待提交的缓冲区：累积多条字幕后批量写入 segments，减少 UI 刷新频率。
     private var pendingSegments: [SubtitleSegment] = []
     private var flushTask: Task<Void, Never>?

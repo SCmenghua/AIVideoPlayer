@@ -56,11 +56,23 @@ public final class SubtitleDisplaySettings {
         didSet { persist() }
     }
 
+    /// 显示字幕记录卡片（调试用，Phase 8.17）。
+    public var showTranscriptCard: Bool {
+        didSet { persist() }
+    }
+
+    /// 显示翻译记录卡片（调试用，Phase 8.17）。
+    public var showTranslationCard: Bool {
+        didSet { persist() }
+    }
+
     /// 字幕中心点归一化位置（相对播放画面，0...1）。
     public private(set) var normalizedPosition: CGPoint
 
     private static let fontSizeKey = "subtitle.display.fontSize.v1"
     private static let bilingualKey = "subtitle.display.bilingual.v1"
+    private static let transcriptCardKey = "subtitle.debug.showTranscriptCard.v1"
+    private static let translationCardKey = "subtitle.debug.showTranslationCard.v1"
     private static let positionXKey = "subtitle.display.positionX.v1"
     private static let positionYKey = "subtitle.display.positionY.v1"
     private let suiteName: String?
@@ -79,6 +91,10 @@ public final class SubtitleDisplaySettings {
         self.isBilingualEnabled = defaults.object(forKey: Self.bilingualKey) == nil
             ? Self.defaultIsBilingualEnabled
             : defaults.bool(forKey: Self.bilingualKey)
+
+        // 调试卡片默认关闭（Phase 8.17）
+        self.showTranscriptCard = defaults.bool(forKey: Self.transcriptCardKey)
+        self.showTranslationCard = defaults.bool(forKey: Self.translationCardKey)
 
         if defaults.object(forKey: Self.positionXKey) != nil,
            defaults.object(forKey: Self.positionYKey) != nil {
@@ -111,6 +127,8 @@ public final class SubtitleDisplaySettings {
         let defaults = suiteName.flatMap(UserDefaults.init(suiteName:)) ?? .standard
         defaults.set(fontSize.rawValue, forKey: Self.fontSizeKey)
         defaults.set(isBilingualEnabled, forKey: Self.bilingualKey)
+        defaults.set(showTranscriptCard, forKey: Self.transcriptCardKey)
+        defaults.set(showTranslationCard, forKey: Self.translationCardKey)
         defaults.set(normalizedPosition.x, forKey: Self.positionXKey)
         defaults.set(normalizedPosition.y, forKey: Self.positionYKey)
     }

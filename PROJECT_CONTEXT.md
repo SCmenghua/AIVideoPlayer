@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.16（2026-08-12）  
-**当前 Phase**：8.16（修复识别循环逻辑 + 音频路由问题）
+**当前版本**：0.8.17（2026-08-12）  
+**当前 Phase**：8.17（性能优化：修复字幕相关 UI 卡顿）
 
 ## 核心功能
 
@@ -83,6 +83,26 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 8.17（2026-08-12 打包 0.8.17）**：性能优化：修复字幕相关 UI 卡顿——
+  修复长视频字幕导致 UI 卡顿甚至卡死问题（30 分钟视频完全卡死、3 分钟视频明显卡顿），
+  根本原因是设置页的「字幕记录」和「翻译记录」调试卡片观察 `@Observable` 的 
+  `SubtitleTranscriptStore`，每 150ms 字幕更新时触发全量重新渲染（VStack 遍历数百条记录），
+  阻塞主线程；修复分三管齐下：(1) 调试卡片默认隐藏：在 `SubtitleDisplaySettings` 中新增 
+  `showTranscriptCard` 和 `showTranslationCard` 两个 Bool 属性（默认 `false`），
+  并在设置页添加 Toggle 开关，只有主动开启时才渲染调试卡片；(2) 优化卡片渲染算法：
+  将 `VStack` 替换为 `LazyVStack + ScrollView`，只渲染可见行；使用 `.suffix(20).reversed()` 
+  算法只显示最近 20 条记录（`SubtitleTranscriptStore` 新增 `recentSegments` 计算属性），
+  避免遍历全量数据；(3) 识别循环移到后台线程：将 `SubtitlePipeline.runRecognitionLoop` 
+  和相关方法（`setStatus`、`logBufferWaitIfNeeded`、`translateAndYield`、`forwardSegment`、
+  `startForwarding`）标记为 `nonisolated`，在后台线程执行识别循环，只在需要修改 UI 状态时
+  显式使用 `await MainActor.run`，防止识别操作阻塞主线程；`MARKETING_VERSION` 提升至 0.8.17。
+- **Phase 8.16（2026-08-12 打包 0.8.16）**：修复识别循环逻辑 + 音频路由问题——
+  修复长视频识别仍然无限推进：Phase 8.15 的 `lastSuccessfulCursor` 逻辑错误，
+  识别成功后更新为当前窗口起点导致限制失效，改为恢复基于播放位置的限制 
+  `cursor > playbackTime + maxLookahead`，并改为识别失败时不推进 cursor 而是重试当前窗口；
+  修复音频输出路由不随系统更新：使用蓝牙耳机安装应用后取消蓝牙配对无法自动切换到扬声器播放，
+  改为在 `AppDelegate.didFinishLaunchingWithOptions` 中配置 `AVAudioSession`（使用 `.playback` 
+  类别和 `.moviePlayback` 模式），使音频输出随系统自动切换；`MARKETING_VERSION` 提升至 0.8.16。
 - **Phase 8.15（2026-08-12 打包 0.8.15）**：修复识别循环逻辑缺陷——修复识别失败无限重试：
   `SubtitlePipeline.runRecognitionLoop` 中 `lastSuccessfulCursor` 为 optional 且初始值 nil，
   识别失败时 cursor 不推进导致同一窗口无限重试；改为 non-optional 初始值 `buffer.captureStart`，
