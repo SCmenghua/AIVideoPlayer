@@ -166,6 +166,9 @@ struct SubtitlePipelineTests {
         // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
         #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
         #expect(recognizer.transcriptionCalls.count >= 2)
+
+        // 等待 segments 实际到达 transcript store（异步 yield 需要时间）
+        try? await Task.sleep(for: .milliseconds(100))
         transcript.flush()
         #expect(!transcript.segments.isEmpty)
     }
