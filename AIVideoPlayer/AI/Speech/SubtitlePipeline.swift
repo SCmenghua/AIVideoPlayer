@@ -395,6 +395,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         // 识别前瞻窗口：只识别当前播放位置前后各 10 秒的内容，避免无限识别整个视频
         let maxLookahead: TimeInterval = 10
         var cursor = buffer.captureStart
+        var lastSuccessfulCursor: TimeInterval = buffer.captureStart
 
         while active && self.generation == generation && !Task.isCancelled {
             guard let recognizer else { return }
@@ -407,10 +408,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", self.playbackTime))s")
             }
 
-            // 限制识别进度：只识别播放位置前方 maxLookahead 秒内的音频，
-            // 避免本地视频无限向后识别导致长视频 UI 卡死。
-            if cursor > playbackTime + maxLookahead {
-                Log.app.debug("识别已超前播放位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上")
+            // 限制识别进度：只有成功识别的进度才计入 maxLookahead，
+            // 避免失败重试时被阻塞，同时防止本地视频无限向后识别导致长视频 UI 卡死。
+            if cursor > lastSuccessfulCursor + maxLookahead {
+                Log.app.debug("识别已超前最后成功位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上")
                 try? await Task.sleep(for: .milliseconds(500))
                 continue
             }
@@ -423,10 +424,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
 
             let windowStart = cursor
-            guard !samples.isEmpty else {
-                cursor += windowSize
-                continue
-            }
+            cursor += windowSize
+            guard !samples.isEmpty else { continue }
 
             setStatus(state: .transcribing)
             do {
@@ -445,8 +444,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 transcribedWindowCount += 1
                 Log.app.debug("识别窗口 \(String(format: "%.1f", windowStart))s 完成：segments=\(outcome.segmentCount) language=\(self.currentLanguage ?? "nil")")
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
-                // 识别成功后才前进 cursor，避免失败重试时被 maxLookahead 阻塞
-                cursor += windowSize
+                // 记录最后一次成功识别的位置，用于 maxLookahead 检查
+                lastSuccessfulCursor = windowStart
             } catch is CancellationError {
                 // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
                 // 或 generation 已变化（新会话接管），此时才应退出。
@@ -454,10 +453,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     return
                 }
                 // 其余 CancellationError 视作临时不可用：稍后重试，不终止循环。
-                // 识别失败：cursor 保持不变，下次循环重试同一窗口
                 try? await Task.sleep(for: .milliseconds(200))
             } catch {
-                // 单个窗口失败（含模型尚未就绪）：cursor 保持不变，下次循环重试同一窗口
+                // 单个窗口失败（含模型尚未就绪）：跳过并继续，避免整条管线停摆。
                 setStatus(state: .listening)
                 try? await Task.sleep(for: .milliseconds(100))
             }
