@@ -6,6 +6,12 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **测试异步时序问题**：`SubtitlePipelineTests.recognitionLoopSurvivesEngineNotReadyAndRecovers()` 
+  在检查 `transcript.segments` 前添加 100ms 等待，确保异步 `continuation.yield()` 
+  完成并且 segments 已处理到 transcript store；修复 CI 间歇性失败
+
 ### 待规划
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
