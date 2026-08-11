@@ -291,7 +291,6 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     /// 翻译 final 段并写入 `translatedText`；翻译不可用 / 失败时原样写入
     /// （Overlay 译文缺失只显示原文，不破坏原有行为）。
-    /// 翻译在后台线程执行，避免阻塞主线程 UI。
     private func translateAndYield(_ segment: SubtitleSegment) async {
         guard active, translationSettings.isEnabled,
               let engine = makeTranslationEngine()
@@ -303,40 +302,30 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         Log.app.debug("开始翻译 final 段 start=\(segment.startTime, format: .fixed(precision: 1))s 源=\(self.effectiveTranslationSource ?? "nil") 目标=\(self.translationSettings.targetLanguageCode) 文本=\(segment.originalText.prefix(40))")
         let previousState = status.state
         setStatus(state: .translating)
-
-        // 翻译在后台线程执行，避免阻塞主线程（系统翻译可能耗时数百毫秒）。
-        let sourceLanguage = effectiveTranslationSource
-        let targetLanguage = translationSettings.targetLanguageCode
-        let originalText = segment.originalText
-        let context: TranslationContext?
-        if translationSettings.isContextPolishEnabled,
-           engine.supportsContextPolish,
-           contextProvider.hasRecentEntries
-        {
-            context = contextProvider.makeContext()
-        } else {
-            context = nil
-        }
-
-        let translated: String? = await Task.detached {
-            do {
-                return try await engine.translate(
-                    originalText,
-                    from: sourceLanguage,
-                    to: targetLanguage,
-                    context: context
-                )
-            } catch {
-                // 错误在主线程记录
-                await MainActor.run {
-                    self.lastTranslationError = (error as? LocalizedError)?.errorDescription
-                        ?? error.localizedDescription
-                    Log.app.error("翻译失败：\(self.lastTranslationError ?? "未知错误")（源=\(sourceLanguage ?? "nil")，目标=\(targetLanguage)）")
-                }
-                return nil
+        var translated: String?
+        do {
+            let context: TranslationContext?
+            if translationSettings.isContextPolishEnabled,
+               engine.supportsContextPolish,
+               contextProvider.hasRecentEntries
+            {
+                context = contextProvider.makeContext()
+            } else {
+                context = nil
             }
-        }.value
-
+            translated = try await engine.translate(
+                segment.originalText,
+                from: effectiveTranslationSource,
+                to: translationSettings.targetLanguageCode,
+                context: context
+            )
+        } catch {
+            // 单句翻译失败不打断字幕：原样写入原文。
+            translated = nil
+            lastTranslationError = (error as? LocalizedError)?.errorDescription
+                ?? error.localizedDescription
+            Log.app.error("翻译失败：\(self.lastTranslationError ?? "未知错误")（源=\(self.effectiveTranslationSource ?? "nil")，目标=\(self.translationSettings.targetLanguageCode)）")
+        }
         guard active, !Task.isCancelled else { return }
 
         if let translated, !translated.isEmpty {
