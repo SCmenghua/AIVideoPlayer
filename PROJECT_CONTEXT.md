@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.14（2026-08-12）  
-**当前 Phase**：8.14（修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号）
+**当前版本**：0.8.15（2026-08-12）  
+**当前 Phase**：8.15（修复识别循环逻辑缺陷）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.14）
+3. 点击 **Run workflow**，填写版本号（默认 0.8.15）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -83,6 +83,13 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 8.15（2026-08-12 打包 0.8.15）**：修复识别循环逻辑缺陷——修复识别失败无限重试：
+  `SubtitlePipeline.runRecognitionLoop` 中 `lastSuccessfulCursor` 为 optional 且初始值 nil，
+  识别失败时 cursor 不推进导致同一窗口无限重试；改为 non-optional 初始值 `buffer.captureStart`，
+  失败时 cursor 正常推进跳过失败窗口，maxLookahead 检查基于最后成功位置而非当前 cursor；
+  修复追赶播放位置被 maxLookahead 误判：cursor 跳跃到播放位置后 `lastSuccessfulCursor` 
+  仍是初始值导致触发等待分支卡住，改为追赶跳跃时同步更新 `lastSuccessfulCursor = cursor`；
+  `MARKETING_VERSION` 提升至 0.8.15。
 - **Phase 8.14（2026-08-12 打包 0.8.14）**：修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号——
   修复本地视频无限向后识别导致长视频 UI 卡死：`SubtitlePipeline.runRecognitionLoop` 
   新增 `maxLookahead` 参数（10 秒），限制识别进度只能超前播放位置 10 秒，
@@ -282,7 +289,7 @@ open AIVideoPlayer.xcodeproj
 
 1. **明确 Phase 编号**：下一个 Phase 编号由用户指定或按顺序递增
 2. **记录变更内容**：在本文档「已完成」部分新增一条记录，描述本次 Phase 的目标、实现与影响
-3. **更新版本号**：修改 `project.yml` 中的 `MARKETING_VERSION`，与 Phase 版本一致（如 Phase 8.11 → 0.8.11）
+3. **更新版本号**：修改 `project.yml` 中的 `MARKETING_VERSION`，与 Phase 版本一致（如 Phase 8.15 → 0.8.15）
 4. **提交与推送**：`git add` → `git commit -m "Phase X.Y: <描述>"` → `git push`
 5. **触发 CI**：推送后自动触发 GitHub Actions 打包 IPA
 
@@ -328,8 +335,8 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.14
-- **版本**：0.8.14
+- **Phase**：8.15
+- **版本**：0.8.15
 - **状态**：✅ 修复无限识别 + 在线视频播放 + 版本号
 - **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
