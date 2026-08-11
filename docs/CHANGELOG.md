@@ -10,6 +10,23 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.16] - 2026-08-12
+
+### Fixed（Phase 8.16 修复识别循环逻辑 + 音频路由问题）
+
+- **长视频识别仍然无限推进**：Phase 8.15 的 `lastSuccessfulCursor` 逻辑错误，
+  识别成功后 `lastSuccessfulCursor` 更新为当前窗口起点，导致 `cursor > lastSuccessfulCursor + maxLookahead` 
+  限制失效，识别可以无限向前推进；修复为恢复基于播放位置的限制 `cursor > playbackTime + maxLookahead`，
+  并改为识别失败时不推进 cursor 而是重试当前窗口，这样既能限制识别范围（当前播放位置前后 10 秒），
+  又不会因失败而被阻塞
+- **音频输出路由不随系统更新**：使用蓝牙耳机安装应用后，取消蓝牙配对无法自动切换到扬声器播放；
+  修复为在 `AppDelegate.didFinishLaunchingWithOptions` 中配置 `AVAudioSession`（使用 `.playback` 
+  类别和 `.moviePlayback` 模式），使音频输出随系统自动切换（蓝牙 ↔ 扬声器）
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.16
+
 ## [0.8.15] - 2026-08-12
 
 ### Fixed（Phase 8.15 修复识别循环逻辑缺陷）
