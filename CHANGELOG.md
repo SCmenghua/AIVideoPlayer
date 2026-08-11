@@ -10,6 +10,28 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.14] - 2026-08-12
+
+### Fixed（Phase 8.14 修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号）
+
+- **本地视频无限识别导致 UI 卡死**：`SubtitlePipeline.runRecognitionLoop` 会无限向后识别，
+  尝试将整个视频的所有音频全部识别完并翻译，导致超过 1-2 分钟的长视频无法正确显示字幕、
+  超过 10 分钟以上的视频会一直卡住（后台疯狂识别）；修复为新增识别前瞻窗口限制
+  `maxLookahead`（10 秒），只识别当前播放位置前后各 10 秒的内容，识别进度超前播放位置
+  10 秒时等待播放追上，避免无限识别整个视频文件
+- **在线视频点击播放按钮后无反应**：`AVPlayerPlaybackEngine.handleTimeControlStatus` 
+  的复杂缓冲监听逻辑（`isWaitingForBuffer` 状态标记 + `observeBufferStatus` 异步监听）
+  导致播放状态混乱，在线视频点击播放按钮后没有反应（拖动进度条仍能加载对应帧画面但无法播放）；
+  简化状态处理逻辑，移除缓冲监听与自动恢复播放代码，让 AVPlayer 自动处理网络缓冲，
+  `.waitingToPlayAtSpecifiedRate` 状态不干预播放流程
+- **IPA 版本号识别错误**：Phase 8.13 打包时 `project.yml` 的 `MARKETING_VERSION` 
+  仍为 0.8.12（忘记更新），导致 IPA 虽然写的是 0.8.13 但安装时识别为 0.8.12；
+  修正为 0.8.14
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.14
+
 ## [0.8.13] - 2026-08-11
 
 ### Fixed（Phase 8.13 日志功能 + CI 修复）

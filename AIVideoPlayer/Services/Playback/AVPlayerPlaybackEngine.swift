@@ -35,8 +35,6 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
     nonisolated(unsafe) private var resolutionTask: Task<Void, Never>?
     /// 上次报告的时间，用于减少频繁的 UI 更新
     private var lastReportedTime: TimeInterval = 0
-    /// 是否正在等待缓冲恢复播放
-    private var isWaitingForBuffer = false
 
     deinit {
         tickerTask?.cancel()
@@ -76,7 +74,6 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         rate = 1
         isLandscapeVideo = false
         isResolutionKnown = false
-        isWaitingForBuffer = false
         setState(.loading)
         detectResolution(for: item, asset: playerItem.asset)
         do {
@@ -251,64 +248,26 @@ public final class AVPlayerPlaybackEngine: PlaybackEngine {
         }
     }
 
-    /// BUG FIX: 处理网络视频缓冲问题
-    /// 当 AVPlayer 进入 waitingToPlayAtSpecifiedRate 状态时，需要监听 isPlaybackLikelyToKeepUp
-    /// 属性，当缓冲就绪时自动恢复播放
+    /// BUG FIX: 处理播放状态变化
+    /// 简化状态处理逻辑，避免网络视频缓冲监听导致播放失败
     private func handleTimeControlStatus(_ status: AVPlayer.TimeControlStatus) {
         switch status {
         case .playing:
-            isWaitingForBuffer = false
-            setState(.playing)
+            // 只有在非 ended 状态下才更新为 playing
+            if state != .ended {
+                setState(.playing)
+            }
         case .paused:
-            if state == .playing && !isWaitingForBuffer {
+            // 只有当前是 playing 状态时才更新为 paused，避免误覆盖 loading/ready 等状态
+            if state == .playing {
                 setState(.paused)
             }
         case .waitingToPlayAtSpecifiedRate:
-            // 网络视频缓冲：检查是否因为缓冲不足而暂停
-            if state == .playing {
-                guard let item = avPlayer.currentItem else { return }
-                // 检查缓冲状态
-                if item.isPlaybackLikelyToKeepUp {
-                    // 缓冲已就绪，自动恢复播放
-                    avPlayer.play()
-                    isWaitingForBuffer = false
-                } else {
-                    // 仍在缓冲，标记状态但不改变 UI 显示（避免闪烁）
-                    isWaitingForBuffer = true
-                    // 开始监听缓冲就绪
-                    observeBufferStatus(for: item)
-                }
-            }
+            // 网络视频缓冲中：保持当前状态，不干预播放流程
+            // AVPlayer 会在缓冲就绪后自动恢复，无需手动干预
+            break
         @unknown default:
             break
-        }
-    }
-
-    /// 监听网络视频的缓冲状态，当缓冲就绪时自动恢复播放
-    private func observeBufferStatus(for item: AVPlayerItem) {
-        // 使用 KVO 监听 isPlaybackLikelyToKeepUp
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            // 最多等待 10 秒
-            let maxAttempts = 20
-            var attempts = 0
-            while self.isWaitingForBuffer && attempts < maxAttempts {
-                try? await Task.sleep(for: .milliseconds(500))
-                attempts += 1
-                
-                guard self.avPlayer.currentItem === item,
-                      self.state == .playing,
-                      self.isWaitingForBuffer else {
-                    break
-                }
-                
-                if item.isPlaybackLikelyToKeepUp {
-                    // 缓冲就绪，恢复播放
-                    self.avPlayer.play()
-                    self.isWaitingForBuffer = false
-                    break
-                }
-            }
         }
     }
 

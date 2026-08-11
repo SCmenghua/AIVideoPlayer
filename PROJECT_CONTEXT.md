@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.13（2026-08-11）  
-**当前 Phase**：8.13（日志功能 + CI 修复）
+**当前版本**：0.8.14（2026-08-12）  
+**当前 Phase**：8.14（修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.11）
+3. 点击 **Run workflow**，填写版本号（默认 0.8.14）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -83,6 +83,17 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 8.14（2026-08-12 打包 0.8.14）**：修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号——
+  修复本地视频无限向后识别导致长视频 UI 卡死：`SubtitlePipeline.runRecognitionLoop` 
+  新增 `maxLookahead` 参数（10 秒），限制识别进度只能超前播放位置 10 秒，
+  避免本地视频一次性识别整个文件（超过 1-2 分钟的长视频会导致 UI 完全卡住、
+  超过 10 分钟的视频会因后台疯狂识别而无法播放）；修复在线视频点击播放按钮后
+  无反应的问题：简化 `AVPlayerPlaybackEngine.handleTimeControlStatus` 逻辑，
+  移除复杂的缓冲监听与自动恢复播放代码（`isWaitingForBuffer` / `observeBufferStatus`），
+  让 AVPlayer 自动处理网络缓冲，避免状态混乱导致播放失败（拖动进度条能显示画面但
+  播放按钮无响应）；修复 IPA 版本号错误：`project.yml` 的 `MARKETING_VERSION` 
+  从 0.8.12 更新为 0.8.14（Phase 8.13 忘记更新导致安装时识别为 0.8.12）；
+  `MARKETING_VERSION` 提升至 0.8.14。
 - **Phase 8.13（2026-08-11 打包 0.8.13）**：日志功能 + CI 修复——
   新增应用级日志服务 `AppLogger`（四级日志 debug/info/warning/error，内存循环缓冲 500 条 + 
   持久化到 Documents/Logs 按日期分文件、自动清理 7 天前旧日志），`SubtitlePipeline` 
@@ -317,9 +328,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.13
-- **版本**：0.8.13
-- **状态**：✅ 日志功能完成 + CI 修复通过
+- **Phase**：8.14
+- **版本**：0.8.14
+- **状态**：✅ 修复无限识别 + 在线视频播放 + 版本号
 - **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## 注意事项

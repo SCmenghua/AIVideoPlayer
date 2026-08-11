@@ -392,6 +392,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     private func runRecognitionLoop(generation: Int) async {
         let windowSize: TimeInterval = 5
+        // 识别前瞻窗口：只识别当前播放位置前后各 10 秒的内容，避免无限识别整个视频
+        let maxLookahead: TimeInterval = 10
         var cursor = buffer.captureStart
 
         while active && self.generation == generation && !Task.isCancelled {
@@ -403,6 +405,14 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 let oldCursor = cursor
                 cursor = max(playbackTime, buffer.captureStart)
                 Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", self.playbackTime))s")
+            }
+
+            // 限制识别进度：只识别播放位置前方 maxLookahead 秒内的音频，
+            // 避免本地视频无限向后识别导致长视频 UI 卡死。
+            if cursor > playbackTime + maxLookahead {
+                Log.app.debug("识别已超前播放位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上")
+                try? await Task.sleep(for: .milliseconds(500))
+                continue
             }
 
             guard let samples = buffer.extract(from: cursor, to: cursor + windowSize) else {
