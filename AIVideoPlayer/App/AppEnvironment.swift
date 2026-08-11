@@ -18,11 +18,18 @@ final class AppEnvironment {
     let localModelDownloadManager: LocalModelDownloadManager
     /// 字幕叠加层显示设置（播放器与设置页共享，UserDefaults 持久化）。
     let subtitleDisplaySettings: SubtitleDisplaySettings
+    /// 应用日志服务（Phase 8.13：记录应用运行状态，支持导出与清空）。
+    let logger: AppLogger
 
     /// 待播放的媒体请求（由远程文件等入口发起，Player 消费后清空）。
     private(set) var pendingPlayback: MediaItem?
 
     init() {
+        let logger = AppLogger()
+        self.logger = logger
+        Log.appLogger = logger
+        logger.log(.info, category: "App", "应用启动")
+
         let transcript = SubtitleTranscriptStore()
         subtitleTranscript = transcript
         let translationSettings = TranslationSettings()
@@ -35,10 +42,13 @@ final class AppEnvironment {
             descriptor: LocalModelCatalog.gemma4E2B
         )
         subtitleDisplaySettings = SubtitleDisplaySettings()
+
+        logger.log(.info, category: "App", "应用环境初始化完成")
     }
 
     /// 请求播放并切换到 Player Tab。
     func requestPlayback(of item: MediaItem) {
+        logger.log(.info, category: "Playback", "请求播放: \(item.title)")
         pendingPlayback = item
         selectedTab = .player
     }

@@ -13,6 +13,7 @@ struct SettingsView: View {
                 subtitleTranslationCard
                 subtitleDisplayCard
                 translationCard
+                appLogCard
                 sectionCard(
                     icon: "lock.shield",
                     tint: .green,
@@ -141,6 +142,10 @@ struct SettingsView: View {
     }
 
     // MARK: - 字幕显示（Phase 6）
+
+    private var appLogCard: some View {
+        AppLogCard(logger: environment.logger)
+    }
 
     private var subtitleDisplayCard: some View {
         GlassCard(tint: .cyan) {
