@@ -405,6 +405,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             if cursor + windowSize <= playbackTime - Self.staleSegmentTolerance {
                 let oldCursor = cursor
                 cursor = max(playbackTime, buffer.captureStart)
+                // 追赶播放位置是主动跳跃，不算「超前」，同步基准避免被 maxLookahead 误判为需等待。
+                lastSuccessfulCursor = cursor
                 Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", self.playbackTime))s")
             }
 
