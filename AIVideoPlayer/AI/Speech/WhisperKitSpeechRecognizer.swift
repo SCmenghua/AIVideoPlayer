@@ -143,7 +143,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
             chunkingStrategy: nil
         )
 
-        Log.app.debug("识别窗口开始 windowStart=\(windowStart, format: .fixed(precision: 1)) samples=\(samples.count) rate=\(sampleRate, format: .fixed(precision: 0)) language=\(language ?? "nil") emitPartial=\(emitPartial)")
+        Log.app.debug("识别窗口开始 windowStart=\(String(format: "%.1f", windowStart)) samples=\(samples.count) rate=\(String(format: "%.0f", sampleRate)) language=\(language ?? "nil") emitPartial=\(emitPartial)")
 
         // 实时路径：透出 Whisper 的 streaming partial。
         // 注意：TranscriptionCallback 是 @Sendable，只捕获 Sendable 值。
@@ -210,7 +210,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                 segmentCount += 1
             }
         }
-        Log.app.debug("识别窗口完成 windowStart=\(windowStart, format: .fixed(precision: 1)) segments=\(segmentCount) language=\(detectedLanguage ?? "nil")")
+        Log.app.debug("识别窗口完成 windowStart=\(String(format: "%.1f", windowStart)) segments=\(segmentCount) language=\(detectedLanguage ?? "nil")")
         return RecognitionOutcome(language: detectedLanguage, segmentCount: segmentCount)
     }
 
