@@ -3,11 +3,12 @@ import OSLog
 
 /// 统一日志门面，避免到处初始化 Logger。
 /// Phase 8.13：集成 AppLogger，支持持久化、导出与清空。
+@MainActor
 enum Log {
     static let app = AppLoggerWrapper(subsystem: "com.aivideoplayer.app", category: "app")
 
     /// 由 AppEnvironment 初始化时设置，用于持久化日志。
-    static var appLogger: AppLogger?
+    nonisolated(unsafe) static var appLogger: AppLogger?
 }
 
 /// OSLog + AppLogger 双写包装器。

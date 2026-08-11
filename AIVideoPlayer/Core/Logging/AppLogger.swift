@@ -7,8 +7,9 @@ import OSLog
 /// - 线程安全的写入
 /// - 支持开关控制
 /// - 非正常退出时数据安全
+@MainActor
 @Observable
-public final class AppLogger: Sendable {
+public final class AppLogger {
     public enum Level: String, Codable, Sendable {
         case debug = "DEBUG"
         case info = "INFO"
@@ -100,17 +101,13 @@ public final class AppLogger: Sendable {
         }
 
         // 更新计数
-        Task { @MainActor in
-            self.totalEntries += 1
-        }
+        self.totalEntries += 1
     }
 
     public func setEnabled(_ enabled: Bool) {
-        Task { @MainActor in
-            self.isEnabled = enabled
-            UserDefaults.standard.set(enabled, forKey: userDefaultsKey)
-            log(.info, category: "AppLogger", "日志功能\(enabled ? "开启" : "关闭")")
-        }
+        self.isEnabled = enabled
+        UserDefaults.standard.set(enabled, forKey: userDefaultsKey)
+        log(.info, category: "AppLogger", "日志功能\(enabled ? "开启" : "关闭")")
     }
 
     public func clear() {
@@ -126,9 +123,9 @@ public final class AppLogger: Sendable {
             // 重新创建空文件
             FileManager.default.createFile(atPath: self.fileURL.path, contents: nil)
 
-            Task { @MainActor in
-                self.totalEntries = 0
-                self.log(.info, category: "AppLogger", "日志已清空")
+            Task { @MainActor [weak self] in
+                self?.totalEntries = 0
+                self?.log(.info, category: "AppLogger", "日志已清空")
             }
         }
     }
