@@ -10,6 +10,21 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.10] - 2026-08-11
+
+### Fixed（Phase 8.10 字幕开启后 UI 卡住修复）
+
+- **字幕开启后 UI 冻结修复**：`SubtitlePipeline.forwardSegment()` 改为
+  `nonisolated` 并通过 `Task { @MainActor }` 异步写入字幕记录，
+  避免字幕高频产生时（尤其是 partial 段）同步阻塞主线程导致 UI 卡住
+  （表现为界面无响应但音频继续播放）
+- **注释错误修复**：`AVPlayerPlaybackEngine.swift` 注释 `onisolated` 
+  修正为 `nonisolated`
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.10
+
 ## [0.8.9] - 2026-08-11
 
 ### Fixed（Phase 8.9 播放器 bug 修复）
