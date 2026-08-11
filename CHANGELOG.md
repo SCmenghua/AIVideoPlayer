@@ -10,6 +10,36 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.11] - 2026-08-11
+
+### Fixed（Phase 8.11 修复 Phase 8.10 引入的问题）
+
+- **还原字幕写入为同步方法**：`SubtitlePipeline.forwardSegment` 移除 
+  `nonisolated` 标记与 `Task { @MainActor in }` 包裹，恢复为同步执行；
+  修复 Phase 8.10 引入的 UI 卡住、字幕和翻译不显示的问题
+- **根因分析**：Phase 8.10 将 `forwardSegment` 改为 `nonisolated` 并用异步 Task 包裹，
+  导致字幕写入变成异步操作，引发执行顺序混乱和 UI 状态不一致；
+  由于 `SubtitlePipeline` 整个类已标记 `@MainActor`，该方法无需额外隔离
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.11
+
+## [0.8.10] - 2026-08-11（❌ 失败弃用）
+
+**Phase 8.10 标记失败**：尝试修复字幕开启后 UI 卡住问题，将 `forwardSegment` 
+改为 `nonisolated` 并用 `Task { @MainActor in }` 包裹，导致字幕写入变成异步操作，
+引发更严重的问题——视频能动但字幕和翻译完全不显示、所有 UI（包括播放器控制栏
+和底部 Tab 栏）卡住点不动。代码已回退至 0.8.9，后续 Phase 忽略本次代码。
+
+### 变更（Phase 8.10 基线回退，2026-08-11）
+
+- 代码基线回退至 Phase 8.9 / 0.8.9（commit `a86c1b0`）：
+  移除 0.8.10 的 `forwardSegment` 异步化改动，回到字幕功能正常的版本
+- 保留说明文档（README / CHANGELOG / PROJECT_CONTEXT / ARCHITECTURE）
+  并记录本次回退
+- 后续修复将在 0.8.9 基线上进行（下一次 Phase 编号为 8.11）
+
 ## [0.8.9] - 2026-08-11
 
 ### Fixed（Phase 8.9 播放器 bug 修复）
