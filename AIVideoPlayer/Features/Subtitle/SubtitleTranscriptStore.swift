@@ -45,7 +45,7 @@ public final class SubtitleTranscriptStore {
         guard flushTask == nil else { return }
 
         let now = ContinuousClock.Instant.now
-        let elapsed = now.duration(to: lastFlushTime)
+        let elapsed = lastFlushTime.duration(to: now)
 
         // 距离上次刷新不足节流间隔，延迟刷新
         if elapsed < Self.flushInterval {
