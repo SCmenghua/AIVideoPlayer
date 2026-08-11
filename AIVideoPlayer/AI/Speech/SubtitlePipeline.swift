@@ -423,8 +423,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
 
             let windowStart = cursor
-            cursor += windowSize
-            guard !samples.isEmpty else { continue }
+            guard !samples.isEmpty else {
+                cursor += windowSize
+                continue
+            }
 
             setStatus(state: .transcribing)
             do {
@@ -443,6 +445,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 transcribedWindowCount += 1
                 Log.app.debug("识别窗口 \(String(format: "%.1f", windowStart))s 完成：segments=\(outcome.segmentCount) language=\(self.currentLanguage ?? "nil")")
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
+                // 识别成功后才前进 cursor，避免失败重试时被 maxLookahead 阻塞
+                cursor += windowSize
             } catch is CancellationError {
                 // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
                 // 或 generation 已变化（新会话接管），此时才应退出。
@@ -450,9 +454,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     return
                 }
                 // 其余 CancellationError 视作临时不可用：稍后重试，不终止循环。
+                // 识别失败：cursor 保持不变，下次循环重试同一窗口
                 try? await Task.sleep(for: .milliseconds(200))
             } catch {
-                // 单个窗口失败（含模型尚未就绪）：跳过并继续，避免整条管线停摆。
+                // 单个窗口失败（含模型尚未就绪）：cursor 保持不变，下次循环重试同一窗口
                 setStatus(state: .listening)
                 try? await Task.sleep(for: .milliseconds(100))
             }
