@@ -10,6 +10,24 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.15] - 2026-08-12
+
+### Fixed（Phase 8.15 修复识别循环逻辑缺陷）
+
+- **识别失败无限重试导致测试失败**：`SubtitlePipeline.runRecognitionLoop` 中 
+  `lastSuccessfulCursor` 为 optional 且初始值 nil，识别失败时 cursor 不推进，
+  导致同一窗口无限重试；修复为 `lastSuccessfulCursor` 改为 non-optional，
+  初始值设为 `buffer.captureStart`，失败时 cursor 正常推进跳过失败窗口，
+  maxLookahead 检查基于最后成功位置而非当前 cursor
+- **追赶播放位置被 maxLookahead 误判为超前**：识别落后于播放时，cursor 跳跃到播放位置后，
+  `lastSuccessfulCursor` 仍是初始值导致 `cursor > lastSuccessfulCursor + maxLookahead` 
+  触发等待分支，游标永远卡住；修复为追赶跳跃时同步更新 `lastSuccessfulCursor = cursor`，
+  避免合法跳跃被当作超前
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.15
+
 ## [0.8.14] - 2026-08-12
 
 ### Fixed（Phase 8.14 修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号）
