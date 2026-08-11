@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.11（2026-08-11）  
-**当前 Phase**：8.11（UI 卡顿修复完成）
+**当前版本**：0.8.13（2026-08-11）  
+**当前 Phase**：8.13（日志功能 + CI 修复）
 
 ## 核心功能
 
@@ -83,6 +83,14 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 8.13（2026-08-11 打包 0.8.13）**：日志功能 + CI 修复——
+  新增应用级日志服务 `AppLogger`（四级日志 debug/info/warning/error，内存循环缓冲 500 条 + 
+  持久化到 Documents/Logs 按日期分文件、自动清理 7 天前旧日志），`SubtitlePipeline` 
+  关键路径接入日志；设置页新增「应用日志」卡片（最近 50 条日志倒序显示、四级颜色区分、
+  一键清空、导出全部日志）；修复 `SubtitleTranscriptStore` 时间计算错误
+  （`flush()` 中 `now.duration(to: lastFlushTime)` 应为 `lastFlushTime.duration(to: now)`，
+  错误的计算方向导致 `elapsed` 总是负值、节流失效、`pendingSegments` 无法提交到 `segments`，
+  引发测试失败）；CI 通过；`MARKETING_VERSION` 提升至 0.8.13。
 - **Phase 8.12（2026-08-11 打包 0.8.12）**：UI 卡顿问题根本修复——
   真正原因是 `SubtitleTranscriptStore` 作为 `@MainActor @Observable` 类，
   每次 `append()` 都立即触发 SwiftUI 的 UI 刷新；高频识别结果（partial 段
@@ -309,9 +317,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.12
-- **版本**：0.8.12
-- **状态**：✅ UI 卡顿问题根本修复（批量更新 + 节流）
+- **Phase**：8.13
+- **版本**：0.8.13
+- **状态**：✅ 日志功能完成 + CI 修复通过
 - **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## 注意事项

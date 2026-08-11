@@ -522,11 +522,29 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     `Task { @MainActor in }` 包裹，导致字幕写入变成异步操作，引发更严重的问题——
     视频能动但字幕和翻译完全不显示、所有 UI（包括播放器控制栏和底部 Tab 栏）
     卡住点不动；2026-08-11 回退至 0.8.9 基线（commit `a86c1b0`）。
-29. **Phase 8.11（已完成，打包 0.8.11）**：修复 Phase 8.10 引入的问题——
-    还原 `SubtitlePipeline.forwardSegment` 为同步方法（移除 `nonisolated` 与
-    `Task { @MainActor in }` 包裹），确保字幕写入同步执行；修复 UI 卡住、
-    字幕和翻译不显示的问题。
-30. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+29. **Phase 8.11（已完成，打包 0.8.11）**：修复 UI 卡顿问题——真正原因是 
+    `translateAndYield` 在主线程同步执行系统翻译（可能耗时数百毫秒），阻塞主线程
+    导致 UI 卡住；将翻译操作用 `Task.detached` 移至后台线程执行，翻译完成后再回到
+    主线程写入结果；保持 `forwardSegment` 为同步方法；修复了 UI 卡顿、字幕和翻译
+    不显示、播放器控制栏和底部 Tab 栏无响应等问题。
+30. **Phase 8.12（已完成，打包 0.8.12）**：UI 卡顿问题根本修复——真正原因是 
+    `SubtitleTranscriptStore` 作为 `@MainActor @Observable` 类，每次 `append()` 
+    都立即触发 SwiftUI 的 UI 刷新；高频识别结果（partial 段每秒数次、音频块更频繁）
+    会完全卡死主线程；解决方案：引入**批量更新 + 节流机制**——`append()` 不再立即
+    写入 `segments`，而是累积到 `pendingSegments` 缓冲区，最快每 150ms 批量提交
+    一次（`scheduleFlush()`），大幅减少 UI 刷新频率；`segment(at:)` 查询时自动刷新
+    缓冲区，确保最新字幕立即可见（不等待定时器）；`clear()` 和 `shutdown()` 调用 
+    `flush()` 确保所有字幕都已写入；补充单元测试（批量更新行为 + 自动刷新）。
+31. **Phase 8.13（已完成，打包 0.8.13）**：日志功能 + CI 修复——新增应用级日志服务 
+    `AppLogger`（`@MainActor` 单例，四级日志 debug/info/warning/error，内存循环缓冲 
+    500 条 + 持久化到 Documents/Logs 按日期分文件、自动清理 7 天前旧日志），
+    `SubtitlePipeline` 关键路径接入日志；设置页新增「应用日志」卡片（最近 50 条
+    日志倒序显示、四级颜色区分、一键清空、导出全部日志）；修复 
+    `SubtitleTranscriptStore` 时间计算错误（`flush()` 中 
+    `now.duration(to: lastFlushTime)` 应为 `lastFlushTime.duration(to: now)`，
+    错误的计算方向导致 `elapsed` 总是负值、节流失效、`pendingSegments` 无法提交到 
+    `segments`，引发测试失败）；CI 通过。
+32. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

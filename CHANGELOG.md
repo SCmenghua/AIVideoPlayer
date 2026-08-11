@@ -6,15 +6,34 @@
 
 ## [Unreleased]
 
-### Fixed
+### 待规划
 
+- Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
+
+## [0.8.13] - 2026-08-11
+
+### Fixed（Phase 8.13 日志功能 + CI 修复）
+
+- **SubtitleTranscriptStore 时间计算错误**：`flush()` 方法中节流判断的时间计算方向错误
+  （`now.duration(to: lastFlushTime)` 应为 `lastFlushTime.duration(to: now)`），
+  导致 `elapsed` 总是负值、节流逻辑失效、`pendingSegments` 无法正确提交到 `segments`，
+  引发 `SubtitleTranscriptStoreTests` 中三个测试失败（批量更新、自动刷新、清空后刷新）；
+  修复后所有测试通过
 - **测试异步时序问题**：`SubtitlePipelineTests.recognitionLoopSurvivesEngineNotReadyAndRecovers()` 
   在检查 `transcript.segments` 前添加 100ms 等待，确保异步 `continuation.yield()` 
   完成并且 segments 已处理到 transcript store；修复 CI 间歇性失败
 
-### 待规划
+### Added（Phase 8.13 持久化日志）
 
-- Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
+- **应用级日志服务**：新增 `AppLogger`（`@MainActor` 单例）支持四级日志（debug / info / warning / error），
+  内存循环缓冲 500 条 + 持久化到 Documents/Logs（按日期分文件、自动清理 7 天前旧日志）；
+  统一日志格式（时间戳 + 级别 + 消息）；`SubtitlePipeline` 关键路径接入日志
+- **日志卡片 UI**：设置页新增「应用日志」卡片（最近 50 条日志倒序显示、四级颜色区分、
+  一键清空、导出全部日志到系统分享面板）；实时订阅日志更新
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.13
 
 ## [0.8.12] - 2026-08-11
 
