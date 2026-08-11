@@ -204,6 +204,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         source = nil
         sourceItemID = nil
         buffer.reset(to: playbackTime)
+        // 确保所有待提交的字幕都已写入
+        transcript.flush()
         setStatus(state: .off)
     }
 

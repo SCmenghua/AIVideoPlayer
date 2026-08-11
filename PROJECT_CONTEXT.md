@@ -83,6 +83,15 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 8.12（2026-08-11 打包 0.8.12）**：UI 卡顿问题根本修复——
+  真正原因是 `SubtitleTranscriptStore` 作为 `@MainActor @Observable` 类，
+  每次 `append()` 都立即触发 SwiftUI 的 UI 刷新；高频识别结果（partial 段
+  每秒数次、音频块更频繁）会完全卡死主线程；解决方案：引入**批量更新 + 节流机制**——
+  `append()` 不再立即写入 `segments`，而是累积到 `pendingSegments` 缓冲区，
+  最快每 150ms 批量提交一次（`scheduleFlush()`），大幅减少 UI 刷新频率；
+  `segment(at:)` 查询时自动刷新缓冲区，确保最新字幕立即可见（不等待定时器）；
+  `clear()` 和 `shutdown()` 调用 `flush()` 确保所有字幕都已写入；
+  补充单元测试（批量更新行为 + 自动刷新）；`MARKETING_VERSION` 提升至 0.8.12。
 - **Phase 8.11（2026-08-11 打包 0.8.11）**：修复 UI 卡顿问题——
   真正原因是 `translateAndYield` 在主线程同步执行系统翻译（可能耗时数百毫秒），
   阻塞主线程导致 UI 卡住；将翻译操作用 `Task.detached` 移至后台线程执行，
@@ -300,9 +309,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.11
-- **版本**：0.8.11
-- **状态**：✅ UI 卡顿修复完成
+- **Phase**：8.12
+- **版本**：0.8.12
+- **状态**：✅ UI 卡顿问题根本修复（批量更新 + 节流）
 - **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## 注意事项
