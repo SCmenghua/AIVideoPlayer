@@ -1,136 +1,85 @@
-# AI Video Player Project Context
+# AI Video Player - 项目上下文速览
 
-## 产品目标
+> iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-一个长期维护的个人 iOS 项目：iOS 26 原生视频播放器，目标形态为
-「PotPlayer + 浏览器 + AI 实时字幕 + 远程文件浏览器」。
+**当前版本**：0.8.11（2026-08-11）  
+**当前 Phase**：8.11（UI 卡顿修复完成）
 
-核心能力：App 内网页浏览、WebDAV / SMB / FTP 远程文件访问、自动识别可播放媒体、
-自有 AVPlayer 播放、完整播放器 UI、Whisper 本地实时语音识别、AI 双语字幕、
-可替换翻译架构、原生 Liquid Glass UI。
+## 核心功能
 
-质量目标：高质量、可扩展、可维护、性能稳定、符合 Apple 原生设计规范。
+- **内置浏览器**：WKWebView 网页浏览、历史记录、收藏夹、视频提取
+- **远程文件浏览**：WebDAV 目录浏览与文件访问，密码存储于 Keychain
+- **自定义播放器**：AVPlayer + 自定义 SwiftUI 控制栏，支持全屏横屏
+- **AI 实时字幕**：WhisperKit 本地语音识别，模型内置无需下载
+- **可替换翻译**：Apple Translation（本地）/ MLX LLM（按需下载）/ 云端 API
+- **双语字幕叠加**：原文 + 译文双行显示，支持拖动调整位置
+- **Liquid Glass UI**：iOS 26 原生玻璃效果设计
 
-## 术语约定（页面指代）
+## 技术栈
 
-- 「设置页」：应用主界面下方三个选项卡 Browser / Player / Setting 中的 **Setting**。
-- 「播放器页」：应用主界面下方三个选项卡中的 **Player**。
+| 类别 | 技术 |
+|---|---|
+| 语言 | Swift 6（严格并发） |
+| UI | SwiftUI（iOS 26 Liquid Glass API） |
+| 并发 | Swift Concurrency / AsyncStream |
+| 媒体 | AVFoundation / AVPlayer |
+| AI | WhisperKit / Core ML（本地识别） |
+| 翻译 | Apple Translation / MLX Swift / OpenAI API |
+| 网络 | URLSession、WebDAV |
+| 存储 | Keychain、UserDefaults |
+| 工程 | XcodeGen |
+| 测试 | Swift Testing |
+| CI | GitHub Actions |
 
-## 当前Phase
+## 开发环境
 
-**Phase 8.0**（已完成，2026-08-10 打包 0.8.0）：修复语音识别功能——先解决
-「开启后播放视频没有任何字幕输出」的核心链路问题（播放器开关未联动管线激活、
-播放中途激活从陈旧时间重建游标、模型加载期识别循环永久退出），并预留双语字幕空间。
-**Phase 8.1**（已完成，2026-08-10 打包 0.8.1）：修复「开关已生效但看不到字幕」——确认字幕开关链路
-（设置页 / 播放器联动）真实生效；修正识别参数（标准 prefill + 语言传递）、
-识别游标跟随播放位置并跳过落后窗口；设置页新增识别状态统计，便于确认
-模型是否真的被调用并产出字幕。
-**Phase 8.2**（❌ 失败，2026-08-10 打包 0.8.2，代码已弃用）：翻译功能增强——确认默认使用
-系统内置翻译（Fast NMT，Apple Translation，完全本地）；本地大模型
-（Gemma 4 E2B 4-bit，约 3.55 GB）按需从 Hugging Face 下载、不随 App 内置，
-设置页可选择系统翻译 / 本地大模型 / 云端 API；新增「原语言 / 目标语言」选择；
-多语言池 12 种，设置页可勾选呈现与排序；播放器字幕开启后出现「字幕语言」按钮。
-**Phase 8.3**（❌ 失败，2026-08-10 打包 0.8.3，代码已弃用）：实测反馈修复——播放器字幕开关
-随识别管线激活自动同步、实时字幕显示修复（partial 不再被过期判定丢弃）、
-设置页语言与 Provider 选择器交互修复（玻璃卡片 interactive）、
-播放器语言菜单分栏标注原 / 目标语言；识别统计按会话重置。
-**Phase 8.4**（❌ 失败，2026-08-10 打包 0.8.4，代码已弃用）：代码基线回退至 Phase 8.1 / 0.8.1
-（commit `4449b16`）后重建多语言与源/目标语言——全语言池 12 种（含日文等），
-设置页「语言列表」可勾选呈现并排序；设置页与播放器均可调整「原语言 / 目标语言」；
-播放器「字幕语言」按钮紧邻字幕开关、开启字幕后才出现，菜单分栏明确标注
-原语言 / 目标语言；实测仍无法使用，2026-08-10 结束本次 Phase 并回退弃用。
-> **重要标记（2026-08-10）**：Phase 8.2 – Phase 8.4 全部失败（实测无法正常使用），
-> 相关实现已回退并弃用；后续所有 Phase 将忽略 / 不再复用这几次的代码，
-> 未来将从 Phase 8.1 / 0.8.1 代码开始重构，下一次 Phase 编号为 **8.5**。
-**Phase 8.5**（已完成，2026-08-10 打包 0.8.5）：删除超前识别（Lead-Ahead）功能
-（设置开关 / Δ 领先窗口 / 播放前预读等待全部移除）；重构字幕显示链路——新增共享
-`SubtitleTranscriptStore`（播放器 Overlay 与设置页直接读取，不再消费单次迭代的
-AsyncStream，修复 Tab 反复进出 / 全屏切换后字幕丢失）；实时路径 partial 不再按
-播放位置丢弃；设置页新增「字幕记录」卡片（已识别字幕原文 + 译文 + 时间 + 清空），
-用于排查「识别已产出但播放器无字幕」。
-**Phase 8.6**（已完成，2026-08-10 打包 0.8.6）：新增字幕语言与双语显示——设置页
-新增独立「字幕语言」卡片（与「字幕记录」同层级）：原语言（自动检测 + 12 种语言，
-控制 Whisper 识别与翻译源语言）、翻译语言（12 种语言，译文输出语言）、双语显示
-开关（开启时上行原文小字、下行译文大字；关闭时只显示译文）；手动指定源语言后
-识别与翻译立即按该语言生效，切换语言会重建翻译引擎；选择与开关均持久化。
-**Phase 8.7**（已完成，2026-08-10 打包 0.8.7）：修复「只显示原文、不显示译文」——
-根因是「启用翻译」默认关闭（final 段从不调用翻译引擎）；现在默认开启（本地
-Fast NMT，无需隐私确认），翻译成功条数与失败原因可观测（设置页「已翻译 N 条」
-+ OSLog + 失败提示）；零 / 负时长 final 按 0.5s 最小窗口兜底，避免译文不显示；
-新增设置页独立「翻译记录」卡片（已翻译原文 + 译文 + 时间 + 总数 + 失败原因）。
-**Phase 8.8**（❌ 失败，2026-08-11 打包 0.8.8，代码已弃用）：修复两个播放器 bug——
-大视频（1h 以上）UI 冻结（AVAssetReader 解码循环移出主线程）、网络资源播放停摆
-（本地文件才用读取器预读、网络媒体走实时 Tap、HLS 跳过音频采集）；实测修好了
-大视频 bug，但网页视频仍无法播放，且字幕功能回归不可用——字幕卡片显示错误或
-停在「正在聆听」无法执行字幕显示与语音识别，字幕记录与翻译记录均为空；
-2026-08-11 结束本次 Phase 并回退弃用。
-> **重要标记（2026-08-11）**：Phase 8.8 失败（网页视频仍无法播放、字幕功能
-> 回归不可用），实现已回退弃用；后续所有 Phase 将忽略 / 不再复用本次代码，
-> 未来将从 Phase 8.7 / 0.8.7 代码开始重构，下一次 Phase 编号为 **8.9**。
-**Phase 8.9**（已完成，2026-08-11 打包 0.8.9）：修复两个播放器 bug——
-大视频 UI 冻结（`AssetReaderAudioPipeline` 解码循环用 `Task.detached` 移到后台线程，
-避免阻塞主线程）、网络资源播放停摆（`makeSource` 按 URL 类型判断：本地文件优先
-用 AssetReader 预读、网络资源 / HLS 直接用 PlayerAudioPipeline 实时 Tap，
-避免 AVAssetReader 不支持 HLS 导致卡住）；`MARKETING_VERSION` 提升至 0.8.9。
-**Phase 8.10**（❌ 失败，2026-08-11 打包 0.8.10，代码已弃用）：尝试修复字幕开启后
-UI 卡住问题，将 `forwardSegment` 改为 `nonisolated` 并用 `Task { @MainActor in }` 包裹，
-导致字幕写入变成异步操作，引发 UI 卡住、字幕和翻译不显示等问题；2026-08-11 回退弃用。
-> **重要标记（2026-08-11）**：Phase 8.10 失败（UI 卡住、字幕和翻译不显示），
-> 实现已回退弃用；后续所有 Phase 将忽略 / 不再复用本次代码，
-> 未来将从 Phase 8.9 / 0.8.9 代码开始重构，下一次 Phase 编号为 **8.11**。
-**Phase 8.11**（进行中，2026-08-11 打包 0.8.11）：修复 Phase 8.10 引入的问题——
-还原 `SubtitlePipeline.forwardSegment` 为同步方法（移除 `nonisolated` 和 
-`Task { @MainActor in }` 包裹），确保字幕写入同步执行，修复 UI 卡住、字幕和翻译
-不显示的问题；`MARKETING_VERSION` 提升至 0.8.11。
-**Phase 9 & Phase 9+**（规划中）：完成 Liquid Glass 深化（变形过渡）、性能、
-测试与错误处理。
-上一阶段：**Phase 7.13 —— 移除文件来源导入**（已完成；Phase 7.5–7.13
-已整体收尾）。
+- macOS（可安装 Xcode 26）
+- Xcode 26+（含 iOS 26 SDK）
+- XcodeGen（`brew install xcodegen`）
 
-## 字幕设计（实时路径）
+> Windows 无法编译 iOS 应用，只能用于查看源码。
 
-字幕管线统一走实时识别：固定 5 秒窗口，Whisper 按 partial → final 输出，
-final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.translatedText`）。
-识别游标只进不退、落后播放光标的窗口自动跳过；seek / 暂停恢复后丢弃过期结果。
+## 快速开始
 
-- 每条识别 / 翻译结果写入共享 `SubtitleTranscriptStore`（有界保留最近 200 条），
-  播放器 Overlay 与设置页「字幕记录」卡片直接读取；
-- 设置页「字幕记录」展示已识别字幕的原文 + 译文 + 时间，支持一键清空，
-  用于排查「识别已产出但播放器无字幕」；
-- Phase 8.5 起**超前识别（Lead-Ahead）已删除**（设置开关 / Δ 领先窗口 /
-  播放前预读等待全部移除），详见 docs/ARCHITECTURE.md 8.2.1。
-- Phase 8.6 起字幕语言可配置：设置页「字幕语言」卡片选择原语言（自动检测 +
-  12 种语言）与翻译语言（12 种语言），并可用「双语显示」开关切换
-  原文 + 译文两行 / 仅译文一行（译文为主行大字号，原文约为其一半）。
-- Phase 8.7 起翻译默认开启（本地 Fast NMT）：final 段识别后自动翻译并写入译文；
-  设置页「翻译记录」卡片展示已成功翻译的字幕（原文 + 译文 + 时间）与失败原因。
+```bash
+# 1. 安装 XcodeGen
+brew install xcodegen
 
-## 工作流程（提交约定）
+# 2. 生成 Xcode 工程
+cd AIVideoPlayer
+xcodegen generate
 
-- **每次任务结束后都要 push**：功能完成或文档修改完成后，及时 commit 并 push 到远端，
-  不留未提交的改动。
-- **push 前区分是否需要 CI**：
-  - 纯文档改动（`*.md` / `docs/**`）：CI 已配置 `paths-ignore`，push 不会触发 CI，
-    **无需再加 `[skip ci]` 标记**；
-  - **禁止把带 `[skip ci]` 的提交与代码提交合并到同一次 push**：GitHub 会因一次 push 中
-    任意提交含跳过标记（`[skip ci]` / `[ci skip]` 等）而跳过整个 push 的工作流；
-    若确要使用 `[skip ci]`，文档提交必须单独 push（2026-08-09 曾因此导致 CI 未触发）；
-  - 涉及代码的改动：push 会触发 CI，需确保改动通过编译 / 测试后再提交。
-- **push 后 Codex 主动监控 CI，通过即打包并通过 Bark 通知**：
-  - push 后 Codex 轮询监控 GitHub Actions 运行结果（不再等用户告知）；
-  - CI 通过：按「版本号与打包约定」直接触发 IPA 打包
-    （`Package IPA (unsigned)` 工作流），打包结束后通过 Bark 推送通知用户；
-  - CI 失败：Codex 尝试拉取失败日志并修复代码；若多次尝试仍无法拉取日志，
-    则通过 Bark 推送通知用户，由用户帮忙下载日志。
-- **Bark 推送链接**：`https://api.day.app/e9Ag3rveUM3ZGJqGQDb2oU/<推送内容>`
-  （`<推送内容>` 替换为实际通知文字；用于 CI 通过后打包完成通知、
-  以及 CI 日志无法拉取时的求助通知）。
-- **版本号与打包约定**：同一 Phase 内按小版本迭代时（如 Phase 7.x 系列），
-  每打包一次 IPA，下一次打包版本递增一个小版本——上一次 `0.7.x` → 下一次
-  `0.7.(x+1)`；文档中的 Phase 编号同步变更（`Phase 7.x` → `Phase 7.(x+1)`）。
-  打包时同步提升 `MARKETING_VERSION`（project.yml）与两个 IPA 工作流
-  （`package-ipa.yml` / `release-ipa.yml`）的默认版本号。
-当前代码基线：0.8.11（Phase 8.11，2026-08-11；0.8.2 – 0.8.4、0.8.8 与 0.8.10 全部失败弃用）。
+# 3. 打开工程
+open AIVideoPlayer.xcodeproj
+
+# 4. 运行：选择 AIVideoPlayer scheme，选 iOS 26 模拟器，Cmd+R
+```
+
+## 打包与部署
+
+仓库提供 GitHub Actions 手动工作流打包未签名 IPA：
+
+1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
+2. 选择 **Package IPA (unsigned)**
+3. 点击 **Run workflow**，填写版本号（默认 0.8.11）
+4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
+5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
+
+> IPA 未签名，必须经自签工具重签；需要 iOS 26+ 设备。
+
+## 架构原则
+
+- **分层架构**：View → ViewModel → Protocol → Service → Framework
+- **依赖注入**：ViewModel 通过 init 获得协议依赖
+- **状态显式**：Loading / Ready / Error / Empty / Cancelled
+- **协议先行**：先定义契约，实现可替换
+- **隐私优先**：视频/音频不上传、Whisper 本地运行、凭据只存 Keychain
+
+## 项目文档
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**：架构决策与详细设计
+- **[docs/CHANGELOG.md](docs/CHANGELOG.md)**：版本变更记录
+- **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
 
@@ -173,46 +122,49 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   自动检测时翻译源语言跟随识别结果；翻译语言 12 种，切换语言重建翻译引擎；
   双语显示开启时上行原文（约译文一半字号）、下行译文（主行大字），关闭时只显示
   译文；设置持久化（源 / 目标语言 + 双语开关）；`MARKETING_VERSION` 提升至 0.8.6。
-- **Phase 8.4 终止与二次回退**（2026-08-10）：实测仍无法使用，结束 Phase 8.4；
-  代码基线再次回退至 Phase 8.1 / 0.8.1（commit `4449b16`），保留说明文档并记录；
-  **Phase 8.2 – Phase 8.4 全部失败**，实现已弃用；后续所有 Phase 忽略这几次代码，
-  未来从 0.8.1 代码开始重构，下一次 Phase 为 8.5。
 - **Phase 8.5（2026-08-10 打包 0.8.5）**：删除超前识别功能；重构字幕显示链路——
   新增共享 `SubtitleTranscriptStore`（播放器 Overlay 与设置页「字幕记录」直接读取，
   不再依赖单次消费的流，修复 Tab 反复进出后字幕丢失）；实时路径 partial 不再按
   播放位置丢弃；设置页新增「字幕记录」卡片（原文 + 译文 + 时间 + 清空）；
   `MARKETING_VERSION` 提升至 0.8.5。
+- **Phase 8.4 终止与二次回退**（2026-08-10）：实测仍无法使用，结束 Phase 8.4；
+  代码基线再次回退至 Phase 8.1 / 0.8.1（commit `4449b16`），保留说明文档并记录；
+  **Phase 8.2 – Phase 8.4 全部失败**，实现已弃用；后续所有 Phase 忽略这几次代码，
+  未来从 0.8.1 代码开始重构，下一次 Phase 为 8.5。
 - **Phase 8.4 基线回退**（2026-08-10）：代码基线回退至 Phase 8.1 / 0.8.1
-  （commit `4449b16`），移除 0.8.2 / 0.8.3 的翻译与字幕相关改动；
-  保留 4 份说明文档（README / CHANGELOG / PROJECT_CONTEXT / ARCHITECTURE）
-  并记录本次操作；后续字幕 bug 修复将在 0.8.1 基线上进行。
+  （commit `4449b16`），保留 Phase 8.2 + Phase 8.3 说明文档并记录本次操作；
+  后续所有 Phase 忽略此前 Phase 8.2–8.3 代码，未来从 0.8.1 代码开始重构，
+  下一次 Phase 为 8.4（重新开始）。
 - **Phase 8.4（失败，2026-08-10 打包 0.8.4）**：多语言与源/目标语言——
-  全语言池 12 种（含日文等），设置页「语言列表」可勾选呈现并排序；
-  设置页与播放器均可调整「原语言 / 目标语言」；播放器「字幕语言」按钮
-  紧邻字幕开关、开启字幕后才出现，菜单分栏明确标注原语言 / 目标语言；
-  设置页翻译卡片启用 Liquid Glass interactive（修复选择器无法操作）。
+  在 0.8.1 基线上重建多语言；全语言池 12 种（含日文等），设置页「语言列表」
+  可勾选呈现并排序；设置页与播放器均可调整「原语言 / 目标语言」；播放器
+  「字幕语言」按钮紧邻字幕开关、开启字幕后才出现，菜单分栏明确标注；
+  实测仍无法使用，代码已回退弃用。
 - **Phase 8.3（失败，2026-08-10 打包 0.8.3）**：实测反馈修复——播放器字幕开关随识别管线激活 / 关闭自动同步
-  （设置页开启识别后切回播放器自动点亮字幕）；原始实时路径 partial 不再被
-  「早于播放位置」丢弃，修复「识别已产出但播放器无字幕」；识别统计在管线
-  激活时重置；设置页交互卡片启用 Liquid Glass interactive（修复语言与
-  Provider 选择器无法操作）；播放器「字幕语言」菜单分栏标注原语言 / 目标语言；
-  `MARKETING_VERSION` 提升至 0.8.3。
-
+  （开关「On」代表「我想看字幕」、开关「Off」代表「不看字幕并关闭识别」；
+  与识别管线「活跃 / 非活跃」实时双向联动）；原始实时路径 partial 不再被
+  「早于播放位置」丢弃（避免「识别已产出但播放器无字幕」）；识别统计在
+  管线激活时重置（确保开关切换时计数与日志从 0 开始）；设置页交互卡片启用
+  Liquid Glass interactive（播放器保持非交互）；播放器「字幕语言」菜单分栏
+  标注原语言 / 目标语言（原语言列表含「自动检测」+6 种、目标语言 6 种）；
+  实测仍无法使用，代码已回退弃用。
 - **Phase 8.2（失败，2026-08-10 打包 0.8.2）**：翻译功能增强——确认默认使用系统内置翻译（Apple Translation）；
-  本地大模型（Gemma 4 E2B 4-bit）按需下载（Hugging Face 官方仓库
-  `mlx-community/gemma-4-e2b-it-4bit`，约 3.55 GB，文件清单核对匹配），
-  设置页可选择系统翻译 / 本地大模型 / 云端 API；翻译设置新增「原语言」
-  （自动检测 + 已启用语言）与「目标语言」选择，手动源语言优先于识别语言，
-  LLM Prompt 携带源语言提示；多语言池扩展至 12 种，设置页可勾选呈现并排序
-  （语言列表持久化精确保持用户选择）；播放器字幕开关开启后控制栏出现
-  「字幕语言」按钮（原 / 目标语言快捷选择）；`MARKETING_VERSION` 提升至 0.8.2。
-
+  支持本地大模型（Gemma 4 E2B、按需下载）与云端 API（OpenAI / Azure）；
+  设置页新增「翻译引擎」卡片（Apple Translation / 本地模型 / API）；云端
+  API 需配置 Key（保存 Keychain）、本地模型需手动下载（下载进度卡片）；
+  设置页与播放器均可调整「原语言」与「目标语言」（共 6 种：简体中文 /
+  English / 日本語 / 한국어 / Bahasa Melayu / Filipino，设置页可排序）；
+  播放器「字幕语言」按钮（紧邻字幕开关、开启字幕后才出现）打开菜单
+  （原语言 + 目标语言分栏列出可选语言，「确认」后生效）；设置页补充
+  「原语言 / 目标语言」展示；持久化引擎选择 / API Key / 下载完成的模型 /
+  语言池 / 排序后语言；实测无法正常使用，代码已回退弃用。
 - **Phase 8.1**：修复「开关已生效但看不到字幕」——确认字幕开关链路真实生效；
-  识别参数修正（标准 prefill + 语言传递，中文 / 短音频识别更稳）；
-  识别游标跟随播放位置、落后窗口跳过（避免识别速度跟不上时字幕持续错过）；
-  设置页新增识别状态统计（模型加载 / 转写窗口 / 字幕产出）与 OSLog 日志；
+  根因：（1）识别参数没有传递 prefill（应使用标准 SOT+语言+任务+时间戳）；
+  （2）首窗自动检测语言后未把语言代码传给后续窗口（每窗都检测一遍，中文/短
+  音频容易失败）；（3）识别速度跟不上时会一直尝试落后窗口、越来越慢，应跳过
+  已落后的窗口从当前播放位置继续；修复为使用标准 prefill，首窗检测后把语言
+  传给后续，识别游标跟随播放位置；新增识别状态统计（设置页显示 + OSLog）；
   补充单元测试（语言传递 / 落后窗口跳过）；`MARKETING_VERSION` 提升至 0.8.1。
-
 - **Phase 8.0**：修复「播放视频没有字幕」的核心链路——播放器字幕开关自动激活
   识别管线（管线已在别处启用时播放器默认显示字幕）；播放中途激活 / 设置变更
   改用引擎当前真实时间重建识别游标；模型加载期识别循环改为「引擎未就绪」重试
@@ -222,7 +174,6 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   `test.mp4`，仅在本地构建时随包，调试入口优先加载、缺失时回退内置 `sample.mp4`）；
   补充单元测试（识别未就绪恢复 / 播放中途激活时间基准 / 播放器开关联动）；
   `MARKETING_VERSION` 提升至 0.8.0。
-
 - **Phase 7.13**：移除文件来源导入功能——「文件 App 导入视频」经多次修复
   （书签授权 → 复制到沙盒）仍不稳定，按用户要求整体下线；删除
   `FilesMediaSourceView` / `PickedVideoFile` / `PickedFileStoring` /
@@ -230,18 +181,15 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   枚举值与来源占位入口（兼容旧数据解码），模型 / VM / 视图均留有恢复步骤
   注释；媒体来源保留网络（WebDAV）与相册两类；
   `MARKETING_VERSION` 提升至 0.7.13。
-
 - **Phase 7.12**：文件来源导入修复——iOS 文档选择器临时授权无法靠普通书签
   跨会话保持，导入时改为把文件复制到 App Documents/MediaFiles 并登记本地
   URL，跨启动始终可播放；删除导入文件时同步清理沙盒副本；
   `MARKETING_VERSION` 提升至 0.7.12。
-
 - **Phase 7.11**：实测反馈修复——相册来源点击视频崩溃（Photos 内部 URL 改为
   导出到 App 临时目录后按普通文件播放，iCloud 自动下载）；文件来源选择器
   改用系统 `fileImporter`（修复「打开」无反应）；媒体来源新增「编辑」模式
   删除按钮（长按删除保留）；全屏自动横屏优化（检测改用播放器已加载的 asset，
   旋转请求后校验实际方向、未生效自动重试）；`MARKETING_VERSION` 提升至 0.7.11。
-
 - **Phase 7.10**：横屏识别/方向切换修复 + 媒体来源——分辨率检测改用
   `preferredTransform` 修正旋转元数据，全屏入口检测未完成时重新检测并等待结论；
   请求旋转前先刷新 supportedInterfaceOrientations、横屏同时请求左右方向、
@@ -249,7 +197,6 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   「添加媒体来源」（网络 WebDAV / 相册，多个来源均展示在主页），
   相册来源列出系统视频、文件来源用安全作用域书签持久化；新增
   `MediaSource` / `PickedVideoFile` 模型与单测；`MARKETING_VERSION` 提升至 0.7.10。
-
 - **Phase 7.9**：播放器细节优化与主页标签页——控制栏新增「设置」二级菜单
   （收纳重新播放 / 画面比例 / 重新初始化），删除音量按钮与音量相关代码；
   加载时异步检测视频横竖屏（宽 > 高为横屏），横屏视频进入全屏默认横屏；
@@ -257,7 +204,6 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   主页新增「标签页」区域（手动添加快捷入口，独立于收藏）；WKWebView 启用
   iOS 默认左缘右滑返回手势；新增 `HomeTab` 存储与单测；
   `MARKETING_VERSION` 提升至 0.7.9。
-
 - **Phase 7.8**：播放器状态与进度兜底——引擎 `play()` / `pause()` / `seek()`
   直接维护权威状态（不再只依赖 `timeControlStatus` KVO 回调），加载完成即推送
   一次进度；引擎新增 0.5s 兜底节拍器（周期读取 AVPlayer 当前时间 / 时长 / 状态，
@@ -267,7 +213,17 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   收敛到已知时长；加载失败时引擎状态同步标记为 failed（不再停留在 loading）；
   `emitProgress` 对非有限时间回退 0；补充静默引擎回归测试；
   `MARKETING_VERSION` 提升至 0.7.8。
-
+- **Phase 7.7**：播放器状态与进度修复——换片加载先 `avPlayer.pause()`
+  避免新条目因 rate 保持 1 自动播放；引擎状态机禁止 `.playing` 被 `.ready`
+  回退、VM 仅在仍处于 loading 态时置 ready；HLS / 时长未就绪时
+  `currentItemDuration` 用可 seek 范围末端兜底，修复进度条不显示与
+  拖动从 0 重播；修 `CMTime.seconds` 误用 `if let` 的 CI 编译失败；
+  `MARKETING_VERSION` 提升至 0.7.7。
+- **Phase 7.6**：播放器换片复位——`PlayerViewModel.load` 先复位（进度/状态/
+  字幕循环）再加载，旧加载任务取消 + generation 守卫，防止换片后旧任务
+  覆盖新状态（转圈/旧进度残留）；引擎换片复位进度/倍速、`waitUntilReady`
+  检测到当前条目被替换即视为本加载失效；播放器控制栏新增「手动初始化」
+  按钮、失败态新增「重试」；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
 - **Phase 7.5**：对 Phase 1–7 成品做整体 Debug + 实测反馈完善——
   修复浏览器后退/前进/刷新命令未送达、换片字幕沿用旧视频音频源、seek 后过期识别结果
   透出、WebDAV 连接失败凭据残留、本地模型下载取消竞态、播放器加载无超时、
@@ -277,78 +233,84 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
   （原 googleapis 示例 URL 403 导致测试视频无法播放）；同步补充单元测试；
   `MARKETING_VERSION` 提升至 0.7.5，新增 `package-ipa.yml`（未签名 IPA →
   Actions 工件 + GitHub Release，供自签测试）。
-- **Phase 7.6**：播放器换片复位——`PlayerViewModel.load` 先复位（进度/状态/
-  字幕循环）再加载，旧加载任务取消 + generation 守卫，防止换片后旧任务
-  覆盖新状态（转圈/旧进度残留）；引擎换片复位进度/倍速、`waitUntilReady`
-  检测到当前条目被替换即视为本加载失效；播放器控制栏新增「手动初始化」
-  按钮、失败态新增「重试」；补充单测；`MARKETING_VERSION` 提升至 0.7.6。
-- **Phase 7.7**：播放器状态与进度修复——换片加载先 `avPlayer.pause()`
-  避免新条目因 rate 保持 1 自动播放；引擎状态机禁止 `.playing` 被 `.ready`
-  回退、VM 仅在仍处于 loading 态时置 ready；HLS / 时长未就绪时
-  `currentItemDuration` 用可 seek 范围末端兜底，修复进度条不显示与
-  拖动从 0 重播；修 `CMTime.seconds` 误用 `if let` 的 CI 编译失败；
-  `MARKETING_VERSION` 提升至 0.7.7。
-- **Phase 1**：App 骨架、三 Tab（Browser / Player / Settings）、Liquid Glass Design System、
-  核心协议与模型、Mock、单元测试、GitHub Actions CI。
-- **Phase 2**：WKWebView 浏览器（真实地址栏/历史/收藏）、WebDAV 远程文件浏览
-  （PROPFIND + 多级目录导航）、Keychain 凭据、服务器配置与历史/收藏持久化。
-- **Phase 3**：`AVPlayerPlaybackEngine`（播放/暂停/进度/倍速/音量/seek，状态流 + 进度流）、
-  自定义播放器 UI（**无 AVPlayerViewController**）、玻璃控制栏、画面大小滑块（0.5x-2.0x）、
-  YouTube 风格全屏（隐藏 Tab/Nav/状态栏、竖屏锁定时可横屏、手动横屏兜底按钮）、
-  远程文件视频 → 播放器交接、播放器空状态调试入口（开发期专用，删除说明见架构文档 8.1.2）。
-- **Phase 4**：`WebMediaExtractor`（Services/Media，直链媒体 / HLS / HTML5 video 提取，
-  相对地址解析、HTML 实体解码、去重；不绕过 DRM）、浏览器地址栏「提取视频」按钮 +
-  结果列表（`MediaExtractionSheet`）→ `AppEnvironment.requestPlayback`、远程文件 `m3u8` / `m3u`
-  识别为 video、单元测试（提取器 / 浏览器提取状态 / HLS 映射）。
-- **Phase 5**：WhisperKit（`argmax-oss-swift from 1.0.0`，CI 解析 1.1.0）本地实时识别；模型随 App 内置
-  （构建脚本打包，运行时不下载、无需用户选择）；`AudioPipeline` 三来源
+- **Phase 1–4**：App 骨架（Browser / Player / Settings 三 Tab）、Liquid Glass Design System、
+  核心协议与模型、Mock、单元测试、GitHub Actions CI；WKWebView 浏览器（地址栏/历史/收藏）、
+  WebDAV 远程文件浏览（PROPFIND + 多级目录）、Keychain 凭据、服务器配置持久化；
+  `AVPlayerPlaybackEngine`（播放/暂停/进度/倍速/seek）、自定义播放器 UI（无 AVPlayerViewController）、
+  玻璃控制栏、YouTube 风格全屏（隐藏 Tab/Nav/状态栏、竖屏锁定时可横屏）；
+  `WebMediaExtractor`（直链媒体 / HLS / HTML5 video 提取）、浏览器「提取视频」按钮 + 结果列表。
+- **Phase 5–6**：WhisperKit 本地实时识别（模型随 App 内置）、`AudioPipeline` 三来源
   （AVAssetReader 预读 / MTAudioProcessingTap 实时 / 麦克风）、`WhisperKitSpeechRecognizer`、
-  真实 `SubtitlePipeline`（替换 Mock 注入）；实时识别游标只进不退、落后窗口跳过；
-  状态卡与设置页接入真实管线；单元测试（缓冲 / 管线 / 播放器联动）。
-- **Phase 6**：`SubtitleOverlay` 双语整句字幕叠加
-  （按播放光标对齐一次性出现、DragGesture 拖动调整位置、字号样式）；
-  `SubtitleDisplaySettings`（字号 + 归一化位置，UserDefaults 持久化，AppEnvironment 共享）；
-  播放器普通 / 全屏接入、设置页「字幕显示」卡片；单元测试（Overlay VM / 显示设置）；
-  Phase 8.5 起时间线由共享 `SubtitleTranscriptStore` 取代。
-- **Phase 7**：TranslationEngine 可替换翻译架构——Fast NMT（Apple 原生翻译，完全本地）/
-  本地 LLM（MLX Swift + Gemma 4 E2B 4-bit，按需下载 + 进度 / 取消 / 重试 / 删除）/ 云端 API
-  （OpenAI 兼容，测试连接 + 隐私提示，API Key 存 Keychain）；剧情理解润色（上下文压缩）；
-  final 段提前翻译写入 `SubtitleSegment.translatedText`，翻译期间 `.translating` 状态；
-  设置页「翻译服务」卡片；单元测试；`release-ipa.yml` 打包未签名 IPA 发布到 GitHub Release
-  （自签安装，首次产出 `AIVideoPlayer-0.7.0-unsigned.ipa`）。
-- **文档**：README / ARCHITECTURE / CHANGELOG / PROJECT_CONTEXT；纯文档改动不触发 CI。
+  `SubtitlePipeline`（音频采集 → Whisper 转写 → 字幕段聚合）、播放器字幕 Overlay
+  （双语显示 / 拖动调整位置 / 播放器控制栏字幕开关）、设置页字幕配置
+  （识别模型 / 翻译引擎 / 字幕位置）；Apple Translation 本地翻译、MLX LLM 按需下载、
+  云端 API（OpenAI / Azure）可选；单元测试覆盖识别器 / 管线 / 翻译引擎；
+  `MARKETING_VERSION` 提升至 0.6.0。
+
 
 ## 禁止事项
 
-- **禁止使用 `AVPlayerViewController`**：播放器必须使用 AVPlayer + SwiftUI 自定义 UI。
-- **禁止伪 Liquid Glass**：禁止用 `.blur()` / `.opacity()` / `.ultraThinMaterial` 模拟玻璃；
-  必须使用 iOS 26 原生 `glassEffect` / `GlassEffectContainer` / `.glass` / `.glassProminent`。
-- **Liquid Glass 实现必须遵循 `liquid-glass-design` skill**：所有玻璃组件、交互与变形过渡
-  按 `D:\code\CodeX\.agents\skills\liquid-glass-design\SKILL.md` 编写；
-  新增或修改玻璃 UI 前先阅读该 skill（多玻璃元素放入 `GlassEffectContainer`、
-  仅交互元素加 `.interactive()`、变形过渡用 `@Namespace` + `glassEffectID` 等）。
-- **禁止跳 Phase**：严格按 Phase 顺序开发，禁止提前实现后续 Phase。
-- **纯文档内容、不涉及程序代码的部分禁止触发 CI**：CI push 触发已配置
-  `paths-ignore: *.md, docs/**`，纯文档提交无需 `[skip ci]` 标记；
-  **禁止把带 `[skip ci]` 的提交与代码提交合并到同一次 push**（GitHub 会跳过整个 push 的工作流）。
+**禁止在没有 Phase 标记的情况下直接修改代码**。每次代码变更都必须：
 
-> 附加架构红线（详见 docs/ARCHITECTURE.md）：View 禁止直接处理 AVPlayer / URLSession / WhisperKit
-> （渲染句柄绑定 AVPlayerLayer 除外）；单个 View ≤ 300 行；禁止 URL 强制解包；
-> 禁止私有 API 旋转（如 `UIDevice.setValue`）；所有 Task 可取消；状态显式表达
-> Loading / Ready / Error / Empty / Cancelled。
+1. **明确 Phase 编号**：下一个 Phase 编号由用户指定或按顺序递增
+2. **记录变更内容**：在本文档「已完成」部分新增一条记录，描述本次 Phase 的目标、实现与影响
+3. **更新版本号**：修改 `project.yml` 中的 `MARKETING_VERSION`，与 Phase 版本一致（如 Phase 8.11 → 0.8.11）
+4. **提交与推送**：`git add` → `git commit -m "Phase X.Y: <描述>"` → `git push`
+5. **触发 CI**：推送后自动触发 GitHub Actions 打包 IPA
 
-## 技术栈
+**所有代码变更都必须经过 Phase 流程**，即使是一行修改也要：
 
-| 类别 | 技术 |
-|---|---|
-| 语言 | Swift 6（严格并发） |
-| UI | SwiftUI（iOS 26 Liquid Glass API） |
-| 并发 | Swift Concurrency / AsyncStream / Observation |
-| 媒体 | AVFoundation / AVPlayer（已接入）；HTML5 video / HLS 提取（Phase 4 已接入） |
-| 浏览器 | WKWebView（已接入） |
-| 远程文件 | URLSession + WebDAV PROPFIND（已接入）；SMB / FTP 后续补充 |
-| 安全存储 | Keychain（已接入）、UserDefaults |
-| AI | WhisperKit / Core ML（Phase 5 已接入，本地运行；模型内置；实时路径 5 秒窗口） |
-| 翻译 | 可替换 TranslationEngine（Phase 7 已接入：Apple Translation / MLX Swift 本地 LLM（Gemma 4 E2B，按需下载）/ 云端 OpenAI 兼容 API；API Key 存 Keychain）；源 / 目标语言 12 种可选 + 自动检测（Phase 8.6） |
-| 工程 | XcodeGen（project.yml 生成工程）；GitHub Actions：主 CI（build/test）+ release-ipa（unsigned IPA → GitHub Release） |
-| 测试/CI | Swift Testing；GitHub Actions（xcodegen + xcodebuild build/test，macOS runner） |
+- 明确 Phase 编号
+- 更新本文档
+- 更新版本号
+- 提交推送
+
+**例外**：仅文档修改（README / ARCHITECTURE / 本文件）可以不创建新 Phase，但仍需提交推送。
+
+## 工作流程
+
+### 标准开发流程
+
+1. **用户指定下一个 Phase**：「现在进入 Phase X.Y，目标是...」
+2. **Claude 执行开发**：
+   - 修改代码
+   - 更新 `project.yml` 的 `MARKETING_VERSION`
+   - 更新本文档「已完成」部分
+   - 更新 `docs/CHANGELOG.md`（如有必要）
+3. **提交与推送**：
+   ```bash
+   git add .
+   git commit -m "Phase X.Y: <描述>"
+   git push
+   ```
+4. **触发 CI**：GitHub Actions 自动打包 IPA
+
+### 失败回退流程
+
+如果某个 Phase 实测失败：
+
+1. **用户指定回退目标**：「Phase X.Y 失败，回退到 Phase X.Z」
+2. **Claude 执行回退**：
+   ```bash
+   git reset --hard <commit-hash>  # 回退到指定 commit
+   git push --force
+   ```
+3. **记录失败 Phase**：在本文档「已完成」部分标注失败的 Phase 与原因
+4. **下一个 Phase 从回退基线继续**
+
+## 当前状态
+
+- **Phase**：8.11
+- **版本**：0.8.11
+- **状态**：✅ UI 卡顿修复完成
+- **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
+
+## 注意事项
+
+1. **Windows 环境限制**：无法编译 iOS 应用，只能查看源码和修改文档
+2. **模型文件**：WhisperKit 模型已内置于 `AIVideoPlayer/Resources/Models/`，约 50 MB
+3. **测试素材**：`test.mp4` 约 9 MB，git 忽略，仅本地构建时随包
+4. **IPA 打包**：GitHub Actions 生成的 IPA 未签名，需自签工具重签后安装
+5. **版本同步**：`project.yml` 的 `MARKETING_VERSION` 必须与 Phase 版本一致
+6. **Phase 流程**：所有代码变更都必须经过 Phase 流程（编号 → 文档 → 版本 → 提交 → 推送 → CI）
+
