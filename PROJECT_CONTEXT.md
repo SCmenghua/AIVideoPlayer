@@ -134,10 +134,12 @@ final 到达后收敛为整句并即时翻译（译文写入 `SubtitleSegment.tr
 
 ## 已完成
 
-- **Phase 8.11（2026-08-11 打包 0.8.11）**：修复 Phase 8.10 引入的问题——
-  还原 `SubtitlePipeline.forwardSegment` 为同步方法（移除 `nonisolated` 与
-  `Task { @MainActor in }` 包裹），确保字幕写入同步执行；修复 UI 卡住、
-  字幕和翻译不显示的问题；`MARKETING_VERSION` 提升至 0.8.11。
+- **Phase 8.11（2026-08-11 打包 0.8.11）**：修复 UI 卡顿问题——
+  真正原因是 `translateAndYield` 在主线程同步执行系统翻译（可能耗时数百毫秒），
+  阻塞主线程导致 UI 卡住；将翻译操作用 `Task.detached` 移至后台线程执行，
+  翻译完成后再回到主线程写入结果；保持 `forwardSegment` 为同步方法；
+  修复了 UI 卡顿、字幕和翻译不显示、播放器控制栏和底部 Tab 栏无响应等问题；
+  `MARKETING_VERSION` 提升至 0.8.11。
 - **Phase 8.10 终止与回退**（2026-08-11）：尝试修复字幕开启后 UI 卡住问题，
   将 `forwardSegment` 改为 `nonisolated` 并用 `Task { @MainActor in }` 包裹，
   导致字幕写入变成异步操作，引发更严重的 UI 卡住、字幕和翻译不显示等问题；
