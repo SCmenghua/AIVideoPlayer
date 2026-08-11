@@ -512,7 +512,21 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     大视频 bug，但网页视频仍无法播放，且字幕功能回归不可用（字幕卡片显示错误
     或停在「正在聆听」无法执行字幕显示与语音识别，字幕记录与翻译记录均为空）；
     2026-08-11 结束 Phase 8.8 并回退至 0.8.7 基线（commit `b6ae7aa`）。
-27. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+27. **Phase 8.9（已完成，打包 0.8.9）**：修复两个播放器 bug——大视频 UI 冻结
+    （`AssetReaderAudioPipeline.consume()` 解码循环用 `Task.detached` 移到后台线程，
+    避免阻塞主线程 UI）、网络资源播放停摆（`SubtitlePipeline.makeSource` 按 URL 
+    类型判断：本地文件优先用 AssetReader 预读、网络资源 / HLS 直接用 
+    PlayerAudioPipeline 实时 Tap，避免 AVAssetReader 不支持 HLS 导致卡住）。
+28. **Phase 8.10（❌ 失败，打包 0.8.10，代码已弃用）**：尝试修复字幕开启后 UI 卡住
+    问题，将 `SubtitlePipeline.forwardSegment` 改为 `nonisolated` 并用 
+    `Task { @MainActor in }` 包裹，导致字幕写入变成异步操作，引发更严重的问题——
+    视频能动但字幕和翻译完全不显示、所有 UI（包括播放器控制栏和底部 Tab 栏）
+    卡住点不动；2026-08-11 回退至 0.8.9 基线（commit `a86c1b0`）。
+29. **Phase 8.11（已完成，打包 0.8.11）**：修复 Phase 8.10 引入的问题——
+    还原 `SubtitlePipeline.forwardSegment` 为同步方法（移除 `nonisolated` 与
+    `Task { @MainActor in }` 包裹），确保字幕写入同步执行；修复 UI 卡住、
+    字幕和翻译不显示的问题。
+30. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。
