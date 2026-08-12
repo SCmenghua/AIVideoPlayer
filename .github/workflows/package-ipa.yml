@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "IPA ?????????????? Release tag?"
+        description: "IPA 版本号（用于文件名、工件名与 Release tag）"
         required: false
-        default: "0.8.18"
+        default: "0.9.0"
 
 permissions:
   contents: write
@@ -29,13 +29,13 @@ jobs:
         run: |
           XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$XCODE_APP" ]; then
-            echo "::error::?? /Applications ?? Xcode"
+            echo "::error::未在 /Applications 找到 Xcode"
             exit 1
           fi
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
           xcodebuild -showsdks | grep -q 'iphoneos' || {
-            echo "::error::?? iOS SDK"
+            echo "::error::缺少 iOS SDK"
             exit 1
           }
 
@@ -78,7 +78,7 @@ jobs:
           set -e
           APP_PATH=$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "::error::??????? .app"
+            echo "::error::未找到构建产物 .app"
             exit 1
           fi
           echo "App bundle: $APP_PATH"
@@ -104,15 +104,10 @@ jobs:
           set -e
           VERSION="${{ inputs.version }}"
           TAG="AIVideoPlayer-${VERSION}-unsigned"
-          cat > RELEASE_NOTES.md <<'EOF'
-          ## AIVideoPlayer v${{ inputs.version }}???? IPA?
-          - ????????Sideloadly / AltStore / ???????? IPA ????? Apple ID ?????
-          - ?? iOS 26 ??????
-          EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$IPA_NAME" --clobber
           else
             gh release create "$TAG" "$IPA_NAME" \
               --title "AIVideoPlayer v${VERSION} (unsigned IPA)" \
-              --notes-file RELEASE_NOTES.md
+              --notes "未签名 IPA，供 Sideloadly / AltStore / 爱思助手等自签工具使用。"
           fi
