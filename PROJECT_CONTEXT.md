@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.18（2026-08-13）  
-**当前 Phase**：8.18（修复长视频 UI 卡死 + 诊断中心）
+**当前版本**：0.9.1（2026-08-13）  
+**当前 Phase**：9.1（翻译引擎卡片前置 + 三种 Provider 切换）
 
 ## 核心功能
 
@@ -83,6 +83,16 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 9.1（2026-08-13 打包 0.9.1）**：翻译引擎卡片前置并正名——
+  设置页顺序调整为「AI 字幕 → 字幕语言 → 翻译引擎 → 字幕显示 → 诊断与日志 → 隐私/关于」，
+  「翻译服务」卡片更名为「翻译引擎」，副标题明确「系统内置翻译 · 本地大模型 · API Key」；
+  Fast NMT Provider 展示名由「本地轻量翻译（Apple）」改为「系统内置翻译（Apple）」，与用户表述对齐；
+  确认 Phase 7 的 `TranslationEngine`（Fast NMT / Local LLM / Cloud LLM）与设置卡片均已存在并接通管线；
+  `MARKETING_VERSION` 提升至 0.9.1。
+- **Phase 9.0（2026-08-13 打包 0.9.0）**：LLM 设置（本地模型 + API Key）整合进主设置页——
+  确认并保留 Phase 7 已实现的 `TranslationEngine` 三 Provider 与「翻译服务」卡片；修正 `project.yml` 编码、
+  恢复被破坏的 `package-ipa.yml`、`swift-ci.yml` 构建测试流程；swift-ci 构建 + 单元测试恢复全绿；
+  `MARKETING_VERSION` 提升至 0.9.0。
 - **Phase 8.18（2026-08-13 打包 0.8.18）**：修复长视频（10 分钟以上）开启字幕 + 翻译后 UI 卡死——
   根因定位为音频采集链路的主线程洪峰：(1) `AssetReaderAudioPipeline` 整条音轨以高于实时速度解码，
   且 `consume()` 实际仍运行在 MainActor（`Task.detached { await self?.consume() }` 因类标 `@MainActor`
@@ -372,10 +382,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.18
-- **版本**：0.8.18
-- **状态**：✅ 修复长视频 UI 卡死 + 诊断中心；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9 —— 增加LLM功能\n- LLM 模型集成、提示词优化、推理加速\nPhase 10 —— 增加新的浏览器功能\n- 增强功能（如标签页管理、PWA 支持、扩展）\nPhase 11 —— 待定\n- 后续功能规划中\nPhase 12 —— 原Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
+- **Phase**：9.1
+- **版本**：0.9.1
+- **状态**：✅ 翻译引擎卡片前置并与「字幕语言 / 字幕显示」同级；系统内置翻译 / 本地大模型 / API Key 三种切换
+- **下一步**：Phase 9.2 —— LLM 功能深化（模型集成、提示词优化、推理加速）；Phase 10 —— 新浏览器功能；Phase 11 —— 待定；Phase 12 —— Liquid Glass 深化
 
 ## 注意事项
 

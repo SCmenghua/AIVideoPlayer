@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 设置页：AI 字幕、字幕语言、字幕显示、翻译服务、诊断与日志、隐私与关于。
+/// 设置页：AI 字幕、字幕语言、翻译引擎、字幕显示、诊断与日志、隐私与关于。
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
 
@@ -9,9 +9,9 @@ struct SettingsView: View {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
                 subtitleLanguageCard
+                translationCard
                 subtitleDisplayCard
                 diagnosticsCard
-                translationCard
                 sectionCard(
                     icon: "lock.shield",
                     tint: .green,
@@ -26,7 +26,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 8.18（长视频卡顿修复 + 诊断中心）",
+                        "AI Video Player · Phase 9.1（翻译引擎卡片前置 + 三种 Provider 切换）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
@@ -41,7 +41,7 @@ struct SettingsView: View {
         Task { await environment.subtitlePipeline.toggle() }
     }
 
-    // MARK: - LLM 设置 (本地模型 + API Key)（Phase 7）
+    // MARK: - 翻译引擎（系统内置翻译 / 本地大模型 / API Key）（Phase 7）
 
     private var translationCard: some View {
         TranslationSettingsCard()

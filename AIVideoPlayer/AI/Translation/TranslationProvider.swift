@@ -2,7 +2,7 @@ import Foundation
 
 /// 可替换翻译 Provider 标识。
 public enum TranslationProviderID: String, Codable, Sendable, CaseIterable, Hashable {
-    /// 本地轻量翻译（Apple Translation，完全本地）。
+    /// 系统内置翻译（Apple Translation，完全本地）。
     case fastNMT
     /// 本地大模型（按需下载，完全离线）。
     case localLLM
@@ -37,7 +37,7 @@ public struct TranslationProviderDescriptor: Sendable, Hashable {
 public enum TranslationProviderCatalog {
     public static let fastNMT = TranslationProviderDescriptor(
         id: .fastNMT,
-        displayName: "本地轻量翻译（Apple）",
+        displayName: "系统内置翻译（Apple）",
         isFullyLocal: true,
         supportsContextPolish: false,
         detail: "使用 Apple 原生翻译，完全本地运行，文本不出设备，无需配置。"

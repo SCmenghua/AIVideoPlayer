@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 设置页「翻译服务」卡片（Phase 7）：
+/// 设置页「翻译引擎」卡片（Phase 7 / Phase 9.1）：
 /// Provider 选择 / 云端配置与测试连接 / 本地模型下载 / 启用开关。
 /// 目标语言已移至独立「字幕语言」卡片（Phase 8.6）。
 struct TranslationSettingsCard: View {
@@ -72,9 +72,9 @@ struct TranslationSettingsCard: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("翻译服务")
+                Text("翻译引擎")
                     .font(.headline)
-                Text("可替换翻译引擎（Fast NMT / 本地 LLM / 云端 API）")
+                Text("系统内置翻译 · 本地大模型 · API Key")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
