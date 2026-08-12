@@ -1,10 +1,10 @@
-name: Package IPA (unsigned)
+﻿name: Package IPA (unsigned)
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "IPA 版本号（用于文件名、工件名与 Release tag）"
+        description: "IPA 鐗堟湰鍙凤紙鐢ㄤ簬鏂囦欢鍚嶃€佸伐浠跺悕涓?Release tag锛?
         required: false
         default: "0.8.18"
 
@@ -29,18 +29,28 @@ jobs:
         run: |
           XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$XCODE_APP" ]; then
-            echo "::error::未在 /Applications 找到 Xcode"
+            echo "::error::鏈湪 /Applications 鎵惧埌 Xcode"
             exit 1
           fi
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
           xcodebuild -showsdks | grep -q 'iphoneos' || {
-            echo "::error::缺少 iOS SDK"
+            echo "::error::缂哄皯 iOS SDK"
             exit 1
           }
 
       - name: Install XcodeGen
-        run: brew install xcodegen
+
+      - name: Fix project.yml encoding
+        run: |
+          iconv -f UTF-8 -t UTF-8 project.yml 2>/dev/null || cat project.yml > /tmp/project.yml.tmp && mv /tmp/project.yml.tmp project.yml
+          echo "project.yml encoding fixed"
+        run: brew Install XcodeGen
+
+      - name: Fix project.yml encoding
+        run: |
+          iconv -f UTF-8 -t UTF-8 project.yml 2>/dev/null || cat project.yml > /tmp/project.yml.tmp && mv /tmp/project.yml.tmp project.yml
+          echo "project.yml encoding fixed"
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -66,7 +76,7 @@ jobs:
           set -e
           APP_PATH=$(find build/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
           if [ -z "$APP_PATH" ]; then
-            echo "::error::未找到构建产物 .app"
+            echo "::error::鏈壘鍒版瀯寤轰骇鐗?.app"
             exit 1
           fi
           echo "App bundle: $APP_PATH"
@@ -93,18 +103,9 @@ jobs:
           VERSION="${{ inputs.version }}"
           TAG="AIVideoPlayer-${VERSION}-unsigned"
           cat > RELEASE_NOTES.md <<EOF
-          ## AIVideoPlayer v${VERSION}（未签名 IPA）
-
-          - 供自签工具使用：Sideloadly / AltStore / 爱思助手 等，导入 IPA 后用自己的 Apple ID 签名安装。
-          - 需要 iOS 26 及以上设备。
-          - Phase 8.12：UI 卡顿问题根本修复——批量更新 + 节流机制，SubtitleTranscriptStore
-            引入缓冲区（pendingSegments），最快每 150ms 批量提交一次，大幅减少 UI 刷新频率。
-          - Phase 8.11：还原字幕写入为同步方法，修复 Phase 8.10 引入的 UI 卡住、字幕和翻译不显示问题。
-          - Phase 8.1：识别可用性修复——标准 prefill + 语言传递（中文识别更稳）、
-            识别游标跟随播放位置并跳过落后窗口；设置页新增识别状态统计。
-          - Phase 8.0：修复 AI 字幕无输出问题（播放器字幕开关联动识别管线、
-            播放中途激活用真实播放时间重建游标、模型加载期识别循环自动重试）。
-          EOF
+          ## AIVideoPlayer v${VERSION}锛堟湭绛惧悕 IPA锛?
+          - 渚涜嚜绛惧伐鍏蜂娇鐢細Sideloadly / AltStore / 鐖辨€濆姪鎵?绛夛紝瀵煎叆 IPA 鍚庣敤鑷繁鐨?Apple ID 绛惧悕瀹夎銆?          - 闇€瑕?iOS 26 鍙婁互涓婅澶囥€?          - Phase 8.12锛歎I 鍗￠】闂鏍规湰淇鈥斺€旀壒閲忔洿鏂?+ 鑺傛祦鏈哄埗锛孲ubtitleTranscriptStore
+            寮曞叆缂撳啿鍖猴紙pendingSegments锛夛紝鏈€蹇瘡 150ms 鎵归噺鎻愪氦涓€娆★紝澶у箙鍑忓皯 UI 鍒锋柊棰戠巼銆?          - Phase 8.11锛氳繕鍘熷瓧骞曞啓鍏ヤ负鍚屾鏂规硶锛屼慨澶?Phase 8.10 寮曞叆鐨?UI 鍗′綇銆佸瓧骞曞拰缈昏瘧涓嶆樉绀洪棶棰樸€?          - Phase 8.1锛氳瘑鍒彲鐢ㄦ€т慨澶嶁€斺€旀爣鍑?prefill + 璇█浼犻€掞紙涓枃璇嗗埆鏇寸ǔ锛夈€?            璇嗗埆娓告爣璺熼殢鎾斁浣嶇疆骞惰烦杩囪惤鍚庣獥鍙ｏ紱璁剧疆椤垫柊澧炶瘑鍒姸鎬佺粺璁°€?          - Phase 8.0锛氫慨澶?AI 瀛楀箷鏃犺緭鍑洪棶棰橈紙鎾斁鍣ㄥ瓧骞曞紑鍏宠仈鍔ㄨ瘑鍒绾裤€?            鎾斁涓€旀縺娲荤敤鐪熷疄鎾斁鏃堕棿閲嶅缓娓告爣銆佹ā鍨嬪姞杞芥湡璇嗗埆寰幆鑷姩閲嶈瘯锛夈€?          EOF
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "$IPA_NAME" --clobber
           else
@@ -112,3 +113,4 @@ jobs:
               --title "AIVideoPlayer v${VERSION} (unsigned IPA)" \
               --notes-file RELEASE_NOTES.md
           fi
+
