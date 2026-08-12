@@ -34,6 +34,7 @@ struct SubtitlePipelineTests {
         #expect(pipeline.emittedSegmentCount >= 1)
         transcript.flush()
         #expect(!transcript.segments.isEmpty)
+        await shutdown(pipeline)
     }
 
     @Test func seekResetsCursorAndDiscardsPendingResults() async throws {
@@ -56,6 +57,7 @@ struct SubtitlePipelineTests {
         emitSeconds(source, seconds: 5, start: 30)
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         #expect(recognizer.lastCall?.windowStart == 30)
+        await shutdown(pipeline)
     }
 
     @Test func toggleOffStopsPipeline() async throws {
@@ -74,6 +76,7 @@ struct SubtitlePipelineTests {
         #expect(pipeline.status.state == .off)
         #expect(source.stopCount >= 1)
         #expect(recognizer.state == .off)
+        await shutdown(pipeline)
     }
 
     @Test func staleFinalBeforePlaybackTimeIsDropped() async throws {
@@ -104,6 +107,7 @@ struct SubtitlePipelineTests {
         )
         try? await Task.sleep(for: .milliseconds(100))
         #expect(transcript.segments.isEmpty)
+        await shutdown(pipeline)
     }
 
     @Test func partialBehindPlaybackIsStillWritten() async throws {
@@ -138,6 +142,7 @@ struct SubtitlePipelineTests {
         transcript.flush()
         #expect(transcript.segments.count == 1)
         #expect(transcript.segments.first?.isPartial == true)
+        await shutdown(pipeline)
     }
 
     @Test func recognitionLoopSurvivesEngineNotReadyAndRecovers() async throws {
@@ -146,7 +151,7 @@ struct SubtitlePipelineTests {
 
         let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
-        // 模拟用户打开字幕时模型仍在加载：前两个窗口抛「引擎未就绪」，
+        // 模拟用户打开字幕时模型仍在加载：前两次识别尝试抛「引擎未就绪」，
         // 之后模型加载完成，识别必须自动恢复而不是永久停摆。
         recognizer.failuresBeforeSuccess = 2
         recognizer.failureError = WhisperRecognizerError.engineNotReady
@@ -163,14 +168,15 @@ struct SubtitlePipelineTests {
         emitSeconds(source, seconds: 20, start: 0)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 2 }
-        // 前两窗失败被跳过，第三窗（windowStart=10）恢复识别。
-        #expect(recognizer.transcriptionCalls.first?.windowStart == 10)
+        // 前两次尝试失败后重试同一窗口（不跳过失败窗口），模型就绪后在同一窗口（windowStart=0）恢复识别。
+        #expect(recognizer.transcriptionCalls.first?.windowStart == 0)
         #expect(recognizer.transcriptionCalls.count >= 2)
 
         // 等待 segments 实际到达 transcript store（异步 yield 需要时间）
         try? await Task.sleep(for: .milliseconds(100))
         transcript.flush()
         #expect(!transcript.segments.isEmpty)
+        await shutdown(pipeline)
     }
 
     @Test func activateMidPlaybackUsesEngineCurrentTime() async throws {
@@ -190,6 +196,7 @@ struct SubtitlePipelineTests {
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         #expect(recognizer.lastCall?.windowStart == 30)
+        await shutdown(pipeline)
     }
 
     @Test func detectedLanguageIsPassedToNextWindow() async throws {
@@ -206,11 +213,15 @@ struct SubtitlePipelineTests {
         await pipeline.preparePlayback(from: 0)
         emitSeconds(source, seconds: 12, start: 0)
 
-        await waitUntil { recognizer.transcriptionCalls.count >= 2 }
+        await waitUntil(timeout: .seconds(5)) { recognizer.transcriptionCalls.count >= 2 }
+        #expect(recognizer.transcriptionCalls.count >= 2)
         // 首窗自动检测（language=nil），之后把检测结果传给后续窗口，
         // 避免中文等短音频逐窗口重复检测失败导致空结果。
-        #expect(recognizer.transcriptionCalls[0].language == nil)
-        #expect(recognizer.transcriptionCalls[1].language == "zh")
+        #expect(recognizer.transcriptionCalls.first?.language == nil)
+        if recognizer.transcriptionCalls.count >= 2 {
+            #expect(recognizer.transcriptionCalls[1].language == "zh")
+        }
+        await shutdown(pipeline)
     }
 
     @Test func manualSourceLanguageIsPassedToRecognition() async throws {
@@ -236,6 +247,7 @@ struct SubtitlePipelineTests {
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         // 手动指定源语言后，首个窗口直接使用该语言，不再等待自动检测。
         #expect(recognizer.transcriptionCalls.first?.language == "ja")
+        await shutdown(pipeline)
     }
 
     @Test func laggingWindowsAreSkippedToCatchUpWithPlayback() async throws {
@@ -257,6 +269,7 @@ struct SubtitlePipelineTests {
         // 0..30 之间的窗口已落后于播放光标，应被跳过而不是继续逐个转写。
         #expect(recognizer.transcriptionCalls.first?.windowStart == 30)
         #expect(!recognizer.transcriptionCalls.contains { $0.windowStart == 5 })
+        await shutdown(pipeline)
     }
 
     // MARK: - 辅助
@@ -305,6 +318,13 @@ struct SubtitlePipelineTests {
         while !condition() {
             if ContinuousClock.now - start > timeout { break }
             try? await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    /// 关闭测试管线：停止后台识别循环，避免泄漏的空转循环抢占主线程。
+    private func shutdown(_ pipeline: SubtitlePipeline) async {
+        if pipeline.isActive {
+            await pipeline.toggle()
         }
     }
 
