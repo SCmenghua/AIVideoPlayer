@@ -24,9 +24,16 @@
   2. **优化卡片渲染算法**：将 `VStack` 替换为 `LazyVStack + ScrollView`，只渲染可见行；
      使用 `.suffix(20).reversed()` 算法只显示最近 20 条记录（`SubtitleTranscriptStore` 新增 
      `recentSegments` 计算属性），避免遍历全量数据
-  3. **识别循环移到后台线程**：将 `SubtitlePipeline.runRecognitionLoop` 和相关方法标记为 
-     `nonisolated`，在后台线程执行识别循环，只在需要修改 UI 状态时显式使用 `await MainActor.run`，
-     防止识别操作阻塞主线程
+  3. **识别循环后台线程化（尝试后撤回）**：曾将 `SubtitlePipeline.runRecognitionLoop` 和相关方法
+     标记为 `nonisolated` 移入后台线程，但该方案无法编译（`MainActor.run` 不支持 async 闭包、
+     非隔离上下文无法访问主线程属性），且 async 方法本身不阻塞主线程、后台化并无必要；
+     已撤回该改动，`SubtitlePipeline.swift` 恢复至 Phase 8.16 基线（保留 maxLookahead 与游标逻辑），
+     仅保留前两个修复
+- **CI 测试修复（构建恢复后）**：`recognitionLoopSurvivesEngineNotReadyAndRecovers` 断言对齐
+  8.16「识别失败重试当前窗口」语义（首窗 windowStart=0）；`detectedLanguageIsPassedToNextWindow`
+  越界崩溃（`transcriptionCalls[1]` Index out of range）改为安全访问（5s 超时 + 显式计数断言）；
+  全部字幕管线测试结束调用 `shutdown(pipeline)` 停止泄漏的后台识别循环（识别循环永久持有管线，
+  并行测试时抢占主线程导致偶发超时/崩溃）；swift-ci 构建 + 单元测试全绿
 
 ### Changed
 

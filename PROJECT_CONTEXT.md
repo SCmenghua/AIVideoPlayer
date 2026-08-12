@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.15）
+3. 点击 **Run workflow**，填写版本号（默认 0.8.17）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -92,10 +92,15 @@ open AIVideoPlayer.xcodeproj
   并在设置页添加 Toggle 开关，只有主动开启时才渲染调试卡片；(2) 优化卡片渲染算法：
   将 `VStack` 替换为 `LazyVStack + ScrollView`，只渲染可见行；使用 `.suffix(20).reversed()` 
   算法只显示最近 20 条记录（`SubtitleTranscriptStore` 新增 `recentSegments` 计算属性），
-  避免遍历全量数据；(3) 识别循环移到后台线程：将 `SubtitlePipeline.runRecognitionLoop` 
+  避免遍历全量数据；(3) 识别循环后台线程化（尝试后撤回）：曾将 `SubtitlePipeline.runRecognitionLoop` 
   和相关方法（`setStatus`、`logBufferWaitIfNeeded`、`translateAndYield`、`forwardSegment`、
-  `startForwarding`）标记为 `nonisolated`，在后台线程执行识别循环，只在需要修改 UI 状态时
-  显式使用 `await MainActor.run`，防止识别操作阻塞主线程；`MARKETING_VERSION` 提升至 0.8.17。
+  `startForwarding`）标记为 `nonisolated` 移入后台线程，但该方案无法编译
+  （`MainActor.run` 不支持 async 闭包、非隔离上下文无法访问主线程属性），且 async 方法
+  本身不阻塞主线程、后台化并无必要；已撤回该改动，`SubtitlePipeline.swift` 恢复至
+  Phase 8.16 基线（保留 maxLookahead 与游标逻辑），仅保留前两个修复；同步修复字幕管线
+  测试（对齐 8.16「识别失败重试当前窗口」语义、修复 `detectedLanguageIsPassedToNextWindow`
+  越界崩溃、测试结束关闭管线停止泄漏的后台循环）；swift-ci 构建 + 单元测试全绿；
+  `MARKETING_VERSION` 提升至 0.8.17。
 - **Phase 8.16（2026-08-12 打包 0.8.16）**：修复识别循环逻辑 + 音频路由问题——
   修复长视频识别仍然无限推进：Phase 8.15 的 `lastSuccessfulCursor` 逻辑错误，
   识别成功后更新为当前窗口起点导致限制失效，改为恢复基于播放位置的限制 
@@ -355,9 +360,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.15
-- **版本**：0.8.15
-- **状态**：✅ 修复无限识别 + 在线视频播放 + 版本号
+- **Phase**：8.17
+- **版本**：0.8.17
+- **状态**：✅ 修复字幕相关 UI 卡顿；swift-ci 构建 + 单元测试全绿
 - **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## 注意事项

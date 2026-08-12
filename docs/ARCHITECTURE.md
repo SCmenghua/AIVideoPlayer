@@ -544,7 +544,20 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     `now.duration(to: lastFlushTime)` 应为 `lastFlushTime.duration(to: now)`，
     错误的计算方向导致 `elapsed` 总是负值、节流失效、`pendingSegments` 无法提交到 
     `segments`，引发测试失败）；CI 通过。
-32. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+32. **Phase 8.14（已完成，打包 0.8.14）**：修复无限识别导致 UI 卡死 + 在线视频播放失败 + IPA 版本号——
+    新增识别前瞻窗口限制 `maxLookahead`（10 秒），只识别当前播放位置前后各 10 秒的内容；
+    简化 AVPlayer 缓冲监听，让 AVPlayer 自动处理网络缓冲。
+33. **Phase 8.15（已完成，打包 0.8.15）**：修复识别循环逻辑缺陷——识别失败不再无限重试
+    （`lastSuccessfulCursor` 改为非可选、失败时跳过失败窗口），追赶播放位置不被 maxLookahead 误判为超前。
+34. **Phase 8.16（已完成，打包 0.8.16）**：修复识别循环逻辑 + 音频路由问题——恢复基于播放位置的
+    限制 `cursor > playbackTime + maxLookahead`，识别失败时不推进 cursor 而是重试当前窗口；
+    `AppDelegate` 配置 `AVAudioSession`（`.playback` + `.moviePlayback`），音频输出随系统自动切换。
+35. **Phase 8.17（已完成，打包 0.8.17）**：性能优化：修复字幕相关 UI 卡顿——调试卡片默认隐藏
+    （`showTranscriptCard` / `showTranslationCard`）、卡片改 LazyVStack + 最近 20 条渲染
+    （`recentSegments`）；识别循环后台线程化（`nonisolated`）方案无法编译、已撤回，
+    `SubtitlePipeline.swift` 恢复 Phase 8.16 基线；同步修复字幕管线测试（对齐 8.16 失败重试语义、
+    修复越界崩溃、测试结束关闭管线）；swift-ci 构建 + 测试全绿。
+36. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

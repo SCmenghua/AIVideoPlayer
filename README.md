@@ -46,7 +46,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.15）
+3. 点击 **Run workflow**，填写版本号（默认 0.8.17）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 

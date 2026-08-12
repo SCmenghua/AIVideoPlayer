@@ -10,6 +10,35 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.17] - 2026-08-12
+
+### Fixed（Phase 8.17 性能优化：修复字幕相关 UI 卡顿）
+
+- **长视频字幕导致 UI 卡顿甚至卡死**：30 分钟视频识别后 UI 完全卡死，3 分钟视频出现明显卡顿，
+  根本原因是设置页的「字幕记录」和「翻译记录」调试卡片观察 `@Observable` 的 `SubtitleTranscriptStore`，
+  每 150ms 字幕更新时触发全量重新渲染（VStack 遍历数百条记录），阻塞主线程；
+  修复分三管齐下：
+  1. **调试卡片默认隐藏**：在 `SubtitleDisplaySettings` 中新增 `showTranscriptCard` 和 
+     `showTranslationCard` 两个 Bool 属性（默认 `false`），并在设置页添加 Toggle 开关，
+     只有主动开启时才渲染调试卡片，避免默认情况下的性能损耗
+  2. **优化卡片渲染算法**：将 `VStack` 替换为 `LazyVStack + ScrollView`，只渲染可见行；
+     使用 `.suffix(20).reversed()` 算法只显示最近 20 条记录（`SubtitleTranscriptStore` 新增 
+     `recentSegments` 计算属性），避免遍历全量数据
+  3. **识别循环后台线程化（尝试后撤回）**：曾将 `SubtitlePipeline.runRecognitionLoop` 和相关方法
+     标记为 `nonisolated` 移入后台线程，但该方案无法编译（`MainActor.run` 不支持 async 闭包、
+     非隔离上下文无法访问主线程属性），且 async 方法本身不阻塞主线程、后台化并无必要；
+     已撤回该改动，`SubtitlePipeline.swift` 恢复至 Phase 8.16 基线（保留 maxLookahead 与游标逻辑），
+     仅保留前两个修复
+- **CI 测试修复（构建恢复后）**：`recognitionLoopSurvivesEngineNotReadyAndRecovers` 断言对齐
+  8.16「识别失败重试当前窗口」语义（首窗 windowStart=0）；`detectedLanguageIsPassedToNextWindow`
+  越界崩溃（`transcriptionCalls[1]` Index out of range）改为安全访问（5s 超时 + 显式计数断言）；
+  全部字幕管线测试结束调用 `shutdown(pipeline)` 停止泄漏的后台识别循环；
+  swift-ci 构建 + 单元测试全绿
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.17
+
 ## [0.8.16] - 2026-08-12
 
 ### Fixed（Phase 8.16 修复识别循环逻辑 + 音频路由问题）
