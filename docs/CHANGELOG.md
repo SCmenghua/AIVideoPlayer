@@ -10,6 +10,35 @@
 
 - Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
 
+## [0.8.18] - 2026-08-13
+
+### Fixed（Phase 8.18 修复长视频 UI 卡死）
+
+- **长视频开启字幕 + 翻译后 UI 卡死**：根因是本地文件的音频采集链路把整条音轨在 MainActor 上以
+  高于实时速度解码，并反复触发 `PCMBuffer` 的 `Array.removeFirst`（O(n)）整体搬移，长视频下
+  主线程被近平方级的 memmove 拖垮。修复：
+  - `PCMBuffer` 改为「存储数组 + 头下标」环形窗口，裁剪 O(1)、周期性压实均摊 O(1)；
+  - `AudioPipeline` 新增 `setReadTarget`，`AssetReaderAudioPipeline` 只预读播放位置前方 30 秒，
+    由字幕管线随播放进度推进，不再整轨解码；
+  - `updatePlaybackPosition` / `preparePlayback` / `handleSeek` 同步推进预读目标。
+
+### Added（Phase 8.18 诊断与日志）
+
+- 设置页新增「诊断与日志」二级菜单，集中展示字幕记录 / 翻译记录 / 日志，三者独立开关
+  （字幕记录与翻译记录默认关闭，避免高频数据造成 UI 开销）。
+- `AppLogger` 重构：内存环形缓冲（500 条）+ 后台异步落盘、去掉逐行 fsync；
+  日志列表支持级别着色、导出、清空。
+
+### Changed（Phase 8.18 日志重做）
+
+- 识别日志：窗口完成日志包含耗时 / 采样数 / 语言 / 段数；
+- 翻译日志：包含 provider / 源目标语言 / 耗时 / 原文摘要；
+- 跳过落后窗口日志：包含累计跳过次数与秒数，并去掉重复的逐窗口完成日志。
+
+### Changed
+
+- `MARKETING_VERSION` 提升至 0.8.18；两个 IPA 工作流默认版本同步为 0.8.18。
+
 ## [0.8.17] - 2026-08-12
 
 ### Fixed（Phase 8.17 性能优化：修复字幕相关 UI 卡顿）

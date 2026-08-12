@@ -1,80 +1,56 @@
 import SwiftUI
 
-/// 设置页「日志」卡片（Phase 8.13）：
-/// - 开关控制日志功能（默认开启）
-/// - 导出按钮（分享全部日志文件）
-/// - 清空按钮
-/// - 显示日志统计信息
-struct AppLogCard: View {
+/// 诊断页「日志」内容列表（Phase 8.18）：
+/// - 展示内存中最近日志（最新在上）；
+/// - 按级别着色，支持导出与清空。
+struct AppLogList: View {
     let logger: AppLogger
     @State private var showShareSheet = false
     @State private var showClearConfirmation = false
 
     var body: some View {
-        GlassCard(tint: .indigo) {
-            VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
-                // 标题栏 + 开关
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    Image(systemName: "doc.text.magnifyingglass")
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.indigo)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("日志")
-                            .font(.headline)
-                        Text("记录应用运行状态")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    GlassTogglePill(
-                        isOn: logger.isEnabled,
-                        onTitle: "关闭",
-                        offTitle: "启用",
-                        tint: .indigo
-                    ) {
-                        withAnimation(.snappy) {
-                            logger.setEnabled(!logger.isEnabled)
+        VStack(alignment: .leading, spacing: AppTheme.Spacing.sm) {
+            HStack(spacing: AppTheme.Spacing.sm) {
+                Label("\(logger.totalEntries) 条", systemImage: "list.bullet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    showShareSheet = true
+                } label: {
+                    Label("导出", systemImage: "square.and.arrow.up")
+                        .font(.caption.weight(.medium))
+                }
+                .tint(.indigo)
+                .buttonStyle(.bordered)
+                .disabled(logger.totalEntries == 0)
+
+                Button {
+                    showClearConfirmation = true
+                } label: {
+                    Label("清空", systemImage: "trash")
+                        .font(.caption.weight(.medium))
+                }
+                .tint(.red)
+                .buttonStyle(.bordered)
+                .disabled(logger.totalEntries == 0)
+            }
+
+            if logger.entries.isEmpty {
+                Text("暂无日志")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, AppTheme.Spacing.xs)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(Array(logger.entries.reversed())) { entry in
+                            logRow(entry)
                         }
                     }
                 }
-
-                // 统计信息
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    Label("\(logger.totalEntries) 条", systemImage: "list.bullet")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    Spacer()
-
-                    Text(logger.isEnabled ? "正在记录" : "已暂停")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(logger.isEnabled ? .green : .secondary)
-                }
-
-                // 操作按钮
-                HStack(spacing: AppTheme.Spacing.sm) {
-                    Button {
-                        showShareSheet = true
-                    } label: {
-                        Label("导出", systemImage: "square.and.arrow.up")
-                            .font(.caption.weight(.medium))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .tint(.indigo)
-                    .buttonStyle(.bordered)
-                    .disabled(logger.totalEntries == 0)
-
-                    Button {
-                        showClearConfirmation = true
-                    } label: {
-                        Label("清空", systemImage: "trash")
-                            .font(.caption.weight(.medium))
-                            .frame(maxWidth: .infinity)
-                    }
-                    .tint(.red)
-                    .buttonStyle(.bordered)
-                    .disabled(logger.totalEntries == 0)
-                }
+                .frame(maxHeight: 420)
             }
         }
         .sheet(isPresented: $showShareSheet) {
@@ -93,6 +69,38 @@ struct AppLogCard: View {
             Text("将删除所有已记录的日志（\(logger.totalEntries) 条），此操作不可撤销。")
         }
     }
+
+    private func logRow(_ entry: AppLogger.Entry) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: AppTheme.Spacing.xs) {
+                Text(entry.timestamp, format: .dateTime.hour().minute().second())
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.secondary)
+                Text(entry.level.rawValue)
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Self.tint(for: entry.level))
+                Text(entry.category)
+                    .font(.caption2.weight(.medium))
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
+            }
+            Text(entry.message)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+        }
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private static func tint(for level: AppLogger.Level) -> Color {
+        switch level {
+        case .debug: .gray
+        case .info: .blue
+        case .warning: .orange
+        case .error: .red
+        }
+    }
 }
 
 /// 系统分享面板
@@ -100,8 +108,7 @@ private struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
-        return controller
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

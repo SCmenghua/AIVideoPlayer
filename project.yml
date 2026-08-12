@@ -1,5 +1,5 @@
 name: AIVideoPlayer
-# Version 0.8.17: Performance optimization
+# Version 0.8.18: Fix long-video UI freeze + diagnostics center
 
 options:
   bundleIdPrefix: com.aivideoplayer
@@ -14,7 +14,7 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     CODE_SIGN_STYLE: Automatic
     CURRENT_PROJECT_VERSION: 1
-    MARKETING_VERSION: 0.8.17
+    MARKETING_VERSION: 0.8.18
 
 packages:
   WhisperKit:

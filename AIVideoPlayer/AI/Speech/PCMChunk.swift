@@ -21,11 +21,20 @@ public struct PCMChunk: Sendable {
 
 /// 识别用的 PCM 滚动缓冲（绝对时间轴，只进不退）。
 /// 线程安全：音频采集可能在后台线程写入，识别循环在 MainActor 读取。
+///
+/// Phase 8.18 性能修复：改用「存储数组 + 头下标」的环形窗口实现。
+/// 旧实现每次超出上限都用 `Array.removeFirst`（O(n)）整体搬移，长视频下
+/// 每个音频块都触发一次大数组 memmove，主线程被累加成近平方级的卡死；
+/// 现在裁剪只推进 `head`（O(1)），并周期性压实一次，均摊 O(1)。
 final class PCMBuffer: @unchecked Sendable {
     private static let maxBufferedDuration: TimeInterval = 120
 
     private let lock = NSLock()
-    private var samples: [Float] = []
+    /// 实际存储：可能保留一小段已消费的前缀，由 `head` 标记有效起点。
+    private var storage: [Float] = []
+    /// storage 中第一个有效采样的下标。
+    private var head = 0
+    /// storage[head] 对应的绝对时间。
     private var baseTime: TimeInterval = 0
     private var sampleRate: Double = 16_000
 
@@ -46,11 +55,13 @@ final class PCMBuffer: @unchecked Sendable {
             // 只接受时间轴上向后的数据；旧数据（seek 竞态）直接丢弃。
             // 注意：必须在重置基线之前判定，否则陈旧块会把时间线往回拉。
             guard chunk.endTime > capturedEndLocked() - 0.01 else { return }
-            if samples.isEmpty {
+            if validCountLocked() == 0 {
                 baseTime = chunk.startTime
                 sampleRate = chunk.sampleRate
+                storage.removeAll(keepingCapacity: true)
+                head = 0
             }
-            samples.append(contentsOf: chunk.samples)
+            storage.append(contentsOf: chunk.samples)
             trimFrontLocked()
         }
     }
@@ -62,17 +73,21 @@ final class PCMBuffer: @unchecked Sendable {
             guard end > baseTime - 0.01 else { return nil }
             guard end <= capturedEndLocked() + 0.01 else { return nil }
             let rate = sampleRate
+            let validCount = validCountLocked()
             let startIndex = max(0, Int(((start - baseTime) * rate).rounded(.down)))
-            let endIndex = min(samples.count, max(startIndex, Int(((end - baseTime) * rate).rounded(.up))))
+            let endIndex = min(validCount, max(startIndex, Int(((end - baseTime) * rate).rounded(.up))))
             guard endIndex > startIndex else { return [] }
-            return Array(samples[startIndex..<endIndex])
+            let lower = head + startIndex
+            let upper = head + endIndex
+            return Array(storage[lower..<upper])
         }
     }
 
     /// 重置时间基准并清空缓冲（seek / 模式切换）。
     func reset(to time: TimeInterval) {
         lock.withLock {
-            samples.removeAll(keepingCapacity: true)
+            storage.removeAll(keepingCapacity: true)
+            head = 0
             baseTime = time
         }
     }
@@ -83,27 +98,46 @@ final class PCMBuffer: @unchecked Sendable {
             let rate = sampleRate
             let index = Int(((time - baseTime) * rate).rounded(.down))
             guard index > 0 else { return }
-            let trimmed = min(index, samples.count)
-            if trimmed < samples.count {
-                samples.removeFirst(trimmed)
+            let validCount = validCountLocked()
+            let trimmed = min(index, validCount)
+            if trimmed < validCount {
+                head += trimmed
                 baseTime += Double(trimmed) / rate
             } else {
-                samples.removeAll(keepingCapacity: true)
+                storage.removeAll(keepingCapacity: true)
+                head = 0
                 baseTime = time
             }
+            compactIfNeededLocked()
         }
     }
 
+    // MARK: - Private
+
+    private func validCountLocked() -> Int {
+        storage.count - head
+    }
+
     private func capturedEndLocked() -> TimeInterval {
-        sampleRate > 0 ? baseTime + Double(samples.count) / sampleRate : baseTime
+        sampleRate > 0 ? baseTime + Double(validCountLocked()) / sampleRate : baseTime
     }
 
     private func trimFrontLocked() {
         let maxSamples = Int(Self.maxBufferedDuration * sampleRate)
-        guard samples.count > maxSamples else { return }
-        let excess = samples.count - maxSamples
-        samples.removeFirst(excess)
+        let validCount = validCountLocked()
+        guard validCount > maxSamples else { return }
+        let excess = validCount - maxSamples
+        head += excess
         baseTime += Double(excess) / sampleRate
+        compactIfNeededLocked()
+    }
+
+    /// 定期压实：head 过大时把剩余有效采样整体前移一次（均摊 O(1)），
+    /// 避免 storage 无限增长；只在 head 占比超过一半时执行。
+    private func compactIfNeededLocked() {
+        guard head > 0, head >= storage.count / 2 else { return }
+        storage.removeFirst(head)
+        head = 0
     }
 }
 

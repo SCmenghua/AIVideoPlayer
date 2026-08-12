@@ -45,6 +45,14 @@ public protocol AudioPipeline: AnyObject {
     func stop() async
     /// 重置时间基准并停止当前读取 / 采集；调用方随后调用 `start(at:)` 重新开始。
     func reset(to playbackTime: TimeInterval) async
+    /// 预读型来源：把「允许预读到」的目标时间推进到 time（实时型来源忽略）。
+    func setReadTarget(_ time: TimeInterval)
+}
+
+/// 实时型来源（Player / Microphone）无需预读目标，默认空实现。
+@MainActor
+extension AudioPipeline {
+    public func setReadTarget(_ time: TimeInterval) {}
 }
 
 /// 基于 AVAssetReader 的音频管线：以高于实时的速度解码 PCM，向识别器供料。
@@ -63,6 +71,9 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
     private var isRunning = false
     private var baseTime: TimeInterval = 0
     private var accumulatedFrames: Int = 0
+    /// 允许预读到的绝对时间（由字幕管线随播放进度推进）。
+    private var readTarget: TimeInterval = 0
+    private static let defaultReadAhead: TimeInterval = 30
 
     private let sampleRate = AudioResampler.whisperSampleRate
 
@@ -77,6 +88,7 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
         guard !isRunning else { return }
         try await prepareReader(at: playbackTime)
         isRunning = true
+        readTarget = playbackTime + Self.defaultReadAhead
         // 解码循环移到后台线程，避免大视频阻塞主线程 UI。
         consumeTask = Task.detached(priority: .userInitiated) { [weak self] in
             await self?.consume()
@@ -96,6 +108,11 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
         await stop()
         baseTime = playbackTime
         accumulatedFrames = 0
+    }
+
+    /// 推进预读目标：识别 / 播放位置前进时由字幕管线调用。
+    public func setReadTarget(_ time: TimeInterval) {
+        readTarget = time
     }
 
     // MARK: - Private
@@ -145,6 +162,12 @@ public final class AssetReaderAudioPipeline: AudioPipeline {
 
     private func consume() async {
         while !Task.isCancelled {
+            // 背压：只预读 readTarget 秒，避免把整条音轨一次性解码到主线程。
+            let producedEnd = baseTime + Double(accumulatedFrames) / sampleRate
+            if readTarget > 0, producedEnd + 0.1 >= readTarget {
+                try? await Task.sleep(for: .milliseconds(100))
+                continue
+            }
             guard let reader, let audioOutput else { return }
             guard let sampleBuffer = audioOutput.copyNextSampleBuffer() else {
                 switch reader.status {
@@ -461,5 +484,10 @@ public final class MicrophoneAudioPipeline: AudioPipeline {
         await stop()
         baseTime = playbackTime
         accumulatedFrames = 0
+    }
+
+    /// 推进预读目标：识别 / 播放位置前进时由字幕管线调用。
+    public func setReadTarget(_ time: TimeInterval) {
+        readTarget = time
     }
 }

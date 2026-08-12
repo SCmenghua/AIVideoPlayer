@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 设置页：Phase 1 只呈现架构与隐私承诺；具体开关随对应 Phase 落地。
+/// 设置页：AI 字幕、字幕语言、字幕显示、翻译服务、诊断与日志、隐私与关于。
 struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
 
@@ -9,11 +9,9 @@ struct SettingsView: View {
             VStack(spacing: AppTheme.Spacing.md) {
                 aiSubtitleCard
                 subtitleLanguageCard
-                subtitleTranscriptCard
-                subtitleTranslationCard
                 subtitleDisplayCard
+                diagnosticsCard
                 translationCard
-                appLogCard
                 sectionCard(
                     icon: "lock.shield",
                     tint: .green,
@@ -28,7 +26,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 8.5（字幕显示链路重构）",
+                        "AI Video Player · Phase 8.18（长视频卡顿修复 + 诊断中心）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
@@ -47,6 +45,36 @@ struct SettingsView: View {
 
     private var translationCard: some View {
         TranslationSettingsCard()
+    }
+
+    // MARK: - 诊断与日志（Phase 8.18 二级菜单）
+
+    private var diagnosticsCard: some View {
+        NavigationLink {
+            DiagnosticsView()
+        } label: {
+            GlassCard(tint: .indigo) {
+                HStack(spacing: AppTheme.Spacing.md) {
+                    Image(systemName: "wrench.and.screwdriver")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.indigo)
+                        .frame(width: 32)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("诊断与日志")
+                            .font(.headline)
+                            .foregroundStyle(.primary)
+                        Text("字幕记录 · 翻译记录 · 日志")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: - AI 字幕（Phase 5）
@@ -78,8 +106,6 @@ struct SettingsView: View {
                     }
                 }
 
-                // Phase 8.1 诊断：直接展示识别引擎实时状态，
-                // 让用户确认识别是否真的在跑（模型加载 / 转写窗口 / 字幕产出）。
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xxs) {
                     Text("识别状态：\(environment.subtitlePipeline.status.state.title)")
                         .font(.caption.weight(.medium))
@@ -92,40 +118,9 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                // Phase 8.17 调试卡片开关
-                VStack(spacing: AppTheme.Spacing.xs) {
-                    Toggle("显示字幕记录（调试）", isOn: showTranscriptCardBinding)
-                        .font(.caption)
-                    Toggle("显示翻译记录（调试）", isOn: showTranslationCardBinding)
-                        .font(.caption)
-                }
-
                 Text("音频永远不会离开设备。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    // MARK: - 字幕记录（Phase 8.5 调试）
-
-    private var subtitleTranscriptCard: some View {
-        Group {
-            if environment.subtitleDisplaySettings.showTranscriptCard {
-                SubtitleTranscriptCard(transcript: environment.subtitleTranscript)
-            }
-        }
-    }
-
-    // MARK: - 翻译记录（Phase 8.7）
-
-    private var subtitleTranslationCard: some View {
-        Group {
-            if environment.subtitleDisplaySettings.showTranslationCard {
-                SubtitleTranslationCard(
-                    transcript: environment.subtitleTranscript,
-                    pipeline: environment.subtitlePipeline
-                )
             }
         }
     }
@@ -158,10 +153,6 @@ struct SettingsView: View {
     }
 
     // MARK: - 字幕显示（Phase 6）
-
-    private var appLogCard: some View {
-        AppLogCard(logger: environment.logger)
-    }
 
     private var subtitleDisplayCard: some View {
         GlassCard(tint: .cyan) {
@@ -205,20 +196,6 @@ struct SettingsView: View {
         Binding(
             get: { environment.subtitleDisplaySettings.fontSize },
             set: { environment.subtitleDisplaySettings.fontSize = $0 }
-        )
-    }
-
-    private var showTranscriptCardBinding: Binding<Bool> {
-        Binding(
-            get: { environment.subtitleDisplaySettings.showTranscriptCard },
-            set: { environment.subtitleDisplaySettings.showTranscriptCard = $0 }
-        )
-    }
-
-    private var showTranslationCardBinding: Binding<Bool> {
-        Binding(
-            get: { environment.subtitleDisplaySettings.showTranslationCard },
-            set: { environment.subtitleDisplaySettings.showTranslationCard = $0 }
         )
     }
 }

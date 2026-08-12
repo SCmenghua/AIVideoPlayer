@@ -1,12 +1,11 @@
 import Foundation
 import OSLog
 
-/// 应用日志服务（Phase 8.13）：
-/// - 支持多级日志（debug, info, warning, error）
-/// - 持久化存储到文件系统
-/// - 线程安全的写入
-/// - 支持开关控制
-/// - 非正常退出时数据安全
+/// 应用日志服务（Phase 8.13 引入，Phase 8.18 重构）：
+/// - 支持多级日志（debug / info / warning / error）；
+/// - 内存环形缓冲（最多 500 条），供「诊断与日志」页面实时展示；
+/// - 异步后台落盘，不做逐行 fsync（避免高频日志造成磁盘争抢）；
+/// - 支持开关、导出与清空。
 @MainActor
 @Observable
 public final class AppLogger {
@@ -37,46 +36,32 @@ public final class AppLogger {
 
     public private(set) var isEnabled: Bool
     public private(set) var totalEntries: Int = 0
+    /// 内存中的最近日志（最新追加在末尾），UI 展示用。
+    public private(set) var entries: [Entry] = []
 
     private let logger = Logger(subsystem: "com.aiVideoPlayer", category: "AppLogger")
     private let fileURL: URL
-    private let fileHandle: FileHandle?
-    private let queue = DispatchQueue(label: "com.aiVideoPlayer.logger", qos: .utility)
     private let userDefaultsKey = "AppLogger.isEnabled"
+    private static let maxInMemoryEntries = 500
 
     // MARK: - Init
 
     public init() {
-        // 从 UserDefaults 读取开关状态，默认开启
         self.isEnabled = UserDefaults.standard.object(forKey: userDefaultsKey) as? Bool ?? true
 
-        // 日志文件路径：Application Support/Logs/app.log
         let base = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask
         ).first ?? FileManager.default.temporaryDirectory
         let logsDir = base.appendingPathComponent("Logs", isDirectory: true)
-
-        // 确保目录存在
         try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
 
         self.fileURL = logsDir.appendingPathComponent("app.log")
-
-        // 打开文件句柄（追加模式）
         if !FileManager.default.fileExists(atPath: fileURL.path) {
             FileManager.default.createFile(atPath: fileURL.path, contents: nil)
         }
 
-        self.fileHandle = try? FileHandle(forWritingTo: fileURL)
-        self.fileHandle?.seekToEndOfFile()
-
-        // 统计现有日志条目数
         self.totalEntries = countExistingEntries()
-
-        log(.info, category: "AppLogger", "日志服务启动，已有 \(totalEntries) 条日志")
-    }
-
-    deinit {
-        try? fileHandle?.close()
+        log(.info, category: "App", "日志服务启动，已有 \(totalEntries) 条日志")
     }
 
     // MARK: - Public API
@@ -86,7 +71,7 @@ public final class AppLogger {
 
         let entry = Entry(level: level, category: category, message: message)
 
-        // 写入 OSLog（用于 Xcode 调试）
+        // OSLog（Xcode / Console 调试可见）。
         let osLogLevel: OSLogType = switch level {
         case .debug: .debug
         case .info: .info
@@ -95,38 +80,33 @@ public final class AppLogger {
         }
         logger.log(level: osLogLevel, "[\(category)] \(message)")
 
-        // 异步写入文件
-        queue.async { [weak self] in
-            self?.writeToFile(entry)
+        // 内存环形缓冲。
+        entries.append(entry)
+        if entries.count > Self.maxInMemoryEntries {
+            entries.removeFirst(entries.count - Self.maxInMemoryEntries)
         }
+        totalEntries += 1
 
-        // 更新计数
-        self.totalEntries += 1
+        // 异步落盘（后台，不阻塞主线程；不做逐行 fsync，依赖系统刷盘）。
+        let url = fileURL
+        Task.detached(priority: .utility) {
+            Self.appendToFile(entry, at: url)
+        }
     }
 
     public func setEnabled(_ enabled: Bool) {
         self.isEnabled = enabled
         UserDefaults.standard.set(enabled, forKey: userDefaultsKey)
-        log(.info, category: "AppLogger", "日志功能\(enabled ? "开启" : "关闭")")
+        log(.info, category: "App", "日志功能\(enabled ? "开启" : "关闭")")
     }
 
     public func clear() {
-        queue.async { [weak self] in
-            guard let self else { return }
-
-            // 关闭当前文件句柄
-            try? self.fileHandle?.close()
-
-            // 删除文件
-            try? FileManager.default.removeItem(at: self.fileURL)
-
-            // 重新创建空文件
-            FileManager.default.createFile(atPath: self.fileURL.path, contents: nil)
-
-            Task { @MainActor [weak self] in
-                self?.totalEntries = 0
-                self?.log(.info, category: "AppLogger", "日志已清空")
-            }
+        entries.removeAll(keepingCapacity: true)
+        totalEntries = 0
+        let url = fileURL
+        Task.detached(priority: .utility) {
+            try? FileManager.default.removeItem(at: url)
+            FileManager.default.createFile(atPath: url.path, contents: nil)
         }
     }
 
@@ -136,19 +116,25 @@ public final class AppLogger {
 
     // MARK: - Private
 
-    private func writeToFile(_ entry: Entry) {
-        guard let fileHandle else { return }
+    /// 后台写入一行 JSON Lines 日志；每次打开文件句柄写入后立即关闭，
+    /// 避免跨线程共享 FileHandle，也不需要逐行 fsync。
+    nonisolated private static func appendToFile(_ entry: Entry, at url: URL) {
+        guard let data = try? JSONEncoder().encode(entry),
+              var line = String(data: data, encoding: .utf8) else { return }
+        line += "\n"
+        guard let lineData = line.data(using: .utf8) else { return }
 
-        // JSON Lines 格式：每行一个 JSON 对象
-        if let data = try? JSONEncoder().encode(entry),
-           var line = String(data: data, encoding: .utf8) {
-            line += "\n"
-            if let lineData = line.data(using: .utf8) {
-                try? fileHandle.write(contentsOf: lineData)
-
-                // 立即同步到磁盘（确保非正常退出时数据安全）
-                fileHandle.synchronizeFile()
-            }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: lineData)
+        } else {
+            // 文件尚未存在时先创建再写入。
+            FileManager.default.createFile(atPath: url.path, contents: nil)
+            guard let handle = try? FileHandle(forWritingTo: url) else { return }
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: lineData)
         }
     }
 
@@ -157,7 +143,6 @@ public final class AppLogger {
               let content = String(data: data, encoding: .utf8) else {
             return 0
         }
-
         return content.components(separatedBy: "\n").filter { !$0.isEmpty }.count
     }
 }

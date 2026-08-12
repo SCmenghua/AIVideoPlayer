@@ -45,6 +45,12 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var forwardTask: Task<Void, Never>?
     private var cachedTranslationEngine: (any TranslationEngine)?
     private var cachedEngineKey: String?
+    /// 已跳过的落后识别窗口数（统计用）。
+    private var skippedWindowCount = 0
+    /// 跳过落后窗口累计跳过的秒数。
+    private var totalSkippedSeconds: TimeInterval = 0
+    /// 「等待播放追上」日志节流时间戳。
+    private var lastAheadWaitLog: TimeInterval = -.infinity
 
     private let statusContinuation: AsyncStream<AISubtitleStatus>.Continuation
 
@@ -123,7 +129,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             self.source = await makeSource(engine: engine, at: time)
         }
         guard let source else { return }
-        Log.app.debug("字幕音频来源就绪 kind=\(source.sourceKind == .microphone ? "mic" : "player")")
+        source.setReadTarget(time + Self.readAheadLimit)
+        Log.app.debug("字幕音频来源就绪 kind=\(source.sourceKind == .microphone ? "mic" : "player") 预读目标=\(String(format: "%.1f", time + Self.readAheadLimit))s")
 
         buffer.reset(to: time)
         consumeChunks(from: source)
@@ -143,6 +150,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     /// 跟不上播放时字幕持续错过（表现为「开了字幕却什么都没有」）。
     public func updatePlaybackPosition(_ time: TimeInterval) {
         playbackTime = time
+        // 推进预读目标，让 AssetReader 保持有限前瞻，而不是整轨解码。
+        source?.setReadTarget(time + Self.readAheadLimit)
     }
 
     public func handleSeek(to time: TimeInterval) async {
@@ -151,6 +160,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         stopLoops()
         await recognizer?.discardPendingResults()
         buffer.reset(to: time)
+        source?.setReadTarget(time + Self.readAheadLimit)
     }
 
     /// 翻译设置变更后刷新：丢弃缓存的翻译引擎，下次翻译按新设置重建。
@@ -211,6 +221,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     /// 过期片段判定容差（秒）：允许轻微的时钟偏差，避免误删边界片段。
     private static let staleSegmentTolerance: TimeInterval = 1
+    /// 预读前瞻上限（秒）：AssetReader 只预读播放位置前方这么多音频。
+    private static let readAheadLimit: TimeInterval = 30
 
     // MARK: - 管线组装
 
@@ -302,7 +314,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             return
         }
 
-        Log.app.debug("开始翻译 final 段 start=\(String(format: "%.1f", segment.startTime))s 源=\(self.effectiveTranslationSource ?? "nil") 目标=\(self.translationSettings.targetLanguageCode) 文本=\(segment.originalText.prefix(40))")
+        let providerID = engine.providerID.rawValue
         let previousState = status.state
         setStatus(state: .translating)
 
@@ -310,6 +322,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         let sourceLanguage = effectiveTranslationSource
         let targetLanguage = translationSettings.targetLanguageCode
         let originalText = segment.originalText
+        let translationStarted = Date()
         let context: TranslationContext?
         if translationSettings.isContextPolishEnabled,
            engine.supportsContextPolish,
@@ -333,13 +346,16 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 await MainActor.run {
                     self.lastTranslationError = (error as? LocalizedError)?.errorDescription
                         ?? error.localizedDescription
-                    Log.app.error("翻译失败：\(self.lastTranslationError ?? "未知错误")（源=\(sourceLanguage ?? "nil")，目标=\(targetLanguage)）")
+                    Log.app.error("翻译失败 provider=\(providerID)：\(self.lastTranslationError ?? "未知错误")（源=\(sourceLanguage ?? "nil")，目标=\(targetLanguage)）")
                 }
                 return nil
             }
         }.value
 
         guard active, !Task.isCancelled else { return }
+
+        let translationElapsedMs = Int(Date().timeIntervalSince(translationStarted) * 1000)
+        Log.app.debug("翻译完成 provider=\(providerID) 源=\(sourceLanguage ?? "nil") 目标=\(targetLanguage) 耗时=\(translationElapsedMs)ms 原文=\(originalText.prefix(40))")
 
         if let translated, !translated.isEmpty {
             translatedSegmentCount += 1
@@ -404,13 +420,19 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             if cursor + windowSize <= playbackTime - Self.staleSegmentTolerance {
                 let oldCursor = cursor
                 cursor = max(playbackTime, buffer.captureStart)
-                Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → 播放位置 \(String(format: "%.1f", self.playbackTime))s")
+                skippedWindowCount += 1
+                totalSkippedSeconds += cursor - oldCursor
+                Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → \(String(format: "%.1f", cursor))s（累计跳过 \(skippedWindowCount) 次 / \(String(format: "%.1f", totalSkippedSeconds))s）")
             }
 
             // 限制识别进度：只识别播放位置前方 maxLookahead 秒内的音频，
             // 避免本地视频无限向后识别导致长视频 UI 卡死。
             if cursor > playbackTime + maxLookahead {
-                Log.app.debug("识别已超前播放位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上")
+                let now = Date().timeIntervalSince1970
+                if now - lastAheadWaitLog >= 3 {
+                    lastAheadWaitLog = now
+                    Log.app.debug("识别已超前播放位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上（cursor=\(String(format: "%.1f", cursor))s）")
+                }
                 try? await Task.sleep(for: .milliseconds(500))
                 continue
             }
@@ -443,7 +465,6 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     currentLanguage = language
                 }
                 transcribedWindowCount += 1
-                Log.app.debug("识别窗口 \(String(format: "%.1f", windowStart))s 完成：segments=\(outcome.segmentCount) language=\(self.currentLanguage ?? "nil")")
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
                 // 识别成功，推进到下一个窗口
                 cursor += windowSize

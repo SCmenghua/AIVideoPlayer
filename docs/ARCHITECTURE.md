@@ -224,6 +224,9 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
   首窗自动检测语言后把语言代码传给后续窗口（避免中文 / 短音频逐窗检测失败）；
   设置页展示识别状态统计（模型加载 / 转写窗口 / 字幕产出）与「字幕记录」原文 / 译文，
   关键链路有 OSLog 日志，便于排查「识别正常但显示异常」。
+- 预读背压（Phase 8.18）：`AudioPipeline.setReadTarget` 让本地文件的 AssetReader 只预读
+  播放位置前方 30 秒，避免整轨解码造成主线程洪峰；`PCMBuffer` 用「存储数组 + 头下标」
+  环形窗口实现 O(1) 裁剪，替代旧实现逐块 `removeFirst` 的 O(n) 搬移。
 
 ### 8.3 TranslationEngine（Phase 7）
 
@@ -557,7 +560,11 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     （`recentSegments`）；识别循环后台线程化（`nonisolated`）方案无法编译、已撤回，
     `SubtitlePipeline.swift` 恢复 Phase 8.16 基线；同步修复字幕管线测试（对齐 8.16 失败重试语义、
     修复越界崩溃、测试结束关闭管线）；swift-ci 构建 + 测试全绿。
-36. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+36. **Phase 8.18（已完成，打包 0.8.18）**：修复长视频（10 分钟以上）开启字幕 + 翻译后
+    UI 卡死——音频采集链路整轨解码 + `PCMBuffer` 的 O(n) 裁剪在主线程造成近平方级卡顿；
+    改为环形缓冲 + `setReadTarget` 有限预读（30 秒）；新增「诊断与日志」二级菜单与
+    更有意义的识别 / 翻译日志。
+37. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。
