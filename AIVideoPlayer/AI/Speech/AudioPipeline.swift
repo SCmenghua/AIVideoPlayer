@@ -486,8 +486,4 @@ public final class MicrophoneAudioPipeline: AudioPipeline {
         accumulatedFrames = 0
     }
 
-    /// 推进预读目标：识别 / 播放位置前进时由字幕管线调用。
-    public func setReadTarget(_ time: TimeInterval) {
-        readTarget = time
-    }
 }
