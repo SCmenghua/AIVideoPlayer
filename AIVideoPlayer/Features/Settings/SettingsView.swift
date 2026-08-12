@@ -1,7 +1,6 @@
-import SwiftUI
+﻿import SwiftUI
 
-/// 设置页：AI 字幕、字幕语言、字幕显示、翻译服务、诊断与日志、隐私与关于。
-struct SettingsView: View {
+/// 璁剧疆椤碉細AI 瀛楀箷銆佸瓧骞曡瑷€銆佸瓧骞曟樉绀恒€佺炕璇戞湇鍔°€佽瘖鏂笌鏃ュ織銆侀殣绉佷笌鍏充簬銆?struct SettingsView: View {
     @Environment(AppEnvironment.self) private var environment
 
     var body: some View {
@@ -15,25 +14,25 @@ struct SettingsView: View {
                 sectionCard(
                     icon: "lock.shield",
                     tint: .green,
-                    title: "隐私",
+                    title: "闅愮",
                     lines: [
-                        "远程账号密码仅保存在本机 Keychain（Phase 2）",
-                        "不收集视频、字幕、浏览历史或服务器文件列表",
+                        "杩滅▼璐﹀彿瀵嗙爜浠呬繚瀛樺湪鏈満 Keychain锛圥hase 2锛?,
+                        "涓嶆敹闆嗚棰戙€佸瓧骞曘€佹祻瑙堝巻鍙叉垨鏈嶅姟鍣ㄦ枃浠跺垪琛?,
                     ]
                 )
                 sectionCard(
                     icon: "info.circle",
                     tint: .purple,
-                    title: "关于",
+                    title: "鍏充簬",
                     lines: [
-                        "AI Video Player · Phase 8.18（长视频卡顿修复 + 诊断中心）",
-                        "iOS 26 · Swift 6 · SwiftUI",
+                        "AI Video Player 路 Phase 8.18锛堥暱瑙嗛鍗￠】淇 + 璇婃柇涓績锛?,
+                        "iOS 26 路 Swift 6 路 SwiftUI",
                     ]
                 )
             }
             .padding(AppTheme.Spacing.md)
         }
-        .navigationTitle("设置")
+        .navigationTitle("璁剧疆")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -41,14 +40,12 @@ struct SettingsView: View {
         Task { await environment.subtitlePipeline.toggle() }
     }
 
-    // MARK: - 翻译服务（Phase 7）
-
+    // MARK: - LLM 设置 (本地模型 + API Key)锛圥hase 7锛?
     private var translationCard: some View {
         TranslationSettingsCard()
     }
 
-    // MARK: - 诊断与日志（Phase 8.18 二级菜单）
-
+    // MARK: - 璇婃柇涓庢棩蹇楋紙Phase 8.18 浜岀骇鑿滃崟锛?
     private var diagnosticsCard: some View {
         NavigationLink {
             DiagnosticsView()
@@ -60,10 +57,10 @@ struct SettingsView: View {
                         .foregroundStyle(.indigo)
                         .frame(width: 32)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("诊断与日志")
+                        Text("璇婃柇涓庢棩蹇?)
                             .font(.headline)
                             .foregroundStyle(.primary)
-                        Text("字幕记录 · 翻译记录 · 日志")
+                        Text("瀛楀箷璁板綍 路 缈昏瘧璁板綍 路 鏃ュ織")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -77,8 +74,7 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - AI 字幕（Phase 5）
-
+    // MARK: - AI 瀛楀箷锛圥hase 5锛?
     private var aiSubtitleCard: some View {
         GlassCard(tint: .blue) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -87,17 +83,17 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.blue)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("AI 实时字幕")
+                        Text("AI 瀹炴椂瀛楀箷")
                             .font(.headline)
-                        Text("本地 WhisperKit，模型已内置")
+                        Text("鏈湴 WhisperKit锛屾ā鍨嬪凡鍐呯疆")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     GlassTogglePill(
                         isOn: environment.subtitlePipeline.isActive,
-                        onTitle: "关闭",
-                        offTitle: "启用",
+                        onTitle: "鍏抽棴",
+                        offTitle: "鍚敤",
                         tint: .blue
                     ) {
                         withAnimation(.snappy) {
@@ -107,26 +103,25 @@ struct SettingsView: View {
                 }
 
                 VStack(alignment: .leading, spacing: AppTheme.Spacing.xxs) {
-                    Text("识别状态：\(environment.subtitlePipeline.status.state.title)")
+                    Text("璇嗗埆鐘舵€侊細\(environment.subtitlePipeline.status.state.title)")
                         .font(.caption.weight(.medium))
-                    Text("模型：\(environment.subtitlePipeline.status.isModelLoaded ? "已加载" : "未加载")"
-                        + (environment.subtitlePipeline.status.language.map { " · 识别语言：\($0)" } ?? ""))
+                    Text("妯″瀷锛歕(environment.subtitlePipeline.status.isModelLoaded ? "宸插姞杞? : "鏈姞杞?)"
+                        + (environment.subtitlePipeline.status.language.map { " 路 璇嗗埆璇█锛歕($0)" } ?? ""))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text("已转写 \(environment.subtitlePipeline.transcribedWindowCount) 个窗口 · 已产出 \(environment.subtitlePipeline.emittedSegmentCount) 条字幕 · 已翻译 \(environment.subtitlePipeline.translatedSegmentCount) 条")
+                    Text("宸茶浆鍐?\(environment.subtitlePipeline.transcribedWindowCount) 涓獥鍙?路 宸蹭骇鍑?\(environment.subtitlePipeline.emittedSegmentCount) 鏉″瓧骞?路 宸茬炕璇?\(environment.subtitlePipeline.translatedSegmentCount) 鏉?)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
-                Text("音频永远不会离开设备。")
+                Text("闊抽姘歌繙涓嶄細绂诲紑璁惧銆?)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
     }
 
-    // MARK: - 字幕语言（Phase 8.6）
-
+    // MARK: - 瀛楀箷璇█锛圥hase 8.6锛?
     private var subtitleLanguageCard: some View {
         SubtitleLanguageCard()
     }
@@ -152,8 +147,7 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - 字幕显示（Phase 6）
-
+    // MARK: - 瀛楀箷鏄剧ず锛圥hase 6锛?
     private var subtitleDisplayCard: some View {
         GlassCard(tint: .cyan) {
             VStack(alignment: .leading, spacing: AppTheme.Spacing.md) {
@@ -162,16 +156,16 @@ struct SettingsView: View {
                         .font(.title3.weight(.semibold))
                         .foregroundStyle(.cyan)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("字幕显示")
+                        Text("瀛楀箷鏄剧ず")
                             .font(.headline)
-                        Text("播放器叠加层：字号与位置")
+                        Text("鎾斁鍣ㄥ彔鍔犲眰锛氬瓧鍙蜂笌浣嶇疆")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
 
-                Picker("字号", selection: fontSizeBinding) {
+                Picker("瀛楀彿", selection: fontSizeBinding) {
                     ForEach(SubtitleFontSize.allCases) { size in
                         Text(size.title).tag(size)
                     }
@@ -182,7 +176,7 @@ struct SettingsView: View {
                     environment.subtitleDisplaySettings.resetPosition()
                 } label: {
                     HStack {
-                        Text("重置字幕位置")
+                        Text("閲嶇疆瀛楀箷浣嶇疆")
                         Spacer()
                         Image(systemName: "arrow.counterclockwise")
                     }
