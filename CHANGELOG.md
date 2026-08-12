@@ -37,7 +37,7 @@
 
 ### Changed
 
-- `MARKETING_VERSION` 提升至 0.8.18；两个 IPA 工作流默认版本同步为 0.8.18。
+- `MARKETING_VERSION` 提升至 0.8.18；两个 IPA 工作流默认版本同步为 0.8.18；swift-ci 构建 + 单元测试全绿。
 
 ## [0.8.17] - 2026-08-12
 
