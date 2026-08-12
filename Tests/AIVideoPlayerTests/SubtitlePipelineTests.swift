@@ -25,7 +25,7 @@ struct SubtitlePipelineTests {
         await pipeline.preparePlayback(from: 0)
         emitSeconds(source, seconds: 5, start: 0)
 
-        await waitUntil { pipeline.status.state == .ready }
+        await waitUntil { pipeline.emittedSegmentCount >= 1 }
         #expect(recognizer.transcriptionCalls.count >= 1)
         // 实时路径：始终透出 partial。
         #expect(recognizer.lastCall?.emitPartial == true)
