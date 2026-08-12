@@ -1,4 +1,4 @@
-﻿name: Swift CI
+name: Swift CI
 
 on:
   push:
@@ -27,13 +27,13 @@ jobs:
         run: |
           XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1)
           if [ -z "$XCODE_APP" ]; then
-            echo "::error::鏈湪 /Applications 鎵惧埌 Xcode"
+            echo "::error::?? /Applications ?? Xcode"
             exit 1
           fi
           sudo xcode-select -s "$XCODE_APP"
           xcodebuild -version
           xcodebuild -showsdks | grep -q 'iphoneos' || {
-            echo "::error::缂哄皯 iOS SDK"
+            echo "::error::?? iOS SDK"
             exit 1
           }
 
@@ -42,12 +42,15 @@ jobs:
 
       - name: Fix project.yml encoding
         run: |
-          iconv -f UTF-8 -t UTF-8 project.yml 2>/dev/null || cat project.yml > /tmp/project.yml.tmp && mv /tmp/project.yml.tmp project.yml
-          echo "project.yml encoding fixed"
-      - name: Fix project.yml encoding
-        run: |
-          iconv -f UTF-8 -t UTF-8 project.yml 2>/dev/null || cat project.yml > /tmp/project.yml.tmp && mv /tmp/project.yml.tmp project.yml
-          echo "project.yml encoding fixed"
+          if iconv -f UTF-8 -t UTF-8 project.yml >/dev/null 2>&1; then
+            echo "project.yml already valid UTF-8"
+          elif iconv -f GB18030 -t UTF-8 project.yml > project.yml.tmp 2>/dev/null && [ -s project.yml.tmp ]; then
+            mv project.yml.tmp project.yml
+            echo "project.yml converted to UTF-8"
+          else
+            rm -f project.yml.tmp
+            echo "::warning::could not normalize project.yml encoding"
+          fi
 
       - name: Generate Xcode project
         run: xcodegen generate
@@ -72,7 +75,7 @@ jobs:
         run: |
           SIM_NAME=$(xcrun simctl list devices available | grep -Eo 'iPhone [^(]+' | head -n 1 | xargs)
           if [ -z "$SIM_NAME" ]; then
-            echo "::error::娌℃湁鍙敤鐨?iPhone 妯℃嫙鍣?
+            echo "::error::????? iPhone ???"
             exit 1
           fi
           echo "Test simulator: $SIM_NAME"
@@ -87,5 +90,3 @@ jobs:
             -destination "platform=iOS Simulator,name=$SIM_NAME" \
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO
-
-
