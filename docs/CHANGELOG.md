@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 本项目的所有重要变更都会记录在此文件中。
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
@@ -8,7 +8,7 @@
 
 ### 待规划
 
-- Phase 9：Liquid Glass 深化（变形过渡）、性能、测试与错误处理
+-  - **Phase 9**：Phase 9：增加LLM功能\n- LLM 模型集成、提示词优化、推理加速\n - **Phase 10**：新的Phase 10计划（用户提供的Phase 10计划）\n - **Phase 11**：新的Phase 11计划（用户提供的Phase 11计划）\n - **Phase 12**：原Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## [0.8.18] - 2026-08-13
 

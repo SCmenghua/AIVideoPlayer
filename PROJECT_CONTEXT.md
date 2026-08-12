@@ -1,4 +1,4 @@
-# AI Video Player - 项目上下文速览
+﻿# AI Video Player - 项目上下文速览
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
@@ -375,7 +375,7 @@ open AIVideoPlayer.xcodeproj
 - **Phase**：8.18
 - **版本**：0.8.18
 - **状态**：✅ 修复长视频 UI 卡死 + 诊断中心；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
+- **下一步**：Phase 9 —— 增加LLM功能\n- LLM 模型集成、提示词优化、推理加速\nPhase 10 —— 增加新的浏览器功能\n- 增强功能（如标签页管理、PWA 支持、扩展）\nPhase 11 —— 待定\n- 后续功能规划中\nPhase 12 —— 原Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
 
 ## 注意事项
 
