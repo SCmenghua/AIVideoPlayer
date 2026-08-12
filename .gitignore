@@ -28,3 +28,6 @@ AIVideoPlayer/Resources/Samples/*
 
 # OS
 .DS_Store
+
+# Claude worktrees（内部工作树，禁止提交）
+.claude/worktrees/
