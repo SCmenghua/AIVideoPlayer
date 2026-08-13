@@ -19,6 +19,9 @@ final class PlayerViewModel {
     var isControlsVisible = true
     var isScrubbing = false
     var seekTarget: TimeInterval = 0
+    /// 是否正在等待首批批量翻译（播放前门控，Phase 9.3.2）。
+    var isWaitingForTranslation = false
+    var translationWaitReason: String?
 
     private let engine: any PlaybackEngine
     private var subtitlePipeline: SubtitlePipeline?
@@ -130,6 +133,8 @@ final class PlayerViewModel {
         duration = 0
         isScrubbing = false
         seekTarget = 0
+        isWaitingForTranslation = false
+        translationWaitReason = nil
         subtitlePipeline?.handlePlaybackEnded()
 
         loadTask = Task { [weak self] in
@@ -219,8 +224,27 @@ final class PlayerViewModel {
 
     private func play() async {
         await prepareAIForPlayback(from: currentTime)
+        if subtitlePipeline?.shouldWaitBeforePlayback == true {
+            isWaitingForTranslation = true
+            translationWaitReason = subtitlePipeline?.translationWaitReason
+            return
+        }
+        isWaitingForTranslation = false
         await engine.play()
         playbackState = engine.state
+    }
+
+    /// 首批批量翻译完成后由视图触发：解除等待并真正开始播放。
+    func resumePlaybackIfWaiting() {
+        guard isWaitingForTranslation else { return }
+        guard subtitlePipeline?.shouldWaitBeforePlayback == false else { return }
+        isWaitingForTranslation = false
+        translationWaitReason = nil
+        Task { [weak self] in
+            guard let self else { return }
+            await self.engine.play()
+            self.playbackState = self.engine.state
+        }
     }
 
     /// 从引擎同步状态/进度到 UI：与 stateStream / progressStream 双通道并存，

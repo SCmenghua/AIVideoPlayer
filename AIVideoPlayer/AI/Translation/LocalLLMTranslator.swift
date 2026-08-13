@@ -6,7 +6,7 @@ import Tokenizers
 /// 本地 LLM Provider（MLX Swift + Gemma 4 E2B 4-bit）。
 /// 模型按需下载（`LocalModelDownloadManager`），下载完成后加载推理，完全离线。
 @MainActor
-public final class LocalLLMTranslator: TranslationEngine {
+public final class LocalLLMTranslator: TranslationEngine, TranslationBatchCapable {
     public var providerID: TranslationProviderID { .localLLM }
     public var displayName: String { TranslationProviderCatalog.localLLM.displayName }
     public var isFullyLocal: Bool { true }
@@ -55,6 +55,17 @@ public final class LocalLLMTranslator: TranslationEngine {
         return try await session.respond(to: prompt)
     }
 
+    public func translateBatch(_ request: TranslationBatchRequest) async throws -> [String] {
+        guard !request.texts.isEmpty else { return [] }
+        let session = try await ensureLoaded()
+        let prompt = TranslationBatchPrompt.build(
+            texts: request.texts,
+            targetLanguage: request.targetLanguage,
+            context: request.context
+        )
+        let raw = try await session.respond(to: prompt)
+        return try TranslationBatchResponse.parse(raw, expectedCount: request.texts.count)
+    }
     // MARK: - 模型加载
 
     private func ensureLoaded() async throws -> ChatSession {

@@ -39,6 +39,18 @@ public final class SubtitleTranscriptStore {
     }
 
     /// 立即刷新所有待提交的字幕到 segments（触发 UI 更新）。
+    /// 按 id 更新某条已写入字幕的译文（批量翻译回填用，Phase 9.3.2）。
+    /// 返回该字幕的原文；找不到对应字幕时返回 nil。
+    @discardableResult
+    public func updateTranslation(id: UUID, translatedText: String) -> String? {
+        if !pendingSegments.isEmpty { flush() }
+        guard let index = segments.firstIndex(where: { $0.id == id }) else { return nil }
+        let original = segments[index].originalText
+        var updated = segments[index]
+        updated.translatedText = translatedText
+        segments[index] = updated
+        return original
+    }
     public func flush() {
         flushTask?.cancel()
         flushTask = nil

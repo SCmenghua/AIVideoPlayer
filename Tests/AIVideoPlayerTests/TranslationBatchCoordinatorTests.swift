@@ -1,0 +1,167 @@
+import Foundation
+import Testing
+@testable import AIVideoPlayer
+
+@MainActor
+struct TranslationBatchCoordinatorTests {
+
+    @Test func initialBatchFiresWhenEnoughContentAndMapsResults() async {
+        var received: [UUID: String] = [:]
+        var initialCompleted = false
+
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 10,
+                minimumBatchDuration: 5
+            ),
+            translator: { texts in
+                texts.map { "译-\($0)" }
+            },
+            onTranslated: { mapping in
+                received.merge(mapping) { _, new in new }
+            },
+            onInitialBatchCompleted: {
+                initialCompleted = true
+            }
+        )
+
+        for index in 0..<3 {
+            coordinator.submit(makeSegment(index: index))
+        }
+
+        await waitUntil { received.count == 3 }
+
+        #expect(received.count == 3)
+        #expect(initialCompleted)
+        #expect(coordinator.requestCount == 1)
+        #expect(coordinator.didCompleteInitialBatch)
+        #expect(coordinator.pendingItems.isEmpty)
+    }
+
+    @Test func refillTriggersOnlyWhenReserveLowAndEnoughPending() async {
+        var received: [UUID: String] = [:]
+        var initialCompleted = false
+
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 10,
+                minimumBatchDuration: 5
+            ),
+            translator: { texts in
+                texts.map { "译-\($0)" }
+            },
+            onTranslated: { mapping in
+                received.merge(mapping) { _, new in new }
+            },
+            onInitialBatchCompleted: {
+                initialCompleted = true
+            }
+        )
+
+        for index in 0..<3 {
+            coordinator.submit(makeSegment(index: index))
+        }
+        await waitUntil { received.count == 3 }
+        #expect(initialCompleted)
+        #expect(coordinator.requestCount == 1)
+
+        for index in 3..<5 {
+            coordinator.submit(makeSegment(index: index))
+        }
+        await waitUntil { coordinator.requestCount == 2 }
+
+        #expect(coordinator.requestCount == 2)
+        #expect(received.count == 5)
+    }
+
+    @Test func failureSetsErrorAndCompletesInitialBatchWithoutTranslating() async {
+        var received: [UUID: String] = [:]
+        var initialCompleted = false
+
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 10,
+                minimumBatchDuration: 5
+            ),
+            translator: { _ in
+                throw TranslationBatchError.emptyResponse
+            },
+            onTranslated: { mapping in
+                received.merge(mapping) { _, new in new }
+            },
+            onInitialBatchCompleted: {
+                initialCompleted = true
+            }
+        )
+
+        for index in 0..<3 {
+            coordinator.submit(makeSegment(index: index))
+        }
+        await waitUntil { initialCompleted }
+
+        #expect(initialCompleted)
+        #expect(coordinator.lastError != nil)
+        #expect(received.isEmpty)
+    }
+
+    @Test func resetClearsState() async {
+        var received: [UUID: String] = [:]
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 10,
+                minimumBatchDuration: 5
+            ),
+            translator: { texts in
+                texts.map { "译-\($0)" }
+            },
+            onTranslated: { mapping in
+                received.merge(mapping) { _, new in new }
+            }
+        )
+
+        coordinator.submit(makeSegment(index: 0))
+        await waitUntil { received.count == 1 }
+        #expect(coordinator.requestCount == 1)
+
+        coordinator.reset()
+
+        #expect(coordinator.pendingItems.isEmpty)
+        #expect(!coordinator.isRequestInFlight)
+        #expect(!coordinator.didCompleteInitialBatch)
+        #expect(coordinator.translatedThrough == 0)
+        #expect(coordinator.translatedAhead == 0)
+        #expect(coordinator.lastError == nil)
+    }
+
+    // MARK: - Helpers
+
+    private func makeSegment(index: Int) -> SubtitleSegment {
+        let start = Double(index) * 4
+        return SubtitleSegment(
+            startTime: start,
+            endTime: start + 4,
+            originalText: "line\(index)",
+            confidence: 1,
+            isPartial: false
+        )
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval = 2,
+        _ condition: @MainActor () -> Bool
+    ) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            await Task.yield()
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+}

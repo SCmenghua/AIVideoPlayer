@@ -8,8 +8,22 @@
 
 ### 待规划
 
-- Phase 9.3：LLM 功能深化——模型集成、提示词优化、推理加速
+- Phase 9.4：LLM 功能深化——提示词优化、推理加速、更多模型
 - 后续：新浏览器功能、Liquid Glass 深化、性能优化与测试（编号后续规划）
+
+## [0.9.3] - 2026-08-13
+
+### Added（Phase 9.3 LLM 批量翻译与播放等待）
+
+- 新增 `TranslationBatchCapable` 批量翻译协议 + `TranslationBatchPrompt` / `TranslationBatchResponse`
+- 新增 `TranslationBatchCoordinator`：低水位 20s + 批量窗口 60s + 单 in-flight + 失败不阻塞播放
+- LLM 模式识别前瞻放宽到 60s、AssetReader 预读放宽到 70s（普通模式仍为 10s / 30s）
+- 播放前等待首批批量翻译，并显示「正在等待大模型返回结果 / 正在等待网络视频」提示
+
+### Changed（Phase 9.3）
+
+- `SubtitlePipeline` final 段改为「先写原文、批量翻译、按 id 回填译文」
+- `MARKETING_VERSION` 定为 0.9.3
 
 ## [0.9.2] - 2026-08-13
 

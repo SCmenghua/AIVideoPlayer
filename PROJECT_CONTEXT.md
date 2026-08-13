@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.2（2026-08-13）  
-**当前 Phase**：9.2（翻译引擎卡片 + 本地大模型 + API Key）
+**当前版本**：0.9.3（2026-08-13）  
+**当前 Phase**：9.3（LLM 批量翻译 + 播放等待门控 + 1 分钟前瞻）
 
 ## 核心功能
 
@@ -82,6 +82,13 @@ open AIVideoPlayer.xcodeproj
 - **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
+
+- **Phase 9.3（2026-08-13 打包 0.9.3）**：LLM 翻译性能优化——批量翻译 + 播放等待门控 + 1 分钟识别前瞻——
+  新增 `TranslationBatchCapable`（Cloud / Local LLM 实现）、`TranslationBatchPrompt` / `TranslationBatchResponse`
+  与 `TranslationBatchCoordinator`（水位线 20s + 批量窗口 60s + 单 in-flight + 失败不阻塞播放）；`SubtitlePipeline`
+  在 LLM 模式下 final 段先写原文、按批量回填译文；播放前等待首批返回（`shouldWaitBeforePlayback` +
+  `PlayerView` 覆盖层提示「正在等待大模型返回结果 / 正在等待网络视频」）；识别前瞻在大模型模式下放宽到 60s、
+  AssetReader 预读放宽到 70s，普通模式保持 10s / 30s；swift-ci 构建 + 单元测试全绿；`MARKETING_VERSION` 定为 0.9.3。
 
 - **Phase 9.2（2026-08-13 打包 0.9.2）**：翻译引擎（系统内置翻译 / 本地大模型 / API Key）正式落地——
   设置页新增与「字幕语言 / 字幕显示」同级的「翻译引擎」卡片，三选一切换并接通字幕管线；
@@ -378,10 +385,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.2
-- **版本**：0.9.2
-- **状态**：✅ 翻译引擎卡片与「字幕语言 / 字幕显示」同级，系统内置翻译 / 本地大模型 / API Key 三选一切换；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9.3 —— LLM 功能深化（模型集成、提示词优化、推理加速）
+- **Phase**：9.3
+- **版本**：0.9.3
+- **状态**：✅ LLM 批量翻译 + 播放等待门控 + 1 分钟识别前瞻；系统翻译仍为逐条即时翻译；swift-ci 构建 + 单元测试全绿
+- **下一步**：Phase 9.4 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项
 

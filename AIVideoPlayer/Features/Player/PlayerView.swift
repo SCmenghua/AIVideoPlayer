@@ -49,6 +49,11 @@ struct PlayerView: View {
                 subtitleOverlay?.reset()
             }
         }
+        .onChange(of: environment.subtitlePipeline.shouldWaitBeforePlayback) { _, waiting in
+            if !waiting {
+                viewModel.resumePlaybackIfWaiting()
+            }
+        }
     }
 
     /// 惰性创建 Overlay ViewModel（@State 跨全屏 / Tab 切换保留同一实例）。
@@ -131,8 +136,24 @@ struct PlayerView: View {
             }
 
             if case .loading = viewModel.playbackState {
-                ProgressView()
-                    .tint(.white)
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    ProgressView()
+                        .tint(.white)
+                    Text("正在等待网络视频…")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                }
+            }
+
+            if viewModel.isWaitingForTranslation {
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    ProgressView()
+                        .tint(.white)
+                    Text(viewModel.translationWaitReason ?? "正在等待大模型返回结果…")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                }
+                .padding(AppTheme.Spacing.lg)
             }
 
             if case .failed(let message) = viewModel.playbackState {
@@ -183,6 +204,17 @@ private struct FullscreenPlayerView: View {
                 subtitleOverlay: subtitleOverlay,
                 currentTime: viewModel.currentTime
             )
+
+            if viewModel.isWaitingForTranslation {
+                VStack(spacing: AppTheme.Spacing.sm) {
+                    ProgressView()
+                        .tint(.white)
+                    Text(viewModel.translationWaitReason ?? "正在等待大模型返回结果…")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                }
+                .padding(AppTheme.Spacing.lg)
+            }
 
             if viewModel.isControlsVisible {
                 VStack {

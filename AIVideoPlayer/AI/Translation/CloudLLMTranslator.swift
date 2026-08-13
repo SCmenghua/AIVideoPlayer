@@ -33,7 +33,7 @@ public enum CloudLLMError: LocalizedError, Sendable {
 /// 云端 LLM Provider（OpenAI 兼容 ChatCompletions）。
 /// apiKey 存 Keychain；启用前必须展示隐私提示；「测试连接」成功后才允许启用。
 @MainActor
-public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionTesting {
+public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionTesting, TranslationBatchCapable {
     public var providerID: TranslationProviderID { .cloudLLM }
     public var displayName: String { TranslationProviderCatalog.cloudLLM.displayName }
     public var isFullyLocal: Bool { false }
@@ -84,6 +84,19 @@ public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionT
         _ = try Self.extractContent(from: data, decoder: decoder)
     }
 
+    public func translateBatch(_ request: TranslationBatchRequest) async throws -> [String] {
+        guard !request.texts.isEmpty else { return [] }
+        let config = try resolvedConfig()
+        let prompt = TranslationBatchPrompt.build(
+            texts: request.texts,
+            targetLanguage: request.targetLanguage,
+            context: request.context
+        )
+        let urlRequest = try makeRequest(config: config, prompt: prompt)
+        let data = try await perform(request: urlRequest)
+        let content = try Self.extractContent(from: data, decoder: decoder)
+        return try TranslationBatchResponse.parse(content, expectedCount: request.texts.count)
+    }
     // MARK: - Prompt
 
     static func buildPrompt(

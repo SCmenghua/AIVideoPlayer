@@ -18,6 +18,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public private(set) var translatedSegmentCount = 0
     /// 最近一次翻译失败原因（成功 / 尚未翻译时为 nil），供设置页诊断展示。
     public private(set) var lastTranslationError: String?
+    /// 是否正在使用批量翻译（仅 LLM 类 Provider，Phase 9.3.2）。
+    public private(set) var isUsingBatchTranslation = false
+    /// 首批批量翻译是否已完成（用于播放前等待门控）。
+    public private(set) var initialBatchCompleted = false
     public let statusStream: AsyncStream<AISubtitleStatus>
 
     private let translationSettings: TranslationSettings
@@ -45,6 +49,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var forwardTask: Task<Void, Never>?
     private var cachedTranslationEngine: (any TranslationEngine)?
     private var cachedEngineKey: String?
+    private var batchCoordinator: TranslationBatchCoordinator?
+    /// 当前音频来源是否可预读（AssetReader 可预读；实时 Tap 不可）。
+    private var sourceCanPreload = false
     /// 已跳过的落后识别窗口数（统计用）。
     private var skippedWindowCount = 0
     /// 跳过落后窗口累计跳过的秒数。
@@ -57,6 +64,16 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     /// 是否已启用。
     public var isActive: Bool {
         active
+    }
+
+    /// 播放前是否需要等待首批批量翻译（仅 LLM 模式 + 可预读来源）。
+    public var shouldWaitBeforePlayback: Bool {
+        active && isUsingBatchTranslation && !initialBatchCompleted && sourceCanPreload
+    }
+
+    /// 播放前等待时的提示文案（Phase 9.3.2）。
+    public var translationWaitReason: String? {
+        shouldWaitBeforePlayback ? "正在等待大模型返回结果…" : nil
     }
 
     public init(
@@ -121,6 +138,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             await source?.stop()
             source = nil
             sourceItemID = engine.currentItem?.id
+            sourceCanPreload = false
+            batchCoordinator?.reset()
+            initialBatchCompleted = false
         }
         if let source {
             await source.reset(to: time)
@@ -129,8 +149,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             self.source = await makeSource(engine: engine, at: time)
         }
         guard let source else { return }
-        source.setReadTarget(time + Self.readAheadLimit)
-        Log.app.debug("字幕音频来源就绪 kind=\(source.sourceKind == .microphone ? "mic" : "player") 预读目标=\(String(format: "%.1f", time + Self.readAheadLimit))s")
+        source.setReadTarget(time + readAheadLimit)
+        Log.app.debug("字幕音频来源就绪 kind=\(source.sourceKind == .microphone ? "mic" : "player") 预读目标=\(String(format: "%.1f", time + readAheadLimit))s")
 
         buffer.reset(to: time)
         consumeChunks(from: source)
@@ -151,7 +171,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func updatePlaybackPosition(_ time: TimeInterval) {
         playbackTime = time
         // 推进预读目标，让 AssetReader 保持有限前瞻，而不是整轨解码。
-        source?.setReadTarget(time + Self.readAheadLimit)
+        source?.setReadTarget(time + readAheadLimit)
+        batchCoordinator?.updatePlaybackTime(time)
     }
 
     public func handleSeek(to time: TimeInterval) async {
@@ -160,13 +181,16 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         stopLoops()
         await recognizer?.discardPendingResults()
         buffer.reset(to: time)
-        source?.setReadTarget(time + Self.readAheadLimit)
+        source?.setReadTarget(time + readAheadLimit)
+        batchCoordinator?.reset()
+        initialBatchCompleted = false
     }
 
     /// 翻译设置变更后刷新：丢弃缓存的翻译引擎，下次翻译按新设置重建。
     public func rebuildTranslationEngine() {
         cachedTranslationEngine = nil
         cachedEngineKey = nil
+        rebuildBatchCoordinator()
     }
 
     // MARK: - 激活 / 关闭
@@ -176,6 +200,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         Log.app.info("激活字幕管线")
         active = true
         generation += 1
+        rebuildBatchCoordinator()
         currentLanguage = nil
         modelLoaded = false
         setStatus(state: .loading)
@@ -213,6 +238,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         recognizer = nil
         source = nil
         sourceItemID = nil
+        sourceCanPreload = false
+        batchCoordinator?.reset()
+        batchCoordinator = nil
+        isUsingBatchTranslation = false
+        initialBatchCompleted = false
         buffer.reset(to: playbackTime)
         // 确保所有待提交的字幕都已写入
         transcript.flush()
@@ -221,8 +251,16 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     /// 过期片段判定容差（秒）：允许轻微的时钟偏差，避免误删边界片段。
     private static let staleSegmentTolerance: TimeInterval = 1
+    /// 识别前瞻上限（秒）：大模型批量模式放宽到 60s（Phase 9.3.3），普通模式保持 10s。
+    private var recognitionLookahead: TimeInterval {
+        isUsingBatchTranslation ? 60 : 10
+    }
+
     /// 预读前瞻上限（秒）：AssetReader 只预读播放位置前方这么多音频。
-    private static let readAheadLimit: TimeInterval = 30
+    /// 大模型批量模式放宽到 70s，普通模式保持 30s，避免整轨解码卡死。
+    private var readAheadLimit: TimeInterval {
+        isUsingBatchTranslation ? 70 : 30
+    }
 
     // MARK: - 管线组装
 
@@ -243,6 +281,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             // 本地文件：优先用 AssetReader 预读。
             let reader = readerSourceFactory(item)
             if (try? await reader.start(at: time)) != nil {
+                sourceCanPreload = true
                 return reader
             }
         }
@@ -250,9 +289,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         // 网络资源 / HLS / AssetReader 失败回退：用实时 Tap。
         let tapSource = playerSourceFactory(engine)
         if (try? await tapSource.start(at: time)) != nil {
+            sourceCanPreload = false
             return tapSource
         }
 
+        sourceCanPreload = false
         setStatus(state: .error)
         return nil
     }
@@ -297,7 +338,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     if segment.endTime + Self.staleSegmentTolerance < self.playbackTime {
                         continue
                     }
-                    await self.translateAndYield(segment)
+                    await self.handleFinalSegment(segment)
                 }
             }
         }
@@ -373,6 +414,82 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         }
     }
 
+    /// final 段处理（Phase 9.3.2）：批量翻译模式先写原文再进协调器；
+    /// 非批量模式走原来的逐条翻译。
+    private func handleFinalSegment(_ segment: SubtitleSegment) async {
+        if isUsingBatchTranslation, let batchCoordinator {
+            forwardSegment(segment)
+            batchCoordinator.submit(segment)
+            return
+        }
+        await translateAndYield(segment)
+    }
+
+    /// 依据当前 Provider 重建批量翻译协调器（仅 LLM 类 Provider 启用）。
+    private func rebuildBatchCoordinator() {
+        batchCoordinator?.reset()
+        batchCoordinator = nil
+        isUsingBatchTranslation = false
+        initialBatchCompleted = false
+
+        guard active, translationSettings.isEnabled,
+              let engine = makeTranslationEngine(),
+              engine is TranslationBatchCapable
+        else { return }
+
+        // 首批填充 60s：与识别前瞻 60s 对齐，播放前先攒出 1 分钟内容再批量翻译。
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 60,
+                minimumBatchDuration: 5
+            ),
+            translator: { [weak self] texts in
+                guard let self,
+                      let base = self.makeTranslationEngine(),
+                      let engine = base as? TranslationBatchCapable
+                else {
+                    throw TranslationBatchError.emptyResponse
+                }
+                let request = TranslationBatchRequest(
+                    texts: texts,
+                    sourceLanguage: self.effectiveTranslationSource,
+                    targetLanguage: self.translationSettings.targetLanguageCode,
+                    context: self.makeTranslationContext()
+                )
+                return try await engine.translateBatch(request)
+            },
+            onTranslated: { [weak self] mapping in
+                guard let self else { return }
+                for (id, translated) in mapping {
+                    if let original = self.transcript.updateTranslation(
+                        id: id, translatedText: translated
+                    ) {
+                        self.translatedSegmentCount += 1
+                        self.contextProvider.record(original: original, translated: translated)
+                    }
+                }
+                self.lastTranslationError = nil
+            },
+            onInitialBatchCompleted: { [weak self] in
+                guard let self else { return }
+                self.initialBatchCompleted = true
+                if self.status.state == .translating {
+                    self.setStatus(state: .ready)
+                }
+            }
+        )
+        batchCoordinator = coordinator
+        isUsingBatchTranslation = true
+    }
+
+    /// 批量翻译的剧情上下文（仅剧情理解润色开启时提供）。
+    private func makeTranslationContext() -> TranslationContext? {
+        guard translationSettings.isContextPolishEnabled,
+              contextProvider.hasRecentEntries else { return nil }
+        return contextProvider.makeContext()
+    }
     private func makeTranslationEngine() -> (any TranslationEngine)? {
         let key = translationSettings.engineCacheKey
         if let cachedTranslationEngine, cachedEngineKey == key {
@@ -408,8 +525,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     private func runRecognitionLoop(generation: Int) async {
         let windowSize: TimeInterval = 5
-        // 识别前瞻窗口：只识别当前播放位置前后各 10 秒的内容，避免无限识别整个视频
-        let maxLookahead: TimeInterval = 10
+        // 识别前瞻窗口：只识别当前播放位置前方 recognitionLookahead 秒内的音频，
+        // 避免无限识别整个视频；大模型批量模式放宽到 60s 以便攒出首批批量内容。
+        let maxLookahead = recognitionLookahead
         var cursor = buffer.captureStart
 
         while active && self.generation == generation && !Task.isCancelled {
