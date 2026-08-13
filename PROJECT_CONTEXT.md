@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.3（2026-08-13）  
-**当前 Phase**：9.3（LLM 批量翻译 + 播放等待门控 + 1 分钟前瞻）
+**当前版本**：0.9.4（2026-08-13）  
+**当前 Phase**：9.4（等待门控卡死修复 + 批量翻译可观测）
 
 ## 核心功能
 
@@ -82,6 +82,13 @@ open AIVideoPlayer.xcodeproj
 - **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
+
+- **Phase 9.4（2026-08-13 打包 0.9.4）**：修复等待门控卡死 + 批量翻译可观测——
+  修复短视频（不足 60s 首批窗口）因 `initialFillDuration` 永远凑不满而卡死在「等待大模型返回结果」；
+  新增 `TranslationBatchCoordinator.flushPendingNow()`，识别停滞时由 `SubtitlePipeline.handleRecognitionStall()`
+  立即把已识别内容打包发送；首批翻译失败改为重排队列 + 退避重试、不放行播放（不显示原文），
+  后续批次失败保持原文显示；批量翻译新增日志（发送条数 / 收到回复条数与耗时 / 失败原因）；
+  `MARKETING_VERSION` 定为 0.9.4。
 
 - **Phase 9.3（2026-08-13 打包 0.9.3）**：LLM 翻译性能优化——批量翻译 + 播放等待门控 + 1 分钟识别前瞻——
   新增 `TranslationBatchCapable`（Cloud / Local LLM 实现）、`TranslationBatchPrompt` / `TranslationBatchResponse`
@@ -385,10 +392,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.3
-- **版本**：0.9.3
-- **状态**：✅ LLM 批量翻译 + 播放等待门控 + 1 分钟识别前瞻；系统翻译仍为逐条即时翻译；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9.4 —— LLM 功能深化（提示词优化、推理加速、更多模型）
+- **Phase**：9.4
+- **版本**：0.9.4
+- **状态**：✅ 修复等待门控卡死；首批失败重试不放行播放；批量翻译发送/回复/失败均有日志；swift-ci 构建 + 单元测试全绿
+- **下一步**：Phase 9.5 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项
 

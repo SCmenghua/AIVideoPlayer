@@ -52,6 +52,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var batchCoordinator: TranslationBatchCoordinator?
     /// 当前音频来源是否可预读（AssetReader 可预读；实时 Tap 不可）。
     private var sourceCanPreload = false
+    /// 识别最后一次取得进展的时间（用于判断「识别停滞」）。
+    private var lastRecognitionProgressTime: Date?
+    /// 本代识别循环是否已因停滞触发过 flush。
+    private var didNotifyStalledForGeneration = false
     /// 已跳过的落后识别窗口数（统计用）。
     private var skippedWindowCount = 0
     /// 跳过落后窗口累计跳过的秒数。
@@ -129,6 +133,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         guard active else { return }
         Log.app.debug("字幕管线 preparePlayback from=\(String(format: "%.1f", time)) active=\(self.active)")
         generation += 1
+        lastRecognitionProgressTime = nil
+        didNotifyStalledForGeneration = false
         stopLoops()
         await recognizer?.discardPendingResults()
 
@@ -178,6 +184,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func handleSeek(to time: TimeInterval) async {
         playbackTime = time
         generation += 1
+        lastRecognitionProgressTime = nil
+        didNotifyStalledForGeneration = false
         stopLoops()
         await recognizer?.discardPendingResults()
         buffer.reset(to: time)
@@ -458,7 +466,18 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     targetLanguage: self.translationSettings.targetLanguageCode,
                     context: self.makeTranslationContext()
                 )
-                return try await engine.translateBatch(request)
+                Log.app.info("批量翻译发送 provider=\(engine.providerID.rawValue) 条数=\(texts.count) 目标=\(request.targetLanguage) 首段=\(texts.first.map { String($0.prefix(20)) } ?? "")")
+                let startedAt = Date()
+                do {
+                    let result = try await engine.translateBatch(request)
+                    Log.app.info("批量翻译收到回复 provider=\(engine.providerID.rawValue) 条数=\(result.count) 耗时=\(Int(Date().timeIntervalSince(startedAt) * 1000))ms")
+                    return result
+                } catch {
+                    self.lastTranslationError = (error as? LocalizedError)?.errorDescription
+                        ?? error.localizedDescription
+                    Log.app.error("批量翻译失败 provider=\(engine.providerID.rawValue) 原因=\(self.lastTranslationError ?? "未知错误")")
+                    throw error
+                }
             },
             onTranslated: { [weak self] mapping in
                 guard let self else { return }
@@ -558,6 +577,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             guard let samples = buffer.extract(from: cursor, to: cursor + windowSize) else {
                 // 音频尚未缓冲到目标窗口：节流记录，便于确认识别等待的是音频还是模型。
                 logBufferWaitIfNeeded(windowStart: cursor)
+                handleRecognitionStall()
                 try? await Task.sleep(for: .milliseconds(120))
                 continue
             }
@@ -586,6 +606,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
                 // 识别成功，推进到下一个窗口
                 cursor += windowSize
+                lastRecognitionProgressTime = Date()
+                didNotifyStalledForGeneration = false
             } catch is CancellationError {
                 // 真正的取消：循环任务被 stopLoops / 换片 / seek 取消，
                 // 或 generation 已变化（新会话接管），此时才应退出。
@@ -611,6 +633,16 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         guard newStatus != status else { return }
         status = newStatus
         statusContinuation.yield(newStatus)
+    }
+
+    /// 本地可预读来源在识别停滞时，把已识别的 pending 立即 flush 出去，
+    /// 避免短视频（不足首批窗口）永远凑不满导致等待门控死锁。
+    private func handleRecognitionStall() {
+        guard sourceCanPreload, !initialBatchCompleted, !didNotifyStalledForGeneration,
+              let last = lastRecognitionProgressTime,
+              Date().timeIntervalSince(last) >= 3 else { return }
+        didNotifyStalledForGeneration = true
+        batchCoordinator?.flushPendingNow()
     }
 
     /// 音频缓冲等待日志（节流：状态变化或每 3 秒一次，避免刷屏）。

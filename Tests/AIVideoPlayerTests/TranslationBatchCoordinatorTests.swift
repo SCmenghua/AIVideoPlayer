@@ -78,7 +78,38 @@ struct TranslationBatchCoordinatorTests {
         #expect(received.count == 5)
     }
 
-    @Test func failureSetsErrorAndCompletesInitialBatchWithoutTranslating() async {
+    @Test func flushPendingNowFiresWithPartialContent() async {
+        var received: [UUID: String] = [:]
+        let coordinator = TranslationBatchCoordinator(
+            configuration: .init(
+                batchWindow: 60,
+                lowWatermark: 20,
+                initialFillDuration: 60,
+                minimumBatchDuration: 5
+            ),
+            translator: { texts in
+                texts.map { "译-\($0)" }
+            },
+            onTranslated: { mapping in
+                received.merge(mapping) { _, new in new }
+            }
+        )
+
+        // 只提交 2 条（约 8s），不足 initialFillDuration(60)：正常 flush 不会触发。
+        coordinator.submit(makeSegment(index: 0))
+        coordinator.submit(makeSegment(index: 1))
+        #expect(coordinator.requestCount == 0)
+
+        // 识别停滞时主动 flush：立即打包发送，即使不足首批窗口。
+        coordinator.flushPendingNow()
+        await waitUntil { received.count == 2 }
+
+        #expect(received.count == 2)
+        #expect(coordinator.requestCount == 1)
+        #expect(coordinator.didCompleteInitialBatch)
+    }
+
+    @Test func failureRetriesInitialBatchAndKeepsGateClosed() async {
         var received: [UUID: String] = [:]
         var initialCompleted = false
 
@@ -103,11 +134,12 @@ struct TranslationBatchCoordinatorTests {
         for index in 0..<3 {
             coordinator.submit(makeSegment(index: index))
         }
-        await waitUntil { initialCompleted }
+        await waitUntil(timeout: 6) { coordinator.requestCount >= 2 }
 
-        #expect(initialCompleted)
+        #expect(!initialCompleted)
         #expect(coordinator.lastError != nil)
         #expect(received.isEmpty)
+        #expect(!coordinator.didCompleteInitialBatch)
     }
 
     @Test func resetClearsState() async {

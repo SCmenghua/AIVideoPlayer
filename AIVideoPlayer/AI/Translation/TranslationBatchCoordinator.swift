@@ -79,6 +79,8 @@ public final class TranslationBatchCoordinator {
     private var playbackTime: TimeInterval = 0
     private var generation = 0
     private var inFlightTask: Task<Void, Never>?
+    private var retryTask: Task<Void, Never>?
+    private var consecutiveFailures = 0
 
     private let translator: @MainActor ([String]) async throws -> [String]
     private let onTranslated: @MainActor ([UUID: String]) -> Void
@@ -109,11 +111,21 @@ public final class TranslationBatchCoordinator {
         flushIfNeeded()
     }
 
+    /// 识别停滞 / 音轨耗尽时由管线调用：立即把当前 pending 打包发送，
+    /// 用于短视频等「凑不满首批窗口」的场景。
+    public func flushPendingNow() {
+        guard !isRequestInFlight, !pendingItems.isEmpty else { return }
+        startBatch()
+    }
+
     /// 换片 / seek / 切换 Provider：取消进行中的请求并清空队列。
     public func reset() {
         generation += 1
         inFlightTask?.cancel()
         inFlightTask = nil
+        retryTask?.cancel()
+        retryTask = nil
+        consecutiveFailures = 0
         isRequestInFlight = false
         pendingItems.removeAll(keepingCapacity: true)
         playbackTime = 0
@@ -175,6 +187,8 @@ public final class TranslationBatchCoordinator {
                     items.map(\.endTime).max() ?? self.translatedThrough
                 )
                 self.lastError = nil
+                self.consecutiveFailures = 0
+                self.retryTask?.cancel()
                 self.onTranslated(mapping)
                 if !self.didCompleteInitialBatch {
                     self.didCompleteInitialBatch = true
@@ -186,12 +200,24 @@ public final class TranslationBatchCoordinator {
                 self.lastError = (error as? LocalizedError)?.errorDescription
                     ?? error.localizedDescription
                 self.lastBatchDuration = Date().timeIntervalSince(startedAt)
-                // 不回填译文：已写入的原文仍可显示（Overlay 回退显示原文）。
                 if !self.didCompleteInitialBatch {
-                    self.didCompleteInitialBatch = true
-                    self.onInitialBatchCompleted()
+                    // 首批失败：不放行播放，重排队列并按退避重试（等待门控保持关闭）。
+                    self.pendingItems.insert(contentsOf: items, at: 0)
+                    self.consecutiveFailures += 1
+                    self.scheduleRetry()
                 }
+                // 后续批次失败：不再重试，对应字幕保持原文显示。
             }
+        }
+    }
+
+    private func scheduleRetry() {
+        retryTask?.cancel()
+        let delay = min(Double(consecutiveFailures), 5.0) * 2.0
+        retryTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            self.flushPendingNow()
         }
     }
 
