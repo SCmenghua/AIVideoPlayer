@@ -8,31 +8,23 @@
 
 ### 待规划
 
-- **Phase 9.2+**：LLM 功能深化——模型集成、提示词优化、推理加速
-- **Phase 10**：新的浏览器功能（标签页管理、PWA 支持、扩展）
-- **Phase 11**：待定
-- **Phase 12**：Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
+- **Phase 8.3**：LLM 功能深化——模型集成、提示词优化、推理加速
+- **后续**：新浏览器功能、Liquid Glass 深化、性能优化与测试（编号后续规划）
 
-## [0.9.1] - 2026-08-13
+## [0.8.2] - 2026-08-13
 
-### Changed（Phase 9.1 翻译引擎卡片前置与正名）
+### Added（Phase 8.2 翻译引擎卡片 + 本地大模型 + API Key）
 
-- 设置页卡片顺序调整为「AI 字幕 → 字幕语言 → 翻译引擎 → 字幕显示 → 诊断与日志」，
-  「翻译引擎」卡片与「字幕语言 / 字幕显示」同级，便于发现
+- 设置页新增与「字幕语言 / 字幕显示」同级的「翻译引擎」卡片，提供系统内置翻译 / 本地大模型 / API Key 三选一
+- 确认 `TranslationEngine` 三 Provider（Fast NMT / Local LLM / Cloud LLM）与设置卡片已接通字幕管线
+- 修复卡片不显示：`TranslationSettingsViewModel` 改由 `AppEnvironment` 持有，卡片直接读取环境、始终渲染
+
+### Changed（Phase 8.2）
+
 - 「翻译服务」卡片更名为「翻译引擎」，副标题改为「系统内置翻译 · 本地大模型 · API Key」
 - Fast NMT Provider 展示名由「本地轻量翻译（Apple）」改为「系统内置翻译（Apple）」
-- 修复「翻译引擎」卡片不显示：`TranslationSettingsViewModel` 由「`@State` 可选 + `onAppear` 惰性创建」改为 `AppEnvironment` 持有，卡片直接读取环境、始终渲染
-- `MARKETING_VERSION` 提升至 0.9.1
-
-## [0.9.0] - 2026-08-13
-
-### Added（Phase 9.0 LLM 设置整合进主设置页）
-
-- 确认 Phase 7 已实现 `TranslationEngine` 三 Provider（Fast NMT / Local LLM / Cloud LLM）
-  与设置页「翻译服务」卡片，并保留其作为主设置页的一级卡片
-- 修正 `project.yml` 编码；恢复被破坏的 `package-ipa.yml` / `swift-ci.yml`；
-  swift-ci 构建与单元测试恢复全绿
-- `MARKETING_VERSION` 提升至 0.9.0
+- 修正 `project.yml` 编码；恢复 `package-ipa.yml` / `swift-ci.yml`
+- `MARKETING_VERSION` 定为 0.8.2
 
 ## [0.8.18] - 2026-08-13
 

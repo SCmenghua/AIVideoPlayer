@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.1（2026-08-13）  
-**当前 Phase**：9.1（翻译引擎卡片前置 + 三种 Provider 切换）
+**当前版本**：0.8.2（2026-08-13）  
+**当前 Phase**：8.2（翻译引擎卡片 + 本地大模型 + API Key）
 
 ## 核心功能
 
@@ -83,18 +83,12 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
-- **Phase 9.1（2026-08-13 打包 0.9.1）**：翻译引擎卡片前置并正名——
-  设置页顺序调整为「AI 字幕 → 字幕语言 → 翻译引擎 → 字幕显示 → 诊断与日志 → 隐私/关于」，
-  「翻译服务」卡片更名为「翻译引擎」，副标题明确「系统内置翻译 · 本地大模型 · API Key」；
-  Fast NMT Provider 展示名由「本地轻量翻译（Apple）」改为「系统内置翻译（Apple）」，与用户表述对齐；
-  确认 Phase 7 的 `TranslationEngine`（Fast NMT / Local LLM / Cloud LLM）与设置卡片均已存在并接通管线；
-  实测卡片仍不显示，定位为 `TranslationSettingsCard` 用「`@State` 可选 ViewModel + `onAppear` 惰性创建 + `Group { if let }` 空视图」导致卡片零高度不渲染；
-  修复为 `AppEnvironment` 持有 `translationSettingsViewModel`，卡片直接读取环境、始终渲染；
-  `MARKETING_VERSION` 提升至 0.9.1。
-- **Phase 9.0（2026-08-13 打包 0.9.0）**：LLM 设置（本地模型 + API Key）整合进主设置页——
-  确认并保留 Phase 7 已实现的 `TranslationEngine` 三 Provider 与「翻译服务」卡片；修正 `project.yml` 编码、
-  恢复被破坏的 `package-ipa.yml`、`swift-ci.yml` 构建测试流程；swift-ci 构建 + 单元测试恢复全绿；
-  `MARKETING_VERSION` 提升至 0.9.0。
+- **Phase 8.2（2026-08-13 打包 0.8.2）**：翻译引擎（系统内置翻译 / 本地大模型 / API Key）正式落地——
+  设置页新增与「字幕语言 / 字幕显示」同级的「翻译引擎」卡片，三选一切换并接通字幕管线；
+  卡片最初因 `TranslationSettingsCard` 用「`@State` 可选 ViewModel + `onAppear` 惰性创建 + `Group { if let }` 空视图」
+  导致零高度不渲染，修复为 `AppEnvironment` 持有 `translationSettingsViewModel`、卡片直接读取环境始终渲染；
+  同时修正 `project.yml` 编码、恢复 `package-ipa.yml` / `swift-ci.yml` 构建测试流程；
+  swift-ci 构建 + 单元测试全绿；`MARKETING_VERSION` 定为 0.8.2。
 - **Phase 8.18（2026-08-13 打包 0.8.18）**：修复长视频（10 分钟以上）开启字幕 + 翻译后 UI 卡死——
   根因定位为音频采集链路的主线程洪峰：(1) `AssetReaderAudioPipeline` 整条音轨以高于实时速度解码，
   且 `consume()` 实际仍运行在 MainActor（`Task.detached { await self?.consume() }` 因类标 `@MainActor`
@@ -384,10 +378,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.1
-- **版本**：0.9.1
-- **状态**：✅ 翻译引擎卡片前置并与「字幕语言 / 字幕显示」同级；系统内置翻译 / 本地大模型 / API Key 三种切换
-- **下一步**：Phase 9.2 —— LLM 功能深化（模型集成、提示词优化、推理加速）；Phase 10 —— 新浏览器功能；Phase 11 —— 待定；Phase 12 —— Liquid Glass 深化
+- **Phase**：8.2
+- **版本**：0.8.2
+- **状态**：✅ 翻译引擎卡片与「字幕语言 / 字幕显示」同级，系统内置翻译 / 本地大模型 / API Key 三选一切换；swift-ci 构建 + 单元测试全绿
+- **下一步**：Phase 8.3 —— LLM 功能深化（模型集成、提示词优化、推理加速）
 
 ## 注意事项
 
@@ -397,4 +391,3 @@ open AIVideoPlayer.xcodeproj
 4. **IPA 打包**：GitHub Actions 生成的 IPA 未签名，需自签工具重签后安装
 5. **版本同步**：`project.yml` 的 `MARKETING_VERSION` 必须与 Phase 版本一致
 6. **Phase 流程**：所有代码变更都必须经过 Phase 流程（编号 → 文档 → 版本 → 提交 → 推送 → CI）
-
