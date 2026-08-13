@@ -169,6 +169,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     public func handlePlaybackEnded() {
         stopLoops()
+        batchCoordinator?.reset()
+        initialBatchCompleted = false
+        lastRecognitionProgressTime = nil
+        didNotifyStalledForGeneration = false
     }
 
     /// 播放器进度回调：更新当前播放位置。
@@ -570,6 +574,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     lastAheadWaitLog = now
                     Log.app.debug("识别已超前播放位置 \(String(format: "%.1f", maxLookahead))s，等待播放追上（cursor=\(String(format: "%.1f", cursor))s）")
                 }
+                handleRecognitionStall()
                 try? await Task.sleep(for: .milliseconds(500))
                 continue
             }
