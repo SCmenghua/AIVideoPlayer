@@ -34,18 +34,20 @@ struct SubtitleOverlayViewModelTests {
         #expect(overlay.activeSegment?.isPartial == false)
     }
 
-    @Test func resetClearsTranscriptAndActiveSegment() {
+    @Test func resetResetsCursorButKeepsTranscript() {
         let store = SubtitleTranscriptStore()
         let overlay = makeOverlay(transcript: store)
 
-        store.append(makeSegment(start: 0, end: 2, text: "x"))
-        overlay.updatePlaybackTime(1)
-        #expect(overlay.activeSegment != nil)
+        store.append(makeSegment(start: 10, end: 14, text: "x"))
+        overlay.updatePlaybackTime(12)
+        #expect(overlay.activeSegment?.originalText == "x")
 
+        // Phase 9.6：reset 只重置光标，不再清空字幕记录（清空由管线负责）。
         overlay.reset()
         #expect(overlay.activeSegment == nil)
-        overlay.updatePlaybackTime(1)
-        #expect(overlay.activeSegment == nil)
+
+        overlay.updatePlaybackTime(12)
+        #expect(overlay.activeSegment?.originalText == "x")
     }
 
     @Test func moveUpdatesPersistedPositionWithClamping() {
