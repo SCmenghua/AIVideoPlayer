@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.6（2026-08-13）  
-**当前 Phase**：9.6（修复第一分钟字幕丢失 + 云端翻译健壮性）
+**当前版本**：0.9.7（2026-08-13）
+**当前 Phase**：9.7（优化 Whisper 字幕句段输出）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.17）
+3. 点击 **Run workflow**，填写版本号（默认 0.9.7）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -82,6 +82,12 @@ open AIVideoPlayer.xcodeproj
 - **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
+
+- **Phase 9.7（2026-08-13，版本 0.9.7）**：优化 Whisper 输出，降低碎片化字幕对翻译质量的影响——
+  确认系统内置翻译使用 Apple Translation Framework；本地预加载视频的 Whisper 识别窗口由 5 秒扩大到 10 秒，
+  HLS / 实时播放仍保持 5 秒以控制延迟；同一识别窗口内的 final 段按时间间隔、句末标点、最长时长 8 秒和最长 120 字符合并，
+  Latin 文本保留单词间空格，CJK 文本不额外插入空格；partial 段不合并；识别日志同时记录合并后与原始段数；
+  新增英文碎片合并、标点边界、日文空格、partial 保持及长度上限测试；Windows 无法运行 iOS 测试，CI 待推送后验证。
 
 - **Phase 9.6（2026-08-13 打包 0.9.6）**：修复第一分钟字幕丢失 + 云端翻译健壮性——
   根因是 `SubtitleOverlayViewModel.reset()` 在 `currentItem` 变化时清空共享字幕存储，
@@ -406,10 +412,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.6
-- **版本**：0.9.6
-- **状态**：✅ 修复第一分钟字幕丢失；云端翻译超时放宽 + 后台兜底 + 等待期防锁屏；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
+- **Phase**：9.7
+- **版本**：0.9.7
+- **状态**：Whisper 识别窗口与 final 句段输出已优化；CI 待推送后验证
+- **下一步**：根据 CI 和实机测试结果继续修复字幕连续性与翻译质量问题
 
 ## 注意事项
 

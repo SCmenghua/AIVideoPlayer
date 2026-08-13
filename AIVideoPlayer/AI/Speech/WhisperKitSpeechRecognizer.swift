@@ -184,6 +184,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         }
         var segmentCount = 0
         var detectedLanguage = language
+        var finalSegments: [SubtitleSegment] = []
         for result in results {
             if !result.language.isEmpty {
                 detectedLanguage = result.language
@@ -198,7 +199,7 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                     windowStart + Double(segment.end),
                     start + SubtitleSegment.minimumDisplayDuration
                 )
-                continuation.yield(
+                finalSegments.append(
                     SubtitleSegment(
                         startTime: start,
                         endTime: end,
@@ -207,11 +208,16 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                         isPartial: false
                     )
                 )
-                segmentCount += 1
             }
         }
+        let rawSegmentCount = finalSegments.count
+        let mergedSegments = SubtitleSegmentMerger.mergeFinalSegments(finalSegments)
+        for segment in mergedSegments {
+            continuation.yield(segment)
+        }
+        segmentCount = mergedSegments.count
         let windowElapsedMs = Int(Date().timeIntervalSince(windowStarted) * 1000)
-        Log.app.debug("识别窗口完成 window=\(String(format: "%.1f", windowStart))s 耗时=\(windowElapsedMs)ms samples=\(samples.count) language=\(detectedLanguage ?? "nil") segments=\(segmentCount)")
+        Log.app.debug("识别窗口完成 window=\(String(format: "%.1f", windowStart))s 耗时=\(windowElapsedMs)ms samples=\(samples.count) language=\(detectedLanguage ?? "nil") segments=\(segmentCount) rawSegments=\(rawSegmentCount)")
         return RecognitionOutcome(language: detectedLanguage, segmentCount: segmentCount)
     }
 
