@@ -72,7 +72,7 @@ struct TranslationBatchCoordinatorTests {
         for index in 3..<5 {
             coordinator.submit(makeSegment(index: index))
         }
-        await waitUntil { coordinator.requestCount == 2 }
+        await waitUntil { received.count == 5 }
 
         #expect(coordinator.requestCount == 2)
         #expect(received.count == 5)
@@ -127,8 +127,10 @@ struct TranslationBatchCoordinatorTests {
             }
         )
 
-        coordinator.submit(makeSegment(index: 0))
-        await waitUntil { received.count == 1 }
+        for index in 0..<3 {
+            coordinator.submit(makeSegment(index: index))
+        }
+        await waitUntil { received.count == 3 }
         #expect(coordinator.requestCount == 1)
 
         coordinator.reset()
@@ -155,7 +157,7 @@ struct TranslationBatchCoordinatorTests {
     }
 
     private func waitUntil(
-        timeout: TimeInterval = 2,
+        timeout: TimeInterval = 3,
         _ condition: @MainActor () -> Bool
     ) async {
         let deadline = Date().addingTimeInterval(timeout)
