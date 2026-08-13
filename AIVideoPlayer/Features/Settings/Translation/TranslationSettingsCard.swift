@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// 设置页「翻译引擎」卡片（Phase 7 / Phase 8.2）：
+/// 设置页「翻译引擎」卡片（Phase 7 / Phase 9.2）：
 /// Provider 选择 / 云端配置与测试连接 / 本地模型下载 / 启用开关。
 /// 目标语言已移至独立「字幕语言」卡片（Phase 8.6）。
 struct TranslationSettingsCard: View {

@@ -6,7 +6,7 @@ on:
       version:
         description: "Release 版本号（用于 IPA 文件名与 Release tag）"
         required: false
-        default: "0.8.2"
+        default: "0.9.2"
 
 permissions:
   contents: write
@@ -90,7 +90,7 @@ jobs:
 
           - 供自签工具使用：Sideloadly / AltStore / 爱思助手 等，导入 IPA 后用自己的 Apple ID 签名安装。
           - 需要 iOS 26 及以上设备。
-          - Phase 8.2：翻译引擎卡片前置并与「字幕语言 / 字幕显示」同级，
+          - Phase 9.2：翻译引擎卡片前置并与「字幕语言 / 字幕显示」同级，
             提供系统内置翻译 / 本地大模型 / API Key 三种切换。
           - 翻译功能：
             - Fast NMT：使用 Apple 原生翻译，需在系统设置中下载翻译语言包；

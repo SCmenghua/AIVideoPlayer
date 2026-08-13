@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.8.2（2026-08-13）  
-**当前 Phase**：8.2（翻译引擎卡片 + 本地大模型 + API Key）
+**当前版本**：0.9.2（2026-08-13）  
+**当前 Phase**：9.2（翻译引擎卡片 + 本地大模型 + API Key）
 
 ## 核心功能
 
@@ -83,12 +83,12 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
-- **Phase 8.2（2026-08-13 打包 0.8.2）**：翻译引擎（系统内置翻译 / 本地大模型 / API Key）正式落地——
+- **Phase 9.2（2026-08-13 打包 0.9.2）**：翻译引擎（系统内置翻译 / 本地大模型 / API Key）正式落地——
   设置页新增与「字幕语言 / 字幕显示」同级的「翻译引擎」卡片，三选一切换并接通字幕管线；
   卡片最初因 `TranslationSettingsCard` 用「`@State` 可选 ViewModel + `onAppear` 惰性创建 + `Group { if let }` 空视图」
   导致零高度不渲染，修复为 `AppEnvironment` 持有 `translationSettingsViewModel`、卡片直接读取环境始终渲染；
   同时修正 `project.yml` 编码、恢复 `package-ipa.yml` / `swift-ci.yml` 构建测试流程；
-  swift-ci 构建 + 单元测试全绿；`MARKETING_VERSION` 定为 0.8.2。
+  swift-ci 构建 + 单元测试全绿；`MARKETING_VERSION` 定为 0.9.2。
 - **Phase 8.18（2026-08-13 打包 0.8.18）**：修复长视频（10 分钟以上）开启字幕 + 翻译后 UI 卡死——
   根因定位为音频采集链路的主线程洪峰：(1) `AssetReaderAudioPipeline` 整条音轨以高于实时速度解码，
   且 `consume()` 实际仍运行在 MainActor（`Task.detached { await self?.consume() }` 因类标 `@MainActor`
@@ -378,10 +378,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：8.2
-- **版本**：0.8.2
+- **Phase**：9.2
+- **版本**：0.9.2
 - **状态**：✅ 翻译引擎卡片与「字幕语言 / 字幕显示」同级，系统内置翻译 / 本地大模型 / API Key 三选一切换；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 8.3 —— LLM 功能深化（模型集成、提示词优化、推理加速）
+- **下一步**：Phase 9.3 —— LLM 功能深化（模型集成、提示词优化、推理加速）
 
 ## 注意事项
 

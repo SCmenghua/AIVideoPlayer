@@ -26,7 +26,7 @@ struct SettingsView: View {
                     tint: .purple,
                     title: "关于",
                     lines: [
-                        "AI Video Player · Phase 8.2（翻译引擎卡片 + 本地大模型 + API Key）",
+                        "AI Video Player · Phase 9.2（翻译引擎卡片 + 本地大模型 + API Key）",
                         "iOS 26 · Swift 6 · SwiftUI",
                     ]
                 )
