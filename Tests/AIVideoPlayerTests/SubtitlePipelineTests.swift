@@ -23,7 +23,7 @@ struct SubtitlePipelineTests {
         #expect(pipeline.status.state == .listening)
 
         await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 5, start: 0)
+        emitSeconds(source, seconds: 10, start: 0)
 
         await waitUntil { pipeline.emittedSegmentCount >= 1 }
         #expect(recognizer.transcriptionCalls.count >= 1)
@@ -54,7 +54,7 @@ struct SubtitlePipelineTests {
         #expect(recognizer.discardCount >= 1)
 
         await pipeline.preparePlayback(from: 30)
-        emitSeconds(source, seconds: 5, start: 30)
+        emitSeconds(source, seconds: 10, start: 30)
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         #expect(recognizer.lastCall?.windowStart == 30)
         await shutdown(pipeline)
@@ -192,7 +192,7 @@ struct SubtitlePipelineTests {
         // 播放到 30s 时才打开字幕：激活必须以引擎当前时间（30s）重建游标，
         // 而不是从陈旧记录值（0s）开始，否则识别永远追不上播放光标。
         await pipeline.toggle()
-        emitSeconds(source, seconds: 5, start: 30)
+        emitSeconds(source, seconds: 10, start: 30)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         #expect(recognizer.lastCall?.windowStart == 30)
@@ -211,7 +211,7 @@ struct SubtitlePipelineTests {
 
         await pipeline.toggle()
         await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 12, start: 0)
+        emitSeconds(source, seconds: 20, start: 0)
 
         await waitUntil(timeout: .seconds(5)) { recognizer.transcriptionCalls.count >= 2 }
         #expect(recognizer.transcriptionCalls.count >= 2)
@@ -242,7 +242,7 @@ struct SubtitlePipelineTests {
 
         await pipeline.toggle()
         await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 5, start: 0)
+        emitSeconds(source, seconds: 10, start: 0)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
         // 手动指定源语言后，首个窗口直接使用该语言，不再等待自动检测。
