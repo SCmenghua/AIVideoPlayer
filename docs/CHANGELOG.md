@@ -21,6 +21,7 @@
   「翻译引擎」卡片与「字幕语言 / 字幕显示」同级，便于发现
 - 「翻译服务」卡片更名为「翻译引擎」，副标题改为「系统内置翻译 · 本地大模型 · API Key」
 - Fast NMT Provider 展示名由「本地轻量翻译（Apple）」改为「系统内置翻译（Apple）」
+- 修复「翻译引擎」卡片不显示：`TranslationSettingsViewModel` 由「`@State` 可选 + `onAppear` 惰性创建」改为 `AppEnvironment` 持有，卡片直接读取环境、始终渲染
 - `MARKETING_VERSION` 提升至 0.9.1
 
 ## [0.9.0] - 2026-08-13

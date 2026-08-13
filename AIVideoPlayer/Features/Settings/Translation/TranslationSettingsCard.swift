@@ -5,22 +5,13 @@ import SwiftUI
 /// 目标语言已移至独立「字幕语言」卡片（Phase 8.6）。
 struct TranslationSettingsCard: View {
     @Environment(AppEnvironment.self) private var environment
-    @State private var viewModel: TranslationSettingsViewModel?
+
+    private var viewModel: TranslationSettingsViewModel {
+        environment.translationSettingsViewModel
+    }
 
     var body: some View {
-        Group {
-            if let viewModel {
-                card(viewModel)
-            }
-        }
-        .onAppear {
-            if viewModel == nil {
-                viewModel = TranslationSettingsViewModel(
-                    settings: environment.translationSettings,
-                    downloadManager: environment.localModelDownloadManager
-                )
-            }
-        }
+        card(viewModel)
     }
 
     private func card(_ vm: TranslationSettingsViewModel) -> some View {

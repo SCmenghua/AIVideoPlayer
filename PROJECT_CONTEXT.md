@@ -88,6 +88,8 @@ open AIVideoPlayer.xcodeproj
   「翻译服务」卡片更名为「翻译引擎」，副标题明确「系统内置翻译 · 本地大模型 · API Key」；
   Fast NMT Provider 展示名由「本地轻量翻译（Apple）」改为「系统内置翻译（Apple）」，与用户表述对齐；
   确认 Phase 7 的 `TranslationEngine`（Fast NMT / Local LLM / Cloud LLM）与设置卡片均已存在并接通管线；
+  实测卡片仍不显示，定位为 `TranslationSettingsCard` 用「`@State` 可选 ViewModel + `onAppear` 惰性创建 + `Group { if let }` 空视图」导致卡片零高度不渲染；
+  修复为 `AppEnvironment` 持有 `translationSettingsViewModel`，卡片直接读取环境、始终渲染；
   `MARKETING_VERSION` 提升至 0.9.1。
 - **Phase 9.0（2026-08-13 打包 0.9.0）**：LLM 设置（本地模型 + API Key）整合进主设置页——
   确认并保留 Phase 7 已实现的 `TranslationEngine` 三 Provider 与「翻译服务」卡片；修正 `project.yml` 编码、

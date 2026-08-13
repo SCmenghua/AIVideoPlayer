@@ -16,6 +16,8 @@ final class AppEnvironment {
     let subtitlePipeline: SubtitlePipeline
     /// 本地大模型下载管理（设置页使用）。
     let localModelDownloadManager: LocalModelDownloadManager
+    /// 翻译服务设置 ViewModel（设置页「翻译引擎」卡片直接使用，Phase 9.1 修复卡片不显示）。
+    let translationSettingsViewModel: TranslationSettingsViewModel
     /// 字幕叠加层显示设置（播放器与设置页共享，UserDefaults 持久化）。
     let subtitleDisplaySettings: SubtitleDisplaySettings
     /// 应用日志服务（Phase 8.13：记录应用运行状态，支持导出与清空）。
@@ -40,6 +42,10 @@ final class AppEnvironment {
         )
         localModelDownloadManager = LocalModelDownloadManager(
             descriptor: LocalModelCatalog.gemma4E2B
+        )
+        translationSettingsViewModel = TranslationSettingsViewModel(
+            settings: translationSettings,
+            downloadManager: localModelDownloadManager
         )
         subtitleDisplaySettings = SubtitleDisplaySettings()
 
