@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// 云端翻译错误（可读提示）。
 public enum CloudLLMError: LocalizedError, Sendable {
@@ -156,7 +157,7 @@ public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionT
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(config.apiKey)", forHTTPHeaderField: "Authorization")
-        request.timeoutInterval = 60
+        request.timeoutInterval = 120
         let body: [String: any Sendable] = [
             "model": config.modelName,
             "messages": [
@@ -169,6 +170,9 @@ public final class CloudLLMTranslator: TranslationEngine, TranslationConnectionT
     }
 
     private func perform(request: URLRequest) async throws -> Data {
+        // 兜底：请求期间申请后台任务，短暂锁屏 / 后台时也能尽量完成。
+        let backgroundTaskID = UIApplication.shared.beginBackgroundTask(withName: "TranslationRequest")
+        defer { UIApplication.shared.endBackgroundTask(backgroundTaskID) }
         let data: Data
         let response: URLResponse
         do {

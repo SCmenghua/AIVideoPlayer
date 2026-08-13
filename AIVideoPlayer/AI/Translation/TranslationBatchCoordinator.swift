@@ -20,17 +20,21 @@ public final class TranslationBatchCoordinator {
         public var initialFillDuration: TimeInterval
         /// 单次补货的最小内容时长（秒），避免请求过碎。
         public var minimumBatchDuration: TimeInterval
+        /// 单批最多条数（nil = 不限制）。首批拆小用。
+        public var maxSegmentsPerBatch: Int?
 
         public init(
             batchWindow: TimeInterval = 60,
             lowWatermark: TimeInterval = 20,
             initialFillDuration: TimeInterval = 60,
-            minimumBatchDuration: TimeInterval = 15
+            minimumBatchDuration: TimeInterval = 15,
+            maxSegmentsPerBatch: Int? = nil
         ) {
             self.batchWindow = batchWindow
             self.lowWatermark = lowWatermark
             self.initialFillDuration = initialFillDuration
             self.minimumBatchDuration = minimumBatchDuration
+            self.maxSegmentsPerBatch = maxSegmentsPerBatch
         }
     }
 
@@ -225,7 +229,9 @@ public final class TranslationBatchCoordinator {
         var selected: [PendingItem] = []
         var duration: TimeInterval = 0
         var index = 0
+        let maxCount = configuration.maxSegmentsPerBatch
         while index < pendingItems.count {
+            if let maxCount, selected.count >= maxCount { break }
             let item = pendingItems[index]
             let itemDuration = max(item.duration, 0.5)
             if !selected.isEmpty && duration + itemDuration > configuration.batchWindow {

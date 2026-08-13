@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.5（2026-08-13）  
-**当前 Phase**：9.5（识别停滞即触发首批 + 重新初始化复位）
+**当前版本**：0.9.6（2026-08-13）  
+**当前 Phase**：9.6（修复第一分钟字幕丢失 + 云端翻译健壮性）
 
 ## 核心功能
 
@@ -82,6 +82,14 @@ open AIVideoPlayer.xcodeproj
 - **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
+
+- **Phase 9.6（2026-08-13 打包 0.9.6）**：修复第一分钟字幕丢失 + 云端翻译健壮性——
+  根因是 `SubtitleOverlayViewModel.reset()` 在 `currentItem` 变化时清空共享字幕存储，
+  与批量识别抢跑竞争，导致第一分钟原文被清、译文无法回填；修复为清空职责收回到
+  `SubtitlePipeline`（真正换片时识别前清空、`shutdown` 时清空），`reset()` 仅重置光标；
+  批量模式写原文 / 清空增加日志；`CloudLLMTranslator` 超时 60s→120s、请求加 `beginBackgroundTask`
+  兜底；等待首批期间 `isIdleTimerDisabled` 防锁屏；首批拆小 `maxSegmentsPerBatch=8`；
+  `MARKETING_VERSION` 定为 0.9.6。
 
 - **Phase 9.5（2026-08-13 打包 0.9.5）**：修复长视频等待门控——识别停滞即触发首批——
   `runRecognitionLoop` 的「识别已超前（ahead-wait）」分支也接入 `handleRecognitionStall()`，
@@ -398,10 +406,10 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.5
-- **版本**：0.9.5
-- **状态**：✅ 长视频识别停滞即触发首批；重新初始化复位批处理与门控状态；swift-ci 构建 + 单元测试全绿
-- **下一步**：Phase 9.6 —— LLM 功能深化（提示词优化、推理加速、更多模型）
+- **Phase**：9.6
+- **版本**：0.9.6
+- **状态**：✅ 修复第一分钟字幕丢失；云端翻译超时放宽 + 后台兜底 + 等待期防锁屏；swift-ci 构建 + 单元测试全绿
+- **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项
 

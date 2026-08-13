@@ -38,9 +38,10 @@ final class SubtitleOverlayViewModel {
         currentTime = time
     }
 
-    /// 换片 / 管线关闭时清空字幕记录与当前字幕。
+    /// 换片 / 管线关闭时重置当前光标。
+    /// 字幕记录由 SubtitlePipeline 负责清空（Phase 9.6），
+    /// 避免 View 层清空与批量识别抢跑竞争导致第一分钟字幕丢失。
     func reset() {
-        transcript.clear()
         currentTime = 0
     }
 

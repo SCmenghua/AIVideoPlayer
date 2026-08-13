@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import Observation
+import UIKit
 
 /// 播放器状态：注入 PlaybackEngine，消费状态/进度流，持有全屏、字幕、比例等 UI 状态。
 @MainActor
@@ -135,6 +136,7 @@ final class PlayerViewModel {
         seekTarget = 0
         isWaitingForTranslation = false
         translationWaitReason = nil
+        UIApplication.shared.isIdleTimerDisabled = false
         subtitlePipeline?.handlePlaybackEnded()
 
         loadTask = Task { [weak self] in
@@ -227,9 +229,11 @@ final class PlayerViewModel {
         if subtitlePipeline?.shouldWaitBeforePlayback == true {
             isWaitingForTranslation = true
             translationWaitReason = subtitlePipeline?.translationWaitReason
+            UIApplication.shared.isIdleTimerDisabled = true
             return
         }
         isWaitingForTranslation = false
+        UIApplication.shared.isIdleTimerDisabled = false
         await engine.play()
         playbackState = engine.state
     }
@@ -240,6 +244,7 @@ final class PlayerViewModel {
         guard subtitlePipeline?.shouldWaitBeforePlayback == false else { return }
         isWaitingForTranslation = false
         translationWaitReason = nil
+        UIApplication.shared.isIdleTimerDisabled = false
         Task { [weak self] in
             guard let self else { return }
             await self.engine.play()

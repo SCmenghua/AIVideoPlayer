@@ -8,8 +8,23 @@
 
 ### 待规划
 
-- **Phase 9.6**：LLM 功能深化——提示词优化、推理加速、更多模型
+- **Phase 9.7**：LLM 功能深化——提示词优化、推理加速、更多模型
 - **后续**：新浏览器功能、Liquid Glass 深化、性能优化与测试（编号后续规划）
+
+## [0.9.6] - 2026-08-13
+
+### Fixed（Phase 9.6 修复第一分钟字幕丢失）
+
+- 根因：`SubtitleOverlayViewModel.reset()` 在换片时清空共享字幕存储，与批量识别抢跑竞争，清掉了第一分钟原文
+- 清空职责收回到 `SubtitlePipeline`：换片时识别前清空、`shutdown` 时清空；`reset()` 仅重置光标
+
+### Changed（Phase 9.6）
+
+- 云端翻译超时 60s → 120s，请求加 `beginBackgroundTask` 兜底
+- 等待首批期间保持屏幕常亮（`isIdleTimerDisabled`）
+- 首批拆小：`maxSegmentsPerBatch = 8`
+- 批量模式写原文 / 清空增加日志
+- `MARKETING_VERSION` 定为 0.9.6
 
 ## [0.9.5] - 2026-08-13
 

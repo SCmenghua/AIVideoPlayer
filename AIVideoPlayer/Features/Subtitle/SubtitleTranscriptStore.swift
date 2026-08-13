@@ -113,6 +113,7 @@ public final class SubtitleTranscriptStore {
 
     /// 清空全部记录（播放器换片 / 管线关闭 / 设置页手动清空）。
     public func clear() {
+        Log.app.debug("字幕存储已清空（clear）")
         flushTask?.cancel()
         flushTask = nil
         pendingSegments.removeAll(keepingCapacity: true)

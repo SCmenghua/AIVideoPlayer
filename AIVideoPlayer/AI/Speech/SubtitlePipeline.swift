@@ -145,6 +145,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             source = nil
             sourceItemID = engine.currentItem?.id
             sourceCanPreload = false
+            transcript.clear()
             batchCoordinator?.reset()
             initialBatchCompleted = false
         }
@@ -256,8 +257,9 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         isUsingBatchTranslation = false
         initialBatchCompleted = false
         buffer.reset(to: playbackTime)
-        // 确保所有待提交的字幕都已写入
+        // 确保所有待提交的字幕都已写入，然后清空当前字幕记录。
         transcript.flush()
+        transcript.clear()
         setStatus(state: .off)
     }
 
@@ -430,6 +432,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     /// 非批量模式走原来的逐条翻译。
     private func handleFinalSegment(_ segment: SubtitleSegment) async {
         if isUsingBatchTranslation, let batchCoordinator {
+            Log.app.debug("批量模式写入原文 start=\(String(format: "%.1f", segment.startTime))s 原文=\(segment.originalText.prefix(20))")
             forwardSegment(segment)
             batchCoordinator.submit(segment)
             return
@@ -455,7 +458,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 batchWindow: 60,
                 lowWatermark: 20,
                 initialFillDuration: 60,
-                minimumBatchDuration: 5
+                minimumBatchDuration: 5,
+                maxSegmentsPerBatch: 8
             ),
             translator: { [weak self] texts in
                 guard let self,
