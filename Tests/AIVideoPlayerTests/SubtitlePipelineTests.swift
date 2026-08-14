@@ -245,10 +245,10 @@ struct SubtitlePipelineTests {
 
         await pipeline.toggle()
         // 逐块让出主执行器，确保音频消费任务拿到首窗后再继续送入下一窗。
-        await emitSeconds(source, seconds: 5, start: 0)
+        await emitSecondsGradually(source, seconds: 5, start: 0)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        await emitSeconds(source, seconds: 5, start: 5)
+        await emitSecondsGradually(source, seconds: 5, start: 5)
 
         await waitUntil(timeout: .seconds(5)) { recognizer.transcriptionCalls.count >= 2 }
         #expect(recognizer.transcriptionCalls.count >= 2)
@@ -366,7 +366,7 @@ struct SubtitlePipelineTests {
         }
     }
 
-    private func emitSeconds(
+    private func emitSecondsGradually(
         _ source: MockAudioPipeline,
         seconds: Int,
         start: TimeInterval
