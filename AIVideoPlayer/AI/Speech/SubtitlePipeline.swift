@@ -33,6 +33,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private let readerSourceFactory: @MainActor (MediaItem) -> any AudioPipeline
     private let transcript: SubtitleTranscriptStore
     private let speechWindowPlanner = SpeechWindowPlanner()
+    private var recognitionQualityGate = SpeechRecognitionQualityGate()
 
     private var recognizer: (any SpeechRecognizer)?
     private var source: (any AudioPipeline)?
@@ -138,6 +139,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         Log.app.debug("字幕管线 preparePlayback from=\(String(format: "%.1f", time)) active=\(self.active)")
         generation += 1
         recognitionSessionID += 1
+        recognitionQualityGate.reset()
         transcript.clearPreview()
         lastRecognitionProgressTime = nil
         didNotifyStalledForGeneration = false
@@ -178,6 +180,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func handlePlaybackEnded() {
         stopLoops()
         recognitionSessionID += 1
+        recognitionQualityGate.reset()
         transcript.clearPreview()
         batchCoordinator?.reset()
         initialBatchCompleted = false
@@ -199,6 +202,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         playbackTime = time
         generation += 1
         recognitionSessionID += 1
+        recognitionQualityGate.reset()
         lastRecognitionProgressTime = nil
         didNotifyStalledForGeneration = false
         stopLoops()
@@ -225,6 +229,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         active = true
         generation += 1
         recognitionSessionID += 1
+        recognitionQualityGate.reset()
         rebuildBatchCoordinator()
         currentLanguage = nil
         modelLoaded = false
@@ -255,6 +260,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         Log.app.info("关闭字幕管线")
         generation += 1
         recognitionSessionID += 1
+        recognitionQualityGate.reset()
         active = false
         stopLoops()
         forwardTask?.cancel()
@@ -452,11 +458,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     ) {
         if isUsingBatchTranslation, let batchCoordinator {
             Log.app.debug("批量模式写入原文 start=\(String(format: "%.1f", segment.startTime))s 原文=\(segment.originalText.prefix(20))")
-            forwardSegment(segment)
+            guard forwardSegment(segment) else { return }
             batchCoordinator.submit(segment)
             return
         }
-        forwardSegment(segment)
+        guard forwardSegment(segment) else { return }
         Task { [weak self] in
             await self?.translateExistingFinal(
                 segment,
@@ -570,13 +576,24 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     /// 写入字幕记录并累计统计。
-    private func forwardSegment(_ segment: SubtitleSegment) {
+    @discardableResult
+    private func forwardSegment(_ segment: SubtitleSegment) -> Bool {
         guard !segment.isPartial else {
             transcript.updatePreview(segment)
-            return
+            return true
+        }
+        if let rejection = recognitionQualityGate.rejectionReason(for: segment) {
+            Log.app.info(
+                "字幕已丢弃 reason=\(rejection == .lowConfidence ? "low-confidence" : "repeated-text") "
+                    + "start=\(String(format: "%.1f", segment.startTime))s "
+                    + "confidence=\(String(format: "%.2f", segment.confidence)) "
+                    + "text=\(segment.originalText.prefix(40))"
+            )
+            return false
         }
         emittedSegmentCount += 1
         transcript.append(segment)
+        return true
     }
 
     private func runRecognitionLoop(

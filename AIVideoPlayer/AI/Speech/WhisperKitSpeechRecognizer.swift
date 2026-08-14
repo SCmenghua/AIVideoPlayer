@@ -139,7 +139,12 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
             skipSpecialTokens: true,
             wordTimestamps: false,
             suppressBlank: true,
-            noSpeechThreshold: 0.6,
+            // Keep WhisperKit's built-in fallback active for low-probability,
+            // repetitive, and likely silent windows before they become subtitles.
+            compressionRatioThreshold: 2.0,
+            logProbThreshold: -0.8,
+            firstTokenLogProbThreshold: -1.0,
+            noSpeechThreshold: 0.45,
             concurrentWorkerCount: 1,
             chunkingStrategy: nil
         )

@@ -205,7 +205,7 @@ Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地�
    streaming partial 仅覆盖单条 `previewSegment`，不进入历史时间轴。
 8. 隐私：音频不离开设备，模型本地内置加载。
 
-#### 8.2.1 实时识别路径（Phase 8.5 移除超前识别；Phase 9.8-9.9 稳定性保证）
+#### 8.2.1 实时识别路径（Phase 8.5 移除超前识别；Phase 9.8-9.10 稳定性保证）
 
 Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ 窗口 / 播放前预读等待均移除），
 字幕管线统一走实时路径：
@@ -214,6 +214,10 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
   0.4s 且随后出现 0.5s 静音时形成可变识别窗口，未出现停顿时以 8s 为兜底上限。窗口只决定
   Whisper 的输入范围，最终字幕时间戳仍由 WhisperKit 返回；partial 只更新当前
   `previewSegment`，不会按字词持续追加到历史，final 到达后清理重叠预览并作为整句写入时间轴。
+- Phase 9.10 的质量门控覆盖输入与输出：语音窗口必须有足够的帧间能量变化，避免恒定底噪进入
+  Whisper；解码显式使用低平均概率、首 token、压缩比和无语音阈值；final 结果由
+  `SpeechRecognitionQualityGate` 统一处理，低置信度或 8 秒内重复的归一化文本不写入字幕历史、
+  翻译队列或翻译记录。规则与语言、具体词句无关，切换识别会话时会重置。
 - 每次 activate、prepare、seek、播放结束和关闭都会递增 `recognitionSessionID`；识别器写入
   每条结果的会话标识，转发层只接受当前会话，防止 seek / 换片前迟到的结果进入当前视频。
 - 识别游标只进不退；允许最多落后播放光标 10 秒，只有超过阈值才重同步到当前播放位置，
@@ -224,7 +228,8 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
   READY 表示窗口转写完成。
 
 上述 partial 收敛、会话隔离、10 秒落后容忍和 final-first 翻译保证在 **Phase 9.8**
-集中完成；**Phase 9.9** 补充语音停顿分段，用于消除固定 5 秒窗口造成的机械句段。
+集中完成；**Phase 9.9** 补充语音停顿分段，用于消除固定 5 秒窗口造成的机械句段；
+**Phase 9.10** 补充输入、解码与 final 输出三层质量门控，用于抑制低信息量音频的重复幻觉。
 - 识别循环容错：模型仍在加载时收到转写请求，识别器抛出「引擎未就绪」普通错误
   （不是 CancellationError），循环短暂等待后重试，避免模型加载竞态导致识别永久退出；
   播放中途才打开字幕时，激活路径用引擎当前真实时间（而非上次播放开始时间）重建识别游标。
@@ -457,7 +462,8 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 3. **Phase 3（已完成）**：AVPlayer 封装（播放/暂停/进度/倍速/音量/全屏/比例/字幕控制）。
 4. **Phase 4（已完成）**：MediaExtractor（HTML5 video / MP4 / HLS / M3U8；不绕过 DRM）。
 5. **Phase 5（已完成）**：WhisperKit AudioPipeline + SpeechRecognizer 实时识别
-   （partial → final；识别游标只进不退、落后窗口跳过）；Phase 9.9 改为按语音停顿划分输入窗口。
+   （partial → final；识别游标只进不退、落后窗口跳过）；Phase 9.9 改为按语音停顿划分输入窗口，
+   Phase 9.10 增加幻觉质量门控。
 6. **Phase 6（已完成）**：SubtitleOverlay（双语、整句按播放光标对齐一次性出现、拖动、样式）。
 7. **Phase 7（已完成）**：TranslationEngine —— Fast NMT / 本地 LLM / 云端 API 三类 Provider
    （Base URL / API Key / Model / Language 配置）；剧情理解润色开关（自动压缩文本）；
@@ -574,7 +580,9 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
     更有意义的识别 / 翻译日志。
 37. **Phase 9.9（已完成，0.9.9）**：新增 PCM 能量语音分段器（100ms 帧、0.4s 最短语音、
     0.5s 尾部静音、8s 连续语音兜底），跳过静音并向 WhisperKit 传入可变识别窗口。
-38. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
+38. **Phase 9.10（已完成，0.9.10）**：新增输入能量变化、WhisperKit 解码阈值、final
+    低置信度与短间隔重复三层质量门控，抑制背景噪声引起的重复幻觉字幕而不硬编码任何文本。
+39. **Phase 9 & Phase 9+（规划中）**：完成 Liquid Glass 深化（变形过渡）、性能、
     测试与错误处理。
 
 > 禁止提前实现后续 Phase。变更记录见 [CHANGELOG.md](../CHANGELOG.md)。

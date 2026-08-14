@@ -66,11 +66,28 @@ struct SpeechWindowPlannerTests {
         )
     }
 
+    @Test func steadyBackgroundToneIsSkippedInsteadOfSentToWhisper() {
+        let decision = planner.nextWindow(
+            samples: steadyTone(seconds: 8),
+            sampleRate: sampleRate,
+            startTime: 3
+        )
+
+        #expect(decision == .skipSilence(to: 11))
+    }
+
     private func speech(seconds: Double) -> [Float] {
-        [Float](repeating: 0.05, count: Int(seconds * sampleRate))
+        let frameSize = Int(sampleRate * 0.1)
+        return (0..<Int(seconds * sampleRate)).map { index in
+            (index / frameSize).isMultiple(of: 2) ? 0.05 : 0.025
+        }
     }
 
     private func silence(seconds: Double) -> [Float] {
         [Float](repeating: 0, count: Int(seconds * sampleRate))
+    }
+
+    private func steadyTone(seconds: Double) -> [Float] {
+        [Float](repeating: 0.02, count: Int(seconds * sampleRate))
     }
 }

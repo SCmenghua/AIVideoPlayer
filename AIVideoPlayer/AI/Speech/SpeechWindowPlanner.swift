@@ -9,19 +9,22 @@ struct SpeechWindowPlanner: Sendable {
         let trailingSilenceDuration: TimeInterval
         let maximumWindowDuration: TimeInterval
         let speechEnergyThreshold: Float
+        let minimumSpeechEnergyRange: Float
 
         init(
             analysisFrameDuration: TimeInterval = 0.1,
             minimumSpeechDuration: TimeInterval = 0.4,
             trailingSilenceDuration: TimeInterval = 0.5,
             maximumWindowDuration: TimeInterval = 8,
-            speechEnergyThreshold: Float = 0.008
+            speechEnergyThreshold: Float = 0.008,
+            minimumSpeechEnergyRange: Float = 0.004
         ) {
             self.analysisFrameDuration = analysisFrameDuration
             self.minimumSpeechDuration = minimumSpeechDuration
             self.trailingSilenceDuration = trailingSilenceDuration
             self.maximumWindowDuration = maximumWindowDuration
             self.speechEnergyThreshold = speechEnergyThreshold
+            self.minimumSpeechEnergyRange = minimumSpeechEnergyRange
         }
     }
 
@@ -104,12 +107,15 @@ struct SpeechWindowPlanner: Sendable {
 
             let speechFrameCount = frameIndex - silenceRun + 1
             if speechFrameCount >= requiredSpeechFrames {
-                return .transcribe(
-                    Window(
-                        startTime: startTime,
-                        endTime: startTime + Double(speechFrameCount) * frameDuration
-                    )
+                let window = Window(
+                    startTime: startTime,
+                    endTime: startTime + Double(speechFrameCount) * frameDuration
                 )
+                return hasEnoughSpeechVariation(
+                    samples,
+                    frameCount: speechFrameCount,
+                    samplesPerFrame: samplesPerFrame
+                ) ? .transcribe(window) : .skipSilence(to: window.endTime)
             }
 
             // Ignore isolated clicks and other short non-speech sounds.
@@ -117,12 +123,15 @@ struct SpeechWindowPlanner: Sendable {
         }
 
         if usableFrameCount == maximumFrameCount {
-            return .transcribe(
-                Window(
-                    startTime: startTime,
-                    endTime: startTime + Double(usableFrameCount) * frameDuration
-                )
+            let window = Window(
+                startTime: startTime,
+                endTime: startTime + Double(usableFrameCount) * frameDuration
             )
+            return hasEnoughSpeechVariation(
+                samples,
+                frameCount: usableFrameCount,
+                samplesPerFrame: samplesPerFrame
+            ) ? .transcribe(window) : .skipSilence(to: window.endTime)
         }
 
         return .waitForMoreAudio
@@ -155,5 +164,43 @@ struct SpeechWindowPlanner: Sendable {
             energy += sample * sample
         }
         return energy / Float(samplesPerFrame) >= thresholdSquared
+    }
+
+    /// A steady tone or amplified room noise can pass an RMS threshold while containing no speech.
+    /// Require some frame-to-frame energy movement before it is sent to Whisper.
+    private func hasEnoughSpeechVariation(
+        _ samples: [Float],
+        frameCount: Int,
+        samplesPerFrame: Int
+    ) -> Bool {
+        guard configuration.minimumSpeechEnergyRange > 0 else { return true }
+
+        var lowestEnergy = Float.greatestFiniteMagnitude
+        var highestEnergy: Float = 0
+        for frameIndex in 0..<frameCount {
+            let energy = rootMeanSquare(
+                samples,
+                frameIndex: frameIndex,
+                samplesPerFrame: samplesPerFrame
+            )
+            guard energy >= configuration.speechEnergyThreshold else { continue }
+            lowestEnergy = min(lowestEnergy, energy)
+            highestEnergy = max(highestEnergy, energy)
+        }
+        return highestEnergy - lowestEnergy >= configuration.minimumSpeechEnergyRange
+    }
+
+    private func rootMeanSquare(
+        _ samples: [Float],
+        frameIndex: Int,
+        samplesPerFrame: Int
+    ) -> Float {
+        let lowerBound = frameIndex * samplesPerFrame
+        let upperBound = lowerBound + samplesPerFrame
+        var energy: Float = 0
+        for sample in samples[lowerBound..<upperBound] {
+            energy += sample * sample
+        }
+        return (energy / Float(samplesPerFrame)).squareRoot()
     }
 }

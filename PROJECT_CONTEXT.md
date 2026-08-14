@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.9（2026-08-14）
-**当前 Phase**：9.9（按语音停顿划分字幕识别窗口）
+**当前版本**：0.9.10（2026-08-14）
+**当前 Phase**：9.10（Whisper 幻觉字幕抑制）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.9.9）
+3. 点击 **Run workflow**，填写版本号（默认 0.9.10）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -82,6 +82,14 @@ open AIVideoPlayer.xcodeproj
 - **[README.md](README.md)**：项目介绍与快速开始
 
 ## 已完成
+
+- **Phase 9.10（2026-08-14，0.9.10）**：抑制 Whisper 幻觉字幕——针对背景噪声或低信息量
+  音频被误送入转写后反复生成不存在内容的问题，新增三层通用质量门控：`SpeechWindowPlanner`
+  要求语音帧存在足够能量变化，恒定底噪不再进入 Whisper；`WhisperKitSpeechRecognizer` 显式启用
+  低平均概率、首 token、压缩比和无语音回退阈值；`SpeechRecognitionQualityGate` 丢弃低置信度
+  final，并在同一归一化文本 8 秒内重复时阻止其写入字幕历史和翻译队列。没有对“感谢观看”
+  或任何语言做硬编码，因此真实台词在合理间隔或新会话中仍可出现；新增对应回归测试，
+  `MARKETING_VERSION` 提升至 0.9.10。
 
 - **Phase 9.9（2026-08-14，0.9.9）**：按语音停顿划分 Whisper 识别窗口——
   新增独立可测试的 `SpeechWindowPlanner`，以 100ms PCM 能量帧检测语音；静音不再送入
@@ -423,9 +431,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.9
-- **版本**：0.9.9
-- **状态**：进行中：已完成 Phase 9.9 文档与版本归档，待本次 swift-ci 验证并打包 IPA
+- **Phase**：9.10
+- **版本**：0.9.10
+- **状态**：进行中：已完成 Phase 9.10 幻觉字幕防护，待本次 swift-ci 验证并打包 IPA
 - **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项

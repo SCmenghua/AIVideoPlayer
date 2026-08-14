@@ -179,6 +179,45 @@ struct SubtitlePipelineTests {
         await shutdown(pipeline)
     }
 
+    @Test func repeatedFinalIsNotWrittenTwice() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline()
+        let recognizer = MockSpeechRecognizer()
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(source: source, recognizer: recognizer, transcript: transcript)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 1,
+                originalText: "repeated hallucination",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+        await waitUntil { pipeline.emittedSegmentCount == 1 }
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 5,
+                endTime: 6,
+                originalText: "repeated hallucination",
+                confidence: 0.9,
+                isPartial: false
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+
+        transcript.flush()
+        #expect(pipeline.emittedSegmentCount == 1)
+        #expect(transcript.segments.count == 1)
+        await shutdown(pipeline)
+    }
+
     @Test func recognitionLoopSurvivesEngineNotReadyAndRecovers() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
@@ -436,7 +475,10 @@ struct SubtitlePipelineTests {
     }
 
     private func speechSamples(seconds: Double) -> [Float] {
-        [Float](repeating: 0.05, count: Int(seconds * 16_000))
+        let frameSize = 1_600
+        return (0..<Int(seconds * 16_000)).map { index in
+            (index / frameSize).isMultiple(of: 2) ? 0.05 : 0.025
+        }
     }
 
     private func silenceSamples(seconds: Double) -> [Float] {
