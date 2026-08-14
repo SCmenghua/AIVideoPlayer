@@ -29,7 +29,7 @@ public enum WhisperRecognizerError: LocalizedError, Sendable {
 
 /// WhisperKit 本地实时识别实现（Phase 5）。
 /// 模型随 App 内置（Resources/Models/whisperkit-coreml），音频不离开设备；
-/// 通过 `transcribe` 处理固定窗口，并把 Whisper 的 partial / final
+/// 通过 `transcribe` 处理由语音停顿切分的窗口，并把 Whisper 的 partial / final
 /// 映射为 `SubtitleSegment` 写入 `segments` 流。
 @MainActor
 public final class WhisperKitSpeechRecognizer: SpeechRecognizer {

@@ -309,7 +309,7 @@ struct SubtitlePipelineTests {
         await shutdown(pipeline)
     }
 
-    @Test func smallRecognitionLagDoesNotSkipCurrentWindow() async throws {
+    @Test func excessiveRecognitionLagResynchronizesToPlayback() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
@@ -324,7 +324,33 @@ struct SubtitlePipelineTests {
         emitSeconds(source, seconds: 20, start: 0)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        #expect(recognizer.transcriptionCalls.first?.windowStart == 0)
+        #expect(recognizer.transcriptionCalls.first?.windowStart == 12)
+        await shutdown(pipeline)
+    }
+
+    @Test func recognitionUsesSpeechPauseBoundariesInsteadOfFiveSecondWindows() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline()
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        source.emit(
+            PCMChunk(
+                samples: speechSamples(seconds: 1.2) + silenceSamples(seconds: 0.5),
+                sampleRate: 16_000,
+                startTime: 0
+            )
+        )
+
+        await waitUntil { recognizer.transcriptionCalls.count == 1 }
+        let call = try #require(recognizer.lastCall)
+        #expect(call.windowStart == 0)
+        #expect(abs(call.windowDuration - 1.2) < 0.001)
         await shutdown(pipeline)
     }
 
@@ -358,7 +384,9 @@ struct SubtitlePipelineTests {
         for index in 0..<seconds {
             source.emit(
                 PCMChunk(
-                    samples: [Float](repeating: 0, count: 16_000),
+                    samples: index == seconds - 1
+                        ? silenceSamples(seconds: 1)
+                        : speechSamples(seconds: 1),
                     sampleRate: 16_000,
                     startTime: start + Double(index)
                 )
@@ -374,7 +402,9 @@ struct SubtitlePipelineTests {
         for index in 0..<seconds {
             source.emit(
                 PCMChunk(
-                    samples: [Float](repeating: 0, count: 16_000),
+                    samples: index == seconds - 1
+                        ? silenceSamples(seconds: 1)
+                        : speechSamples(seconds: 1),
                     sampleRate: 16_000,
                     startTime: start + Double(index)
                 )
@@ -403,6 +433,14 @@ struct SubtitlePipelineTests {
 
     private func uniqueSuiteName() -> String {
         "subtitle-pipeline.\(UUID().uuidString)"
+    }
+
+    private func speechSamples(seconds: Double) -> [Float] {
+        [Float](repeating: 0.05, count: Int(seconds * 16_000))
+    }
+
+    private func silenceSamples(seconds: Double) -> [Float] {
+        [Float](repeating: 0, count: Int(seconds * 16_000))
     }
 }
 
@@ -456,6 +494,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
 
     struct TranscriptionCall {
         let windowStart: TimeInterval
+        let windowDuration: TimeInterval
         let language: String?
         let emitPartial: Bool
         let recognitionSessionID: Int
@@ -507,6 +546,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         transcriptionCalls.append(
             TranscriptionCall(
                 windowStart: windowStart,
+                windowDuration: windowDuration,
                 language: language,
                 emitPartial: emitPartial,
                 recognitionSessionID: recognitionSessionID

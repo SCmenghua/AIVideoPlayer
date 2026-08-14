@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.8（2026-08-14）
-**当前 Phase**：9.8（长视频实时字幕稳定性修复）
+**当前版本**：0.9.9（2026-08-14）
+**当前 Phase**：9.9（按语音停顿划分字幕识别窗口）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.9.8）
+3. 点击 **Run workflow**，填写版本号（默认 0.9.9）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -83,6 +83,13 @@ open AIVideoPlayer.xcodeproj
 
 ## 已完成
 
+- **Phase 9.9（2026-08-14，0.9.9）**：按语音停顿划分 Whisper 识别窗口——
+  新增独立可测试的 `SpeechWindowPlanner`，以 100ms PCM 能量帧检测语音；静音不再送入
+  Whisper，前导静音会直接跳过，连续语音满足至少 0.4s 且出现 0.5s 尾部静音时才转写。
+  未出现停顿的连续讲话以 8s 为兜底上限，避免旧的固定 5s 音频切片让调试字幕机械地按
+  窗口成句。识别最终的逐段时间戳仍由 WhisperKit 输出；重同步改为当前播放位置，不再依赖
+  固定窗口边界；新增分段器与管线集成测试；`MARKETING_VERSION` 提升至 0.9.9。
+
 - **Phase 9.6（2026-08-13 打包 0.9.6）**：修复第一分钟字幕丢失 + 云端翻译健壮性——
   根因是 `SubtitleOverlayViewModel.reset()` 在 `currentItem` 变化时清空共享字幕存储，
   与批量识别抢跑竞争，导致第一分钟原文被清、译文无法回填；修复为清空职责收回到
@@ -95,7 +102,7 @@ open AIVideoPlayer.xcodeproj
   `SubtitleTranscriptStore` 只保留 final 历史时间轴，Whisper streaming partial 改为唯一
   `previewSegment`，不会再作为大量重复记录写入 Overlay 或设置页；每次 activate、seek、换片
   都递增 `recognitionSessionID`，旧会话迟到的 partial/final 被忽略，当前会话 final 不再因播放
-  光标已超过其结束时间而被误丢；识别游标允许最多落后 10 秒，超过时才对齐到 5 秒窗口重同步，
+  光标已超过其结束时间而被误丢；识别游标允许最多落后 10 秒，超过时重同步到当前播放位置，
   避免识别稍慢就连续跳过音频。普通逐条翻译改为 final-first：final 原文先按 ID 写入时间轴，
   翻译在独立任务完成后回填 `translatedText`，翻译慢、超时或失败均不阻塞字幕识别与显示；
   `MARKETING_VERSION` 提升至 0.9.8；此前发布的 `0.9.6` IPA 保持原样。
@@ -416,9 +423,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.8
-- **版本**：0.9.8
-- **状态**：进行中：已完成 Phase 9.8 文档与版本归档，待本次 swift-ci 验证并打包 IPA
+- **Phase**：9.9
+- **版本**：0.9.9
+- **状态**：进行中：已完成 Phase 9.9 文档与版本归档，待本次 swift-ci 验证并打包 IPA
 - **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项

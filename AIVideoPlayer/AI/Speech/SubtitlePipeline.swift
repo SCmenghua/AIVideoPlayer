@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// AI 字幕子系统（Phase 8.5 重构）。
-/// 持有识别器 + 音频管线，实时转写路径：固定 5 秒窗口 partial → final 输出；
+/// 持有识别器 + 音频管线，实时转写路径：按语音停顿切分窗口并输出 partial → final；
 /// 识别游标只进不退，仅在明显落后时才重同步（避免识别速度跟不上时频繁跳过）。
 /// final 结果（原文 + 译文）写入共享 `SubtitleTranscriptStore`，
 /// partial 仅作为单条当前预览，
@@ -32,6 +32,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private let playerSourceFactory: @MainActor (any PlaybackEngine) -> any AudioPipeline
     private let readerSourceFactory: @MainActor (MediaItem) -> any AudioPipeline
     private let transcript: SubtitleTranscriptStore
+    private let speechWindowPlanner = SpeechWindowPlanner()
 
     private var recognizer: (any SpeechRecognizer)?
     private var source: (any AudioPipeline)?
@@ -275,7 +276,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         setStatus(state: .off)
     }
 
-    /// 识别允许的最大落后秒数；超过后才按窗口边界重同步。
+    /// 识别允许的最大落后秒数；超过后才重同步到当前播放位置。
     private static let maximumRecognitionLag: TimeInterval = 10
     /// 识别前瞻上限（秒）：大模型批量模式放宽到 60s（Phase 9.3.3），普通模式保持 10s。
     private var recognitionLookahead: TimeInterval {
@@ -582,7 +583,6 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         generation: Int,
         recognitionSessionID: Int
     ) async {
-        let windowSize: TimeInterval = 5
         // 识别前瞻窗口：只识别当前播放位置前方 recognitionLookahead 秒内的音频，
         // 避免无限识别整个视频；大模型批量模式放宽到 60s 以便攒出首批批量内容。
         let maxLookahead = recognitionLookahead
@@ -594,11 +594,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
               !Task.isCancelled {
             guard let recognizer else { return }
 
-            // 短暂落后继续处理，只有超过阈值才跳到播放位置附近的窗口边界。
-            if cursor + windowSize < playbackTime - Self.maximumRecognitionLag {
+            // 短暂落后继续处理，只有超过阈值才重同步到当前播放位置。
+            if cursor < playbackTime - Self.maximumRecognitionLag {
                 let oldCursor = cursor
                 let resyncTarget = max(playbackTime, buffer.captureStart)
-                cursor = Self.alignedWindowStart(at: resyncTarget, windowSize: windowSize)
+                cursor = resyncTarget
                 transcript.clearPreview()
                 skippedWindowCount += 1
                 totalSkippedSeconds += cursor - oldCursor
@@ -618,7 +618,11 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 continue
             }
 
-            guard let samples = buffer.extract(from: cursor, to: cursor + windowSize) else {
+            let availableEnd = min(
+                buffer.capturedEnd,
+                cursor + speechWindowPlanner.configuration.maximumWindowDuration
+            )
+            guard let availableSamples = buffer.extract(from: cursor, to: availableEnd) else {
                 // 音频尚未缓冲到目标窗口：节流记录，便于确认识别等待的是音频还是模型。
                 logBufferWaitIfNeeded(windowStart: cursor)
                 handleRecognitionStall()
@@ -626,11 +630,39 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 continue
             }
 
-            let windowStart = cursor
-            guard !samples.isEmpty else {
-                cursor += windowSize
+            let window: SpeechWindowPlanner.Window
+            switch speechWindowPlanner.nextWindow(
+                samples: availableSamples,
+                sampleRate: buffer.sampleRateValue,
+                startTime: cursor
+            ) {
+            case .waitForMoreAudio:
+                logBufferWaitIfNeeded(windowStart: cursor)
+                handleRecognitionStall()
+                try? await Task.sleep(for: .milliseconds(120))
+                continue
+
+            case .skipSilence(let nextCursor):
+                if nextCursor > cursor {
+                    cursor = nextCursor
+                } else {
+                    try? await Task.sleep(for: .milliseconds(120))
+                }
+                continue
+
+            case .transcribe(let nextWindow):
+                window = nextWindow
+            }
+
+            guard let samples = buffer.extract(from: window.startTime, to: window.endTime),
+                  !samples.isEmpty
+            else {
+                try? await Task.sleep(for: .milliseconds(120))
                 continue
             }
+
+            let windowStart = window.startTime
+            let windowDuration = window.duration
 
             setStatus(state: .transcribing)
             do {
@@ -638,7 +670,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     samples: samples,
                     sampleRate: buffer.sampleRateValue,
                     windowStart: windowStart,
-                    windowDuration: windowSize,
+                    windowDuration: windowDuration,
                     language: effectiveRecognitionLanguage,
                     emitPartial: true,
                     recognitionSessionID: recognitionSessionID
@@ -652,7 +684,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 transcribedWindowCount += 1
                 setStatus(state: outcome.segmentCount > 0 ? .ready : .listening)
                 // 识别成功，推进到下一个窗口
-                cursor += windowSize
+                cursor = window.endTime
                 lastRecognitionProgressTime = Date()
                 didNotifyStalledForGeneration = false
             } catch is CancellationError {
@@ -669,17 +701,6 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
-    }
-
-    private static func alignedWindowStart(
-        at time: TimeInterval,
-        windowSize: TimeInterval
-    ) -> TimeInterval {
-        let rounded = (time / windowSize).rounded()
-        if abs(time - rounded * windowSize) < 0.001 {
-            return rounded * windowSize
-        }
-        return ceil(time / windowSize) * windowSize
     }
 
     private func setStatus(state: AIState) {
