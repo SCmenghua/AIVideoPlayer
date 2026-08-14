@@ -58,7 +58,7 @@ struct SubtitlePipelineTranslationTests {
             )
         )
 
-        try? await Task.sleep(for: .milliseconds(100))
+        await waitUntil { transcript.previewSegment?.originalText == "Hel" }
         #expect(transcript.segments.isEmpty)
         #expect(transcript.previewSegment?.originalText == "Hel")
         #expect(translator.callCount == 0)
