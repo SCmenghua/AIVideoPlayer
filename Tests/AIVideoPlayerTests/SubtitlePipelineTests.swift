@@ -151,6 +151,8 @@ struct SubtitlePipelineTests {
 
         let source = MockAudioPipeline()
         let recognizer = MockSpeechRecognizer()
+        // 本测试只验证旧会话流结果；避免 mock 在首个当前会话窗口自动写入 final。
+        recognizer.outcome = RecognitionOutcome(language: "en", segmentCount: 0)
         let transcript = SubtitleTranscriptStore()
         let pipeline = makePipeline(source: source, recognizer: recognizer, transcript: transcript)
         pipeline.attach(playbackEngine: engine)
@@ -243,7 +245,12 @@ struct SubtitlePipelineTests {
 
         await pipeline.toggle()
         await pipeline.preparePlayback(from: 0)
-        emitSeconds(source, seconds: 12, start: 0)
+        // 先让消费任务订阅音频流，再送首窗；随后在首窗检测到语言后再送下一窗。
+        try? await Task.sleep(for: .milliseconds(50))
+        emitSeconds(source, seconds: 5, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        emitSeconds(source, seconds: 5, start: 5)
 
         await waitUntil(timeout: .seconds(5)) { recognizer.transcriptionCalls.count >= 2 }
         #expect(recognizer.transcriptionCalls.count >= 2)
