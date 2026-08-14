@@ -2,9 +2,11 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-一个长期维护的个人 iOS 项目，提供 App 内网页浏览、WebDAV 远程文件访问、自动识别媒体资源并播放、Whisper 本地实时语音识别与 AI 双语字幕。UI 严格遵循 iOS 26 原生 Liquid Glass 设计规范。
+一个已停止维护的个人 iOS 历史项目，曾提供 App 内网页浏览、WebDAV 远程文件访问、自动识别媒体资源并播放、Whisper 本地实时语音识别与 AI 双语字幕。UI 曾遵循 iOS 26 原生 Liquid Glass 设计规范。
 
 **当前版本**：0.9.10（2026-08-14）
+
+> **项目状态：已停止并归档。** 本仓库只保留历史源码、架构、问题记录和历史构建；不再进行新的 Phase、功能开发、问题修复或 IPA 发布。新项目路线见 [NEW.md](NEW.md)。
 
 ## 核心功能
 
@@ -24,7 +26,7 @@
 
 > Windows 无法编译 iOS 应用，只能用于查看源码。
 
-## 快速开始
+## 历史构建方式
 
 ```bash
 # 1. 安装 XcodeGen
@@ -40,9 +42,9 @@ open AIVideoPlayer.xcodeproj
 # 4. 运行：选择 AIVideoPlayer scheme，选 iOS 26 模拟器，Cmd+R
 ```
 
-## 打包 IPA
+## 历史 IPA
 
-仓库提供 GitHub Actions 手动工作流打包未签名 IPA：
+仓库过去曾提供 GitHub Actions 手动工作流打包未签名 IPA。项目已停止，以下流程仅供复现历史构建，工作流不再保证可用：
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
@@ -82,16 +84,13 @@ open AIVideoPlayer.xcodeproj
 - **协议先行**：先定义契约，实现可替换
 - **隐私优先**：视频/音频不上传、Whisper 本地运行、凭据只存 Keychain
 
-## 开发状态
+## 归档状态
 
-当前 Phase：**9.9**（按语音停顿划分字幕识别窗口）
+最后记录的 Phase：**9.10**（Whisper 幻觉字幕抑制）
 
-当前修复：识别管线按 PCM 能量检测语音停顿，跳过静音并使用可变时长窗口；
-避免固定 5 秒切分使 Whisper 调试输出机械地按窗口成句。
+状态：已停止并归档。后续 Phase、功能开发、修复、CI 打包和 IPA 发布均已取消。
 
-下一步：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
-
-详见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) 与 [CHANGELOG.md](docs/CHANGELOG.md)。
+历史上下文见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md)，历史变更见 [CHANGELOG.md](docs/CHANGELOG.md)。
 
 ## License
 

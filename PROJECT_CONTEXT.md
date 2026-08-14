@@ -2,6 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
+> **项目状态：已停止并归档。** 本文件仅用于理解旧实现、复盘问题和复现历史构建。本项目不再进行新的 Phase、功能开发、问题修复、CI 打包或 IPA 发布；新项目路线见 [NEW.md](NEW.md)。
+
 **当前版本**：0.9.10（2026-08-14）
 **当前 Phase**：9.10（Whisper 幻觉字幕抑制）
 
@@ -31,7 +33,7 @@
 | 测试 | Swift Testing |
 | CI | GitHub Actions |
 
-## 开发环境
+## 历史开发环境
 
 - macOS（可安装 Xcode 26）
 - Xcode 26+（含 iOS 26 SDK）
@@ -39,7 +41,7 @@
 
 > Windows 无法编译 iOS 应用，只能用于查看源码。
 
-## 快速开始
+## 历史构建方式
 
 ```bash
 # 1. 安装 XcodeGen
@@ -55,9 +57,9 @@ open AIVideoPlayer.xcodeproj
 # 4. 运行：选择 AIVideoPlayer scheme，选 iOS 26 模拟器，Cmd+R
 ```
 
-## 打包与部署
+## 历史打包与部署
 
-仓库提供 GitHub Actions 手动工作流打包未签名 IPA：
+仓库过去曾提供 GitHub Actions 手动工作流打包未签名 IPA。以下内容仅供历史复现，工作流不再保证可用：
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
@@ -429,12 +431,12 @@ open AIVideoPlayer.xcodeproj
 3. **记录失败 Phase**：在本文档「已完成」部分标注失败的 Phase 与原因
 4. **下一个 Phase 从回退基线继续**
 
-## 当前状态
+## 归档状态
 
 - **Phase**：9.10
 - **版本**：0.9.10
-- **状态**：进行中：已完成 Phase 9.10 幻觉字幕防护，待本次 swift-ci 验证并打包 IPA
-- **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
+- **状态**：已停止并归档；Phase 9.10 是最后一个记录的阶段
+- **下一步**：无。后续 Phase、功能开发、修复、CI 打包和 IPA 发布均已取消
 
 ## 注意事项
 

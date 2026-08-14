@@ -4,12 +4,11 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [Archived]
 
-### 待规划
+本项目已停止并归档。`0.9.10` 是最后一个记录版本；不再有 Unreleased 计划、后续 Phase、功能开发、问题修复或 IPA 发布。
 
-- **Phase 9.7**：LLM 功能深化——提示词优化、推理加速、更多模型
-- **后续**：新浏览器功能、Liquid Glass 深化、性能优化与测试（编号后续规划）
+新产品路线不属于本项目，见仓库根目录的 [NEW.md](../NEW.md)。
 
 ## [0.9.10] - 2026-08-14
 
