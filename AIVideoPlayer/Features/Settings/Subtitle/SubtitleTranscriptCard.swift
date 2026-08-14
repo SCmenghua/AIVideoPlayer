@@ -48,6 +48,19 @@ struct SubtitleTranscriptCard: View {
                     }
                     .frame(maxHeight: 300)
                 }
+
+                if let preview = transcript.previewSegment {
+                    Divider()
+                    HStack(alignment: .firstTextBaseline, spacing: AppTheme.Spacing.xs) {
+                        Text("识别预览")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        Text(preview.originalText)
+                            .font(.caption)
+                            .lineLimit(2)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
     }
@@ -58,11 +71,7 @@ struct SubtitleTranscriptCard: View {
                 Text(Self.timeText(segment.startTime))
                     .font(.caption2.weight(.semibold))
                     .foregroundStyle(.secondary)
-                if segment.isPartial {
-                    Text("识别中")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(.orange)
-                } else if let translated = segment.translatedText, !translated.isEmpty {
+                if let translated = segment.translatedText, !translated.isEmpty {
                     Text("已翻译")
                         .font(.caption2.weight(.semibold))
                         .foregroundStyle(.green)

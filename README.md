@@ -84,9 +84,12 @@ open AIVideoPlayer.xcodeproj
 
 ## 开发状态
 
-当前 Phase：**8.18**（修复长视频 UI 卡死 + 诊断中心）
+当前 Phase：**9.6**（0.9.6 基线上的实时字幕稳定性修复）
 
-下一步：Phase 9 —— Liquid Glass 深化（变形过渡）、性能优化、测试与错误处理
+当前修复：Whisper partial 仅作为单条识别预览，final 字幕按识别会话写入时间轴；
+短暂识别落后不会频繁跳窗，翻译慢或失败也不会阻塞原文字幕显示。
+
+下一步：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 详见 [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) 与 [CHANGELOG.md](docs/CHANGELOG.md)。
 

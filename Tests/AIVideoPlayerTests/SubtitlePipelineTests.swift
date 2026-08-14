@@ -79,7 +79,7 @@ struct SubtitlePipelineTests {
         await shutdown(pipeline)
     }
 
-    @Test func staleFinalBeforePlaybackTimeIsDropped() async throws {
+    @Test func delayedFinalBeforePlaybackTimeIsKept() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
@@ -105,12 +105,12 @@ struct SubtitlePipelineTests {
                 isPartial: false
             )
         )
-        try? await Task.sleep(for: .milliseconds(100))
-        #expect(transcript.segments.isEmpty)
+        await waitUntil { !transcript.segments.isEmpty }
+        #expect(transcript.segments.first?.originalText == "stale")
         await shutdown(pipeline)
     }
 
-    @Test func partialBehindPlaybackIsStillWritten() async throws {
+    @Test func partialBehindPlaybackIsStoredAsSinglePreview() async throws {
         let engine = MockPlaybackEngine()
         try await engine.load(MockRemoteFiles.sampleMediaItem)
 
@@ -140,8 +140,40 @@ struct SubtitlePipelineTests {
         )
         try? await Task.sleep(for: .milliseconds(100))
         transcript.flush()
-        #expect(transcript.segments.count == 1)
-        #expect(transcript.segments.first?.isPartial == true)
+        #expect(transcript.segments.isEmpty)
+        #expect(transcript.previewSegment?.originalText == "partial text")
+        await shutdown(pipeline)
+    }
+
+    @Test func staleRecognitionSessionResultsAreIgnored() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline()
+        let recognizer = MockSpeechRecognizer()
+        let transcript = SubtitleTranscriptStore()
+        let pipeline = makePipeline(source: source, recognizer: recognizer, transcript: transcript)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        emitSeconds(source, seconds: 5, start: 0)
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        let oldSessionID = try #require(recognizer.lastCall?.recognitionSessionID)
+
+        await pipeline.handleSeek(to: 30)
+        recognizer.emit(
+            SubtitleSegment(
+                startTime: 0,
+                endTime: 5,
+                originalText: "old session",
+                confidence: 0.9,
+                recognitionSessionID: oldSessionID
+            )
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+
+        #expect(transcript.segments.isEmpty)
         await shutdown(pipeline)
     }
 
@@ -272,6 +304,25 @@ struct SubtitlePipelineTests {
         await shutdown(pipeline)
     }
 
+    @Test func smallRecognitionLagDoesNotSkipCurrentWindow() async throws {
+        let engine = MockPlaybackEngine()
+        try await engine.load(MockRemoteFiles.sampleMediaItem)
+
+        let source = MockAudioPipeline()
+        let recognizer = MockSpeechRecognizer()
+        let pipeline = makePipeline(source: source, recognizer: recognizer)
+        pipeline.attach(playbackEngine: engine)
+
+        await pipeline.toggle()
+        await pipeline.preparePlayback(from: 0)
+        pipeline.updatePlaybackPosition(12)
+        emitSeconds(source, seconds: 20, start: 0)
+
+        await waitUntil { recognizer.transcriptionCalls.count >= 1 }
+        #expect(recognizer.transcriptionCalls.first?.windowStart == 0)
+        await shutdown(pipeline)
+    }
+
     // MARK: - 辅助
 
     private func makePipeline(
@@ -385,6 +436,7 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         let windowStart: TimeInterval
         let language: String?
         let emitPartial: Bool
+        let recognitionSessionID: Int
     }
 
     var lastCall: TranscriptionCall? {
@@ -423,14 +475,20 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
         language: String?,
-        emitPartial: Bool
+        emitPartial: Bool,
+        recognitionSessionID: Int
     ) async throws -> RecognitionOutcome {
         if failuresBeforeSuccess > 0 {
             failuresBeforeSuccess -= 1
             throw failureError
         }
         transcriptionCalls.append(
-            TranscriptionCall(windowStart: windowStart, language: language, emitPartial: emitPartial)
+            TranscriptionCall(
+                windowStart: windowStart,
+                language: language,
+                emitPartial: emitPartial,
+                recognitionSessionID: recognitionSessionID
+            )
         )
         if outcome.segmentCount > 0 {
             continuation.yield(
@@ -439,7 +497,8 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
                     endTime: windowStart + windowDuration,
                     originalText: "hello",
                     confidence: 0.9,
-                    isPartial: false
+                    isPartial: false,
+                    recognitionSessionID: recognitionSessionID
                 )
             )
         }

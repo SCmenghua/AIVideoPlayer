@@ -3,8 +3,9 @@ import Observation
 
 /// AI 字幕子系统（Phase 8.5 重构）。
 /// 持有识别器 + 音频管线，实时转写路径：固定 5 秒窗口 partial → final 输出；
-/// 识别游标只进不退、落后于播放光标的窗口跳过（避免识别速度跟不上时字幕持续错过）。
-/// 每一条结果（原文 + 译文）写入共享 `SubtitleTranscriptStore`，
+/// 识别游标只进不退，仅在明显落后时才重同步（避免识别速度跟不上时频繁跳过）。
+/// final 结果（原文 + 译文）写入共享 `SubtitleTranscriptStore`，
+/// partial 仅作为单条当前预览，
 /// 播放器 Overlay 与设置页「字幕记录」都从该存储读取，不再依赖单次消费的流。
 @MainActor
 @Observable
@@ -12,7 +13,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public private(set) var status: AISubtitleStatus
     /// 已完成的识别窗口数（每次成功转写 +1；用户可据此判断识别是否真的在跑）。
     public private(set) var transcribedWindowCount = 0
-    /// 已产出并写入字幕记录的字幕条数（partial / final 均计入）。
+    /// 已产出并写入字幕记录的 final 字幕条数。
     public private(set) var emittedSegmentCount = 0
     /// 已成功翻译并写入译文的字幕条数（final 段，翻译成功 +1）。
     public private(set) var translatedSegmentCount = 0
@@ -40,6 +41,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private var sourceItemID: UUID?
     private let buffer = PCMBuffer()
     private var generation = 0
+    private var recognitionSessionID = 0
     private var active = false
     private var modelLoaded = false
     private var currentLanguage: String?
@@ -125,6 +127,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         engine = nil
         source = nil
         sourceItemID = nil
+        transcript.clearPreview()
     }
 
     /// 播放开始 / seek 重建 / 恢复播放前调用：确保音频管线与识别循环就绪。
@@ -133,6 +136,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         guard active else { return }
         Log.app.debug("字幕管线 preparePlayback from=\(String(format: "%.1f", time)) active=\(self.active)")
         generation += 1
+        recognitionSessionID += 1
+        transcript.clearPreview()
         lastRecognitionProgressTime = nil
         didNotifyStalledForGeneration = false
         stopLoops()
@@ -166,10 +171,13 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     public func handlePlaybackPaused() {
         stopLoops()
+        transcript.clearPreview()
     }
 
     public func handlePlaybackEnded() {
         stopLoops()
+        recognitionSessionID += 1
+        transcript.clearPreview()
         batchCoordinator?.reset()
         initialBatchCompleted = false
         lastRecognitionProgressTime = nil
@@ -189,6 +197,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     public func handleSeek(to time: TimeInterval) async {
         playbackTime = time
         generation += 1
+        recognitionSessionID += 1
         lastRecognitionProgressTime = nil
         didNotifyStalledForGeneration = false
         stopLoops()
@@ -197,6 +206,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         source?.setReadTarget(time + readAheadLimit)
         batchCoordinator?.reset()
         initialBatchCompleted = false
+        transcript.clearPreview()
     }
 
     /// 翻译设置变更后刷新：丢弃缓存的翻译引擎，下次翻译按新设置重建。
@@ -213,6 +223,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         Log.app.info("激活字幕管线")
         active = true
         generation += 1
+        recognitionSessionID += 1
         rebuildBatchCoordinator()
         currentLanguage = nil
         modelLoaded = false
@@ -242,6 +253,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private func shutdown() async {
         Log.app.info("关闭字幕管线")
         generation += 1
+        recognitionSessionID += 1
         active = false
         stopLoops()
         forwardTask?.cancel()
@@ -263,8 +275,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         setStatus(state: .off)
     }
 
-    /// 过期片段判定容差（秒）：允许轻微的时钟偏差，避免误删边界片段。
-    private static let staleSegmentTolerance: TimeInterval = 1
+    /// 识别允许的最大落后秒数；超过后才按窗口边界重同步。
+    private static let maximumRecognitionLag: TimeInterval = 10
     /// 识别前瞻上限（秒）：大模型批量模式放宽到 60s（Phase 9.3.3），普通模式保持 10s。
     private var recognitionLookahead: TimeInterval {
         isUsingBatchTranslation ? 60 : 10
@@ -325,8 +337,12 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     private func startRecognitionLoop() {
         loopTask?.cancel()
         let taskGeneration = generation
+        let taskSessionID = recognitionSessionID
         loopTask = Task { [weak self] in
-            await self?.runRecognitionLoop(generation: taskGeneration)
+            await self?.runRecognitionLoop(
+                generation: taskGeneration,
+                recognitionSessionID: taskSessionID
+            )
         }
     }
 
@@ -343,31 +359,31 @@ public class SubtitlePipeline: SubtitleStatusProviding {
         forwardTask = Task { [weak self] in
             for await segment in recognizer.segments {
                 guard let self else { return }
+                guard segment.recognitionSessionID == nil
+                    || segment.recognitionSessionID == self.recognitionSessionID
+                else { continue }
                 if segment.isPartial {
-                    // 实时路径 partial 原样写入：窗口内整句显示，final 到达后由存储收敛。
-                    // 不按播放位置丢弃 partial，避免识别稍慢时「识别已产出但播放器无字幕」。
-                    self.forwardSegment(segment)
+                    // partial 仅覆盖当前预览，不进入历史时间轴。
+                    self.transcript.updatePreview(segment)
                 } else {
-                    // final 只丢弃整句已播完的过期结果（seek / 暂停恢复竞态）。
-                    if segment.endTime + Self.staleSegmentTolerance < self.playbackTime {
-                        continue
-                    }
-                    await self.handleFinalSegment(segment)
+                    // final 由识别会话而非播放位置判定有效性，避免慢结果被误丢弃。
+                    self.transcript.clearPreview()
+                    self.handleFinalSegment(segment, recognitionSessionID: self.recognitionSessionID)
                 }
             }
         }
     }
 
-    /// 翻译 final 段并写入 `translatedText`；翻译不可用 / 失败时原样写入
-    /// （Overlay 译文缺失只显示原文，不破坏原有行为）。
-    /// 翻译在后台线程执行，避免阻塞主线程 UI。
-    private func translateAndYield(_ segment: SubtitleSegment) async {
-        guard active, translationSettings.isEnabled,
+    /// final 已先写入时间轴；翻译完成后按相同 ID 回填译文，绝不阻塞识别结果消费。
+    private func translateExistingFinal(
+        _ segment: SubtitleSegment,
+        recognitionSessionID: Int
+    ) async {
+        guard active,
+              self.recognitionSessionID == recognitionSessionID,
+              translationSettings.isEnabled,
               let engine = makeTranslationEngine()
-        else {
-            forwardSegment(segment)
-            return
-        }
+        else { return }
 
         let providerID = engine.providerID.rawValue
         let previousState = status.state
@@ -407,7 +423,10 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             }
         }.value
 
-        guard active, !Task.isCancelled else { return }
+        guard active,
+              self.recognitionSessionID == recognitionSessionID,
+              !Task.isCancelled
+        else { return }
 
         let translationElapsedMs = Int(Date().timeIntervalSince(translationStarted) * 1000)
         Log.app.debug("翻译完成 provider=\(providerID) 源=\(sourceLanguage ?? "nil") 目标=\(targetLanguage) 耗时=\(translationElapsedMs)ms 原文=\(originalText.prefix(40))")
@@ -416,11 +435,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
             translatedSegmentCount += 1
             lastTranslationError = nil
             contextProvider.record(original: segment.originalText, translated: translated)
-            var enriched = segment
-            enriched.translatedText = translated
-            forwardSegment(enriched)
-        } else {
-            forwardSegment(segment)
+            _ = transcript.updateTranslation(id: segment.id, translatedText: translated)
         }
 
         if status.state == .translating {
@@ -429,15 +444,24 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     /// final 段处理（Phase 9.3.2）：批量翻译模式先写原文再进协调器；
-    /// 非批量模式走原来的逐条翻译。
-    private func handleFinalSegment(_ segment: SubtitleSegment) async {
+    /// 非批量模式同样先写原文，再异步回填译文。
+    private func handleFinalSegment(
+        _ segment: SubtitleSegment,
+        recognitionSessionID: Int
+    ) {
         if isUsingBatchTranslation, let batchCoordinator {
             Log.app.debug("批量模式写入原文 start=\(String(format: "%.1f", segment.startTime))s 原文=\(segment.originalText.prefix(20))")
             forwardSegment(segment)
             batchCoordinator.submit(segment)
             return
         }
-        await translateAndYield(segment)
+        forwardSegment(segment)
+        Task { [weak self] in
+            await self?.translateExistingFinal(
+                segment,
+                recognitionSessionID: recognitionSessionID
+            )
+        }
     }
 
     /// 依据当前 Provider 重建批量翻译协调器（仅 LLM 类 Provider 启用）。
@@ -546,25 +570,36 @@ public class SubtitlePipeline: SubtitleStatusProviding {
 
     /// 写入字幕记录并累计统计。
     private func forwardSegment(_ segment: SubtitleSegment) {
+        guard !segment.isPartial else {
+            transcript.updatePreview(segment)
+            return
+        }
         emittedSegmentCount += 1
         transcript.append(segment)
     }
 
-    private func runRecognitionLoop(generation: Int) async {
+    private func runRecognitionLoop(
+        generation: Int,
+        recognitionSessionID: Int
+    ) async {
         let windowSize: TimeInterval = 5
         // 识别前瞻窗口：只识别当前播放位置前方 recognitionLookahead 秒内的音频，
         // 避免无限识别整个视频；大模型批量模式放宽到 60s 以便攒出首批批量内容。
         let maxLookahead = recognitionLookahead
         var cursor = buffer.captureStart
 
-        while active && self.generation == generation && !Task.isCancelled {
+        while active,
+              self.generation == generation,
+              self.recognitionSessionID == recognitionSessionID,
+              !Task.isCancelled {
             guard let recognizer else { return }
 
-            // 识别速度跟不上播放时，跳过已落后的窗口：从当前播放位置继续，
-            // 避免把算力浪费在已经播过的音频上（字幕内容会从当前位置开始出现）。
-            if cursor + windowSize <= playbackTime - Self.staleSegmentTolerance {
+            // 短暂落后继续处理，只有超过阈值才跳到播放位置附近的窗口边界。
+            if cursor + windowSize < playbackTime - Self.maximumRecognitionLag {
                 let oldCursor = cursor
-                cursor = max(playbackTime, buffer.captureStart)
+                let resyncTarget = max(playbackTime, buffer.captureStart)
+                cursor = Self.alignedWindowStart(at: resyncTarget, windowSize: windowSize)
+                transcript.clearPreview()
                 skippedWindowCount += 1
                 totalSkippedSeconds += cursor - oldCursor
                 Log.app.debug("跳过落后识别窗口：\(String(format: "%.1f", oldCursor))s → \(String(format: "%.1f", cursor))s（累计跳过 \(skippedWindowCount) 次 / \(String(format: "%.1f", totalSkippedSeconds))s）")
@@ -605,9 +640,12 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                     windowStart: windowStart,
                     windowDuration: windowSize,
                     language: effectiveRecognitionLanguage,
-                    emitPartial: true
+                    emitPartial: true,
+                    recognitionSessionID: recognitionSessionID
                 )
-                guard self.generation == generation else { return }
+                guard self.generation == generation,
+                      self.recognitionSessionID == recognitionSessionID
+                else { return }
                 if let language = outcome.language, !language.isEmpty {
                     currentLanguage = language
                 }
@@ -631,6 +669,17 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
+    }
+
+    private static func alignedWindowStart(
+        at time: TimeInterval,
+        windowSize: TimeInterval
+    ) -> TimeInterval {
+        let rounded = (time / windowSize).rounded()
+        if abs(time - rounded * windowSize) < 0.001 {
+            return rounded * windowSize
+        }
+        return ceil(time / windowSize) * windowSize
     }
 
     private func setStatus(state: AIState) {

@@ -14,6 +14,8 @@ public struct SubtitleSegment: Identifiable, Hashable, Sendable, Codable {
     public var translatedText: String?
     public let confidence: Double
     public let isPartial: Bool
+    /// 识别会话标识。Whisper 产生结果时携带，用于丢弃 seek / 换片前仍滞留在流中的旧结果。
+    public let recognitionSessionID: Int?
 
     public init(
         id: UUID = UUID(),
@@ -22,7 +24,8 @@ public struct SubtitleSegment: Identifiable, Hashable, Sendable, Codable {
         originalText: String,
         translatedText: String? = nil,
         confidence: Double,
-        isPartial: Bool = false
+        isPartial: Bool = false,
+        recognitionSessionID: Int? = nil
     ) {
         self.id = id
         self.startTime = startTime
@@ -31,5 +34,6 @@ public struct SubtitleSegment: Identifiable, Hashable, Sendable, Codable {
         self.translatedText = translatedText
         self.confidence = confidence
         self.isPartial = isPartial
+        self.recognitionSessionID = recognitionSessionID
     }
 }

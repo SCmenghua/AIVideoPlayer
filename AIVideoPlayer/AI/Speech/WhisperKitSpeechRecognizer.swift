@@ -108,7 +108,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
         language: String?,
-        emitPartial: Bool
+        emitPartial: Bool,
+        recognitionSessionID: Int
     ) async throws -> RecognitionOutcome {
         try Task.checkCancellation()
         let windowGeneration = generationBox.current()
@@ -162,7 +163,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                         endTime: windowStart + windowDuration,
                         originalText: text,
                         confidence: Self.confidence(from: progress.avgLogprob),
-                        isPartial: true
+                        isPartial: true,
+                        recognitionSessionID: recognitionSessionID
                     )
                 )
                 return nil
@@ -204,7 +206,8 @@ public final class WhisperKitSpeechRecognizer: SpeechRecognizer {
                         endTime: end,
                         originalText: text,
                         confidence: Self.confidence(from: segment.avgLogprob),
-                        isPartial: false
+                        isPartial: false,
+                        recognitionSessionID: recognitionSessionID
                     )
                 )
                 segmentCount += 1

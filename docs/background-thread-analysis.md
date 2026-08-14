@@ -30,7 +30,8 @@ public class SubtitlePipeline: SubtitleStatusProviding {
                 windowStart: windowStart,
                 windowDuration: windowSize,
                 language: effectiveLang,
-                emitPartial: true
+                emitPartial: true,
+                recognitionSessionID: sessionID
             )
             // ...
         }

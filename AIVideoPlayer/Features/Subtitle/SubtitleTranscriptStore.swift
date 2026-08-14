@@ -4,8 +4,8 @@ import Observation
 /// 共享字幕记录存储（Phase 8.12 性能优化）：
 /// - 字幕管线的每一条识别 / 翻译结果（原文 + 译文）写入这里，作为唯一数据源；
 /// - 播放器 Overlay 按播放光标实时查询，设置页「字幕记录」卡片展示最近条目；
-/// - 有界存储（保留最近 N 条），final 到达时收敛相交的 partial，
-///   避免逐词残留与无界增长。
+/// - 有界存储（只保留 final），streaming partial 只作为单条当前预览，
+///   避免同一窗口的逐词更新污染时间轴、造成无界增长。
 /// - **批量更新 + 节流**：避免每次 append 都触发 @Observable 的 UI 刷新，
 ///   防止高频识别结果卡死主线程。
 @MainActor
@@ -15,6 +15,8 @@ public final class SubtitleTranscriptStore {
     public static let maxStoredSegments = 200
 
     public private(set) var segments: [SubtitleSegment] = []
+    /// 当前 Whisper streaming preview。它不属于历史时间轴，也不会计入字幕记录条数。
+    public private(set) var previewSegment: SubtitleSegment?
 
     /// 最近 20 条字幕（优化卡片性能，Phase 8.17）。
     public var recentSegments: [SubtitleSegment] {
@@ -34,8 +36,29 @@ public final class SubtitleTranscriptStore {
     /// 追加一条字幕（识别 / 翻译后由管线写入，调用方已过 MainActor）。
     /// 不立即触发 UI 刷新，而是累积到缓冲区，定期批量提交。
     public func append(_ segment: SubtitleSegment) {
+        if segment.isPartial {
+            updatePreview(segment)
+            return
+        }
+        if let previewSegment, Self.overlaps(previewSegment, segment) {
+            self.previewSegment = nil
+        }
         pendingSegments.append(segment)
         scheduleFlush()
+    }
+
+    /// 用同一识别窗口的最新 partial 覆盖当前预览，而非持续追加字幕记录。
+    public func updatePreview(_ segment: SubtitleSegment) {
+        guard segment.isPartial else {
+            append(segment)
+            return
+        }
+        previewSegment = segment
+    }
+
+    /// seek、换片、关闭字幕或相应 final 到达时移除临时预览。
+    public func clearPreview() {
+        previewSegment = nil
     }
 
     /// 立即刷新所有待提交的字幕到 segments（触发 UI 更新）。
@@ -82,12 +105,6 @@ public final class SubtitleTranscriptStore {
         guard !pendingSegments.isEmpty else { return }
 
         for segment in pendingSegments {
-            if !segment.isPartial {
-                // final 到达后，清理与它相交的旧 partial，避免逐词残留。
-                segments.removeAll { existing in
-                    existing.isPartial && Self.overlaps(existing, segment)
-                }
-            }
             insertSorted(segment)
         }
 
@@ -96,8 +113,7 @@ public final class SubtitleTranscriptStore {
         lastFlushTime = .now
     }
 
-    /// 当前时刻应显示的字幕：同一时刻既有 partial 又有 final 时优先 final；
-    /// 多个 partial 重叠时取最近写入的一条（代表最新识别进度）。
+    /// 当前时刻应显示的字幕：时间轴 final 优先；没有命中时才显示当前窗口的单条预览。
     /// 查询时会先将待提交的字幕合并到主存储，确保最新结果立即可见。
     public func segment(at time: TimeInterval) -> SubtitleSegment? {
         // 查询前先刷新缓冲区，确保最新字幕立即可见（不等待定时器）
@@ -108,7 +124,16 @@ public final class SubtitleTranscriptStore {
         let candidates = segments.filter {
             $0.startTime <= time && time < Self.displayEndTime(of: $0)
         }
-        return candidates.last(where: { !$0.isPartial }) ?? candidates.last
+        if let final = candidates.last {
+            return final
+        }
+        guard let previewSegment,
+              previewSegment.startTime <= time,
+              time < Self.displayEndTime(of: previewSegment)
+        else {
+            return nil
+        }
+        return previewSegment
     }
 
     /// 清空全部记录（播放器换片 / 管线关闭 / 设置页手动清空）。
@@ -118,6 +143,7 @@ public final class SubtitleTranscriptStore {
         flushTask = nil
         pendingSegments.removeAll(keepingCapacity: true)
         segments.removeAll(keepingCapacity: true)
+        previewSegment = nil
     }
 
     // MARK: - Private

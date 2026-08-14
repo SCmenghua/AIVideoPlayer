@@ -28,7 +28,7 @@ struct SubtitlePipelineTranslationTests {
             )
         )
 
-        let segment = await firstSegment(from: transcript)
+        let segment = await firstTranslatedSegment(from: transcript)
         #expect(segment?.originalText == "Hello")
         #expect(segment?.translatedText == "你好")
         #expect(translator.callCount == 1)
@@ -58,8 +58,9 @@ struct SubtitlePipelineTranslationTests {
             )
         )
 
-        let segment = await firstSegment(from: transcript)
-        #expect(segment?.translatedText == nil)
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(transcript.segments.isEmpty)
+        #expect(transcript.previewSegment?.originalText == "Hel")
         #expect(translator.callCount == 0)
     }
 
@@ -115,7 +116,7 @@ struct SubtitlePipelineTranslationTests {
             )
         )
 
-        let segment = await firstSegment(from: transcript)
+        let segment = await firstTranslatedSegment(from: transcript)
         #expect(segment?.translatedText == "こんにちは")
         #expect(translator.lastSource == "ja")
     }
@@ -144,7 +145,7 @@ struct SubtitlePipelineTranslationTests {
             )
         )
 
-        _ = await firstSegment(from: transcript)
+        _ = await firstTranslatedSegment(from: transcript)
         // 源语言选简体中文时，识别用 "zh"，翻译源用 "zh-Hans"（Locale 语言代码）。
         #expect(translator.lastSource == "zh-Hans")
     }
@@ -174,6 +175,7 @@ struct SubtitlePipelineTranslationTests {
         )
 
         let segment = await firstSegment(from: transcript)
+        await waitUntil { translator.callCount == 1 }
         #expect(segment?.translatedText == nil)
         #expect(translator.callCount == 1)
     }
@@ -203,7 +205,7 @@ struct SubtitlePipelineTranslationTests {
                 isPartial: false
             )
         )
-        let segment = await firstSegment(from: transcript)
+        let segment = await firstTranslatedSegment(from: transcript)
         #expect(segment?.translatedText == "你好")
         #expect(pipeline.translatedSegmentCount == 1)
         #expect(pipeline.lastTranslationError == nil)
@@ -233,6 +235,7 @@ struct SubtitlePipelineTranslationTests {
             )
         )
         let segment = await firstSegment(from: transcript)
+        await waitUntil { translator.callCount == 1 }
         #expect(segment?.translatedText == nil)
         #expect(pipeline.translatedSegmentCount == 0)
         #expect(pipeline.lastTranslationError == "系统翻译不支持当前语言对。")
@@ -259,7 +262,7 @@ struct SubtitlePipelineTranslationTests {
                 confidence: 0.9, isPartial: false
             )
         )
-        let first = await firstSegment(from: transcript)
+        let first = await firstTranslatedSegment(from: transcript)
         #expect(first?.translatedText == "译文")
         // 首句翻译时还没有历史上下文，context 应为 nil。
         #expect(translator.lastContext == nil)
@@ -270,7 +273,7 @@ struct SubtitlePipelineTranslationTests {
                 confidence: 0.9, isPartial: false
             )
         )
-        let second = await waitForSegment(count: 2, in: transcript)
+        let second = await waitForTranslatedSegment(count: 2, in: transcript)
         #expect(second?.translatedText == "译文")
         #expect(translator.lastContext?.isEmpty == false)
         #expect(translator.lastContext?.text.contains("First") == true)
@@ -335,6 +338,10 @@ struct SubtitlePipelineTranslationTests {
         await waitForSegment(count: 1, in: transcript)
     }
 
+    private func firstTranslatedSegment(from transcript: SubtitleTranscriptStore) async -> SubtitleSegment? {
+        await waitForTranslatedSegment(count: 1, in: transcript)
+    }
+
     private func waitForSegment(
         count: Int,
         in transcript: SubtitleTranscriptStore,
@@ -346,6 +353,31 @@ struct SubtitlePipelineTranslationTests {
             try? await Task.sleep(for: .milliseconds(20))
         }
         return transcript.segments.count >= count ? transcript.segments[count - 1] : nil
+    }
+
+    private func waitForTranslatedSegment(
+        count: Int,
+        in transcript: SubtitleTranscriptStore,
+        timeout: Duration = .seconds(3)
+    ) async -> SubtitleSegment? {
+        let start = ContinuousClock.now
+        while transcript.segments.filter({ $0.translatedText != nil }).count < count {
+            if ContinuousClock.now - start > timeout { break }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        let translatedSegments = transcript.segments.filter { $0.translatedText != nil }
+        return translatedSegments.indices.contains(count - 1) ? translatedSegments[count - 1] : nil
+    }
+
+    private func waitUntil(
+        timeout: Duration = .seconds(3),
+        _ condition: @MainActor () -> Bool
+    ) async {
+        let start = ContinuousClock.now
+        while !condition() {
+            if ContinuousClock.now - start > timeout { break }
+            try? await Task.sleep(for: .milliseconds(20))
+        }
     }
 
     private func uniqueSuiteName() -> String {
@@ -388,7 +420,8 @@ private final class MockSpeechRecognizer: SpeechRecognizer {
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
         language: String?,
-        emitPartial: Bool
+        emitPartial: Bool,
+        recognitionSessionID: Int
     ) async throws -> RecognitionOutcome {
         RecognitionOutcome(language: nil, segmentCount: 0)
     }

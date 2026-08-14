@@ -33,6 +33,7 @@ public protocol SpeechRecognizer: AnyObject {
         windowStart: TimeInterval,
         windowDuration: TimeInterval,
         language: String?,
-        emitPartial: Bool
+        emitPartial: Bool,
+        recognitionSessionID: Int
     ) async throws -> RecognitionOutcome
 }

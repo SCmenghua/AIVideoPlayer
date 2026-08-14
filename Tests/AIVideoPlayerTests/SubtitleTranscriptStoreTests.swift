@@ -33,11 +33,13 @@ struct SubtitleTranscriptStoreTests {
         let final = makeSegment(start: 5.2, end: 7.5, text: "hello")
         store.append(partial)
         store.flush()
-        #expect(store.segments.count == 1)
+        #expect(store.segments.isEmpty)
+        #expect(store.previewSegment == partial)
 
         store.append(final)
         store.flush()
         #expect(store.segments == [final])
+        #expect(store.previewSegment == nil)
     }
 
     @Test func partialsOutsideFinalRangeAreKept() {
@@ -48,7 +50,8 @@ struct SubtitleTranscriptStoreTests {
         store.append(final)
         store.flush()
 
-        #expect(store.segments.count == 2)
+        #expect(store.segments == [final])
+        #expect(store.previewSegment == partial)
         #expect(store.segment(at: 2)?.originalText == "early")
     }
 
@@ -58,6 +61,8 @@ struct SubtitleTranscriptStoreTests {
         store.append(makeSegment(start: 5, end: 8, text: "new", isPartial: true))
         store.flush()
 
+        #expect(store.segments.isEmpty)
+        #expect(store.previewSegment?.originalText == "new")
         #expect(store.segment(at: 6)?.originalText == "new")
     }
 
@@ -70,6 +75,7 @@ struct SubtitleTranscriptStoreTests {
         store.clear()
 
         #expect(store.segments.isEmpty)
+        #expect(store.previewSegment == nil)
         #expect(store.segment(at: 0.5) == nil)
     }
 

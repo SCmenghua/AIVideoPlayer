@@ -200,8 +200,9 @@ Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地�
    全局共享，替换 Mock 注入到 `SubtitleStatusViewModel`；状态语义见 8.2.1。
 6. 播放器联动：`PlayerViewModel` 注入共享管线——播放 / seek 前重建并启动音频来源，
    暂停 / 播放结束停止识别循环。
-7. 字幕结果写入共享 `SubtitleTranscriptStore`（原文 + 译文，有界保留最近 200 条）：
-   播放器 Overlay 与设置页「字幕记录」卡片直接读取，不再依赖单次消费的流。
+7. 字幕结果写入共享 `SubtitleTranscriptStore`（final 原文 + 译文，有界保留最近 200 条）：
+   播放器 Overlay 与设置页「字幕记录」卡片直接读取，不再依赖单次消费的流；Whisper
+   streaming partial 仅覆盖单条 `previewSegment`，不进入历史时间轴。
 8. 隐私：音频不离开设备，模型本地内置加载。
 
 #### 8.2.1 实时识别路径（Phase 8.5：超前识别已移除）
@@ -209,12 +210,14 @@ Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地�
 Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ 窗口 / 播放前预读等待均移除），
 字幕管线统一走实时路径：
 
-- 固定 5 秒窗口，`SpeechRecognizer` 按 partial → final 输出；partial 逐词出现、
-  final 到达后由字幕记录收敛为整句（final 优先）。
-- 识别游标只进不退；识别速度跟不上播放时跳过已落后的窗口、从当前播放位置继续；
-  seek / 暂停恢复后丢弃过期结果（final 整句已播完才丢弃，partial 不按播放位置丢弃，
-  避免「识别已产出但播放器无字幕」）。
-- 翻译紧随 final 识别完成，译文写入 `SubtitleSegment.translatedText`。
+- 固定 5 秒窗口，`SpeechRecognizer` 按 partial → final 输出；partial 只更新当前
+  `previewSegment`，不会按字词持续追加到历史，final 到达后清理重叠预览并作为整句写入时间轴。
+- 每次 activate、prepare、seek、播放结束和关闭都会递增 `recognitionSessionID`；识别器写入
+  每条结果的会话标识，转发层只接受当前会话，防止 seek / 换片前迟到的结果进入当前视频。
+- 识别游标只进不退；允许最多落后播放光标 10 秒，只有超过阈值才向上对齐到下一个 5 秒窗口
+  重同步，避免识别稍慢就频繁跳过音频。当前会话的 final 不再按播放位置丢弃。
+- final 采用 final-first：先写原文，再异步翻译并按字幕 ID 回填
+  `SubtitleSegment.translatedText`；翻译慢、超时或失败不能阻塞识别结果消费。
 - 状态语义：LISTENING / TRANSCRIBING / TRANSLATING 表示识别 / 翻译进行中，
   READY 表示窗口转写完成。
 - 识别循环容错：模型仍在加载时收到转写请求，识别器抛出「引擎未就绪」普通错误
@@ -232,7 +235,7 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 
 `TranslationEngine` 保持单一协议（Provider 元数据 + `translate(_:from:to:context:)`），
 翻译能力由多个可替换的 Provider 实现，用户可在设置页选择；译文写入
-`SubtitleSegment.translatedText`（final 段在 `SubtitlePipeline` 内翻译后透出）。
+`SubtitleSegment.translatedText`（final 段先写原文，`SubtitlePipeline` 内异步翻译后按 ID 回填）。
 
 **Provider 类型：**
 
@@ -274,9 +277,9 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 4. 上下文窗口与压缩策略由独立组件管理（`TranslationContextProvider`：滑动窗口 +
    逐条截断 + 总预算压缩），
    禁止把大段原始字幕直接塞进请求。
-5. `SubtitlePipeline` 接入：final 段翻译后写入 `translatedText` 再写入字幕记录；
-   partial 原样透出（实时路径逐词不翻译）；
-   翻译禁用 / Provider 未就绪 / 单句失败时原样透出原文；翻译期间状态进入 `.translating`，
+5. `SubtitlePipeline` 接入：final 段先写入原文，再异步按 ID 回填 `translatedText`；
+   partial 只保留为单条实时预览且不翻译；
+   翻译禁用 / Provider 未就绪 / 单句失败时保留已显示的原文；翻译期间状态进入 `.translating`，
    完成后恢复原状态；设置变更（Provider / 云端配置 / 本地模型 / 润色开关）后重建引擎缓存；
    Phase 8.7 起翻译默认开启（默认 Provider 为完全本地 Fast NMT），
    管线统计成功翻译条数（`translatedSegmentCount`）并记录最近失败原因
@@ -326,9 +329,9 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
 ### 8.6 SubtitleOverlay（Phase 6 → 8.5/8.6）
 
 1. 共享数据源：`Features/Subtitle/SubtitleTranscriptStore`（@MainActor @Observable）——
-   字幕管线每条识别 / 翻译结果（原文 + 译文）写入这里，有界保留最近 200 条；
-   `segment(at:)` 按播放光标返回当前整句（final 优先于重叠 partial，区间左闭右开）；
-   append final 时清理被其时间区间覆盖的旧 partial（partial → final 收敛）。
+   仅 final 识别 / 翻译结果写入历史，有界保留最近 200 条；streaming partial 只覆盖
+   `previewSegment`。`segment(at:)` 按播放光标优先返回 final，未命中才返回预览（区间左闭右开）；
+   final 与预览重叠时清理预览，避免同一句逐字残留。
 2. `SubtitleOverlayViewModel`（@MainActor @Observable）：直接读取共享
    `SubtitleTranscriptStore`，按播放光标计算当前句子（整句一次性出现，不逐词跳动）；
    播放器 Tab 反复进出 / 全屏切换不会中断显示链路（不再消费单次迭代的 AsyncStream）；
