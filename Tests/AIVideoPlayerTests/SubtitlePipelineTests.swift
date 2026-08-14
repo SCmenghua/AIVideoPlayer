@@ -244,13 +244,11 @@ struct SubtitlePipelineTests {
         pipeline.attach(playbackEngine: engine)
 
         await pipeline.toggle()
-        await pipeline.preparePlayback(from: 0)
-        // 先让消费任务订阅音频流，再送首窗；随后在首窗检测到语言后再送下一窗。
-        try? await Task.sleep(for: .milliseconds(50))
-        emitSeconds(source, seconds: 5, start: 0)
+        // 逐块让出主执行器，确保音频消费任务拿到首窗后再继续送入下一窗。
+        await emitSeconds(source, seconds: 5, start: 0)
 
         await waitUntil { recognizer.transcriptionCalls.count >= 1 }
-        emitSeconds(source, seconds: 5, start: 5)
+        await emitSeconds(source, seconds: 5, start: 5)
 
         await waitUntil(timeout: .seconds(5)) { recognizer.transcriptionCalls.count >= 2 }
         #expect(recognizer.transcriptionCalls.count >= 2)
@@ -365,6 +363,23 @@ struct SubtitlePipelineTests {
                     startTime: start + Double(index)
                 )
             )
+        }
+    }
+
+    private func emitSeconds(
+        _ source: MockAudioPipeline,
+        seconds: Int,
+        start: TimeInterval
+    ) async {
+        for index in 0..<seconds {
+            source.emit(
+                PCMChunk(
+                    samples: [Float](repeating: 0, count: 16_000),
+                    sampleRate: 16_000,
+                    startTime: start + Double(index)
+                )
+            )
+            try? await Task.sleep(for: .milliseconds(25))
         }
     }
 
