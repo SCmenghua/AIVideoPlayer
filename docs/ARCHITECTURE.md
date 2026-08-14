@@ -205,7 +205,7 @@ Phase 8.0 起，调试入口优先加载 `Resources/Samples/test.mp4`（本地�
    streaming partial 仅覆盖单条 `previewSegment`，不进入历史时间轴。
 8. 隐私：音频不离开设备，模型本地内置加载。
 
-#### 8.2.1 实时识别路径（Phase 8.5：超前识别已移除）
+#### 8.2.1 实时识别路径（Phase 8.5 移除超前识别；Phase 9.8 稳定性保证）
 
 Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ 窗口 / 播放前预读等待均移除），
 字幕管线统一走实时路径：
@@ -220,6 +220,9 @@ Phase 8.5 起**删除超前识别（Lead-Ahead）功能**（设置开关 / Δ �
   `SubtitleSegment.translatedText`；翻译慢、超时或失败不能阻塞识别结果消费。
 - 状态语义：LISTENING / TRANSCRIBING / TRANSLATING 表示识别 / 翻译进行中，
   READY 表示窗口转写完成。
+
+上述 partial 收敛、会话隔离、10 秒落后容忍和 final-first 翻译保证在 **Phase 9.8**
+集中完成，用于修复长视频后段字幕逐字堆积、频繁跳窗与翻译阻塞。
 - 识别循环容错：模型仍在加载时收到转写请求，识别器抛出「引擎未就绪」普通错误
   （不是 CancellationError），循环短暂等待后重试，避免模型加载竞态导致识别永久退出；
   播放中途才打开字幕时，激活路径用引擎当前真实时间（而非上次播放开始时间）重建识别游标。

@@ -11,6 +11,21 @@
 - Phase 9.7：LLM 功能深化——提示词优化、推理加速、更多模型
 - 后续：新浏览器功能、Liquid Glass 深化、性能优化与测试（编号后续规划）
 
+## [0.9.8] - 2026-08-14
+
+### Fixed（Phase 9.8 长视频实时字幕稳定性修复）
+
+- Whisper streaming partial 改为只覆盖单条 `previewSegment`，不再追加到字幕历史、待提交队列或设置页记录，避免同一窗口逐字堆积
+- `SubtitleSegment` 增加识别会话标识；activate、seek、换片和关闭时递增会话，旧会话迟到结果不再污染当前时间轴
+- final 字幕不再因播放位置已超过其结束时间而被丢弃，避免识别速度暂时落后时字幕在视频后段停摆
+- 识别游标允许最多落后 10 秒；只有超过阈值才按 5 秒窗口边界重同步，减少频繁跳过音频
+
+### Changed（Phase 9.8 长视频实时字幕稳定性修复）
+
+- 普通逐条翻译改为 final-first：先显示 final 原文，再由独立任务按字幕 ID 回填 `translatedText`；翻译慢、超时或失败不再阻塞字幕识别和显示
+- 设置页字幕记录只显示 final 历史，当前 partial 以单条识别预览显示
+- `MARKETING_VERSION` 提升至 0.9.8；原 `AIVideoPlayer-0.9.6-unsigned` IPA 与 Release 保持不变
+
 ## [0.9.6] - 2026-08-13
 
 ### Fixed（Phase 9.6 修复第一分钟字幕丢失）
@@ -25,18 +40,6 @@
 - 首批拆小：`maxSegmentsPerBatch = 8`
 - 批量模式写原文 / 清空增加日志
 - `MARKETING_VERSION` 定为 0.9.6
-
-### Fixed（Phase 9.6 基线实时字幕稳定性修复）
-
-- Whisper streaming partial 改为只覆盖单条 `previewSegment`，不再追加到字幕历史、待提交队列或设置页记录，避免同一窗口逐字堆积
-- `SubtitleSegment` 增加识别会话标识；activate、seek、换片和关闭时递增会话，旧会话迟到结果不再污染当前时间轴
-- final 字幕不再因播放位置已超过其结束时间而被丢弃，避免识别速度暂时落后时字幕在视频后段停摆
-- 识别游标允许最多落后 10 秒；只有超过阈值才按 5 秒窗口边界重同步，减少频繁跳过音频
-
-### Changed（Phase 9.6 基线实时字幕稳定性修复）
-
-- 普通逐条翻译改为 final-first：先显示 final 原文，再由独立任务按字幕 ID 回填 `translatedText`；翻译慢、超时或失败不再阻塞字幕识别和显示
-- 设置页字幕记录只显示 final 历史，当前 partial 以单条识别预览显示
 
 ## [0.9.5] - 2026-08-13
 

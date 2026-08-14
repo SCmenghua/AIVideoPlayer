@@ -2,8 +2,8 @@
 
 > iOS 26 原生视频播放器 —— 浏览器 + AI 实时字幕 + 远程文件浏览
 
-**当前版本**：0.9.6（2026-08-13）  
-**当前 Phase**：9.6（0.9.6 基线上的实时字幕稳定性修复）
+**当前版本**：0.9.8（2026-08-14）
+**当前 Phase**：9.8（长视频实时字幕稳定性修复）
 
 ## 核心功能
 
@@ -61,7 +61,7 @@ open AIVideoPlayer.xcodeproj
 
 1. 访问 [Actions](https://github.com/SCmenghua/AIVideoPlayer/actions)
 2. 选择 **Package IPA (unsigned)**
-3. 点击 **Run workflow**，填写版本号（默认 0.8.17）
+3. 点击 **Run workflow**，填写版本号（默认 0.9.8）
 4. 下载生成的 `AIVideoPlayer-<版本>-unsigned.ipa`
 5. 使用自签工具（Sideloadly / AltStore / 爱思助手）导入 IPA 并签名安装
 
@@ -91,14 +91,14 @@ open AIVideoPlayer.xcodeproj
   兜底；等待首批期间 `isIdleTimerDisabled` 防锁屏；首批拆小 `maxSegmentsPerBatch=8`；
   `MARKETING_VERSION` 定为 0.9.6。
 
-- **Phase 9.6（0.9.6 基线稳定性修复）**：修复长视频实时字幕逐字堆积、频繁跳窗与慢结果丢失——
+- **Phase 9.8（2026-08-14，0.9.8）**：修复长视频实时字幕逐字堆积、频繁跳窗与慢结果丢失——
   `SubtitleTranscriptStore` 只保留 final 历史时间轴，Whisper streaming partial 改为唯一
   `previewSegment`，不会再作为大量重复记录写入 Overlay 或设置页；每次 activate、seek、换片
   都递增 `recognitionSessionID`，旧会话迟到的 partial/final 被忽略，当前会话 final 不再因播放
   光标已超过其结束时间而被误丢；识别游标允许最多落后 10 秒，超过时才对齐到 5 秒窗口重同步，
   避免识别稍慢就连续跳过音频。普通逐条翻译改为 final-first：final 原文先按 ID 写入时间轴，
   翻译在独立任务完成后回填 `translatedText`，翻译慢、超时或失败均不阻塞字幕识别与显示；
-  `MARKETING_VERSION` 保持 0.9.6。
+  `MARKETING_VERSION` 提升至 0.9.8；此前发布的 `0.9.6` IPA 保持原样。
 
 - **Phase 9.5（2026-08-13 打包 0.9.5）**：修复长视频等待门控——识别停滞即触发首批——
   `runRecognitionLoop` 的「识别已超前（ahead-wait）」分支也接入 `handleRecognitionStall()`，
@@ -416,9 +416,9 @@ open AIVideoPlayer.xcodeproj
 
 ## 当前状态
 
-- **Phase**：9.6
-- **版本**：0.9.6
-- **状态**：进行中：已在 0.9.6 基线上修复 partial 堆积、旧会话迟到结果、频繁跳窗与翻译阻塞；待本次 swift-ci 验证并打包 IPA
+- **Phase**：9.8
+- **版本**：0.9.8
+- **状态**：进行中：已完成 Phase 9.8 文档与版本归档，待本次 swift-ci 验证并打包 IPA
 - **下一步**：Phase 9.7 —— LLM 功能深化（提示词优化、推理加速、更多模型）
 
 ## 注意事项
