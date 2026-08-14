@@ -2,8 +2,7 @@ import Foundation
 import Observation
 
 /// AI 字幕子系统（Phase 8.5 重构）。
-/// 持有识别器 + 音频管线，实时转写路径：本地可预读来源使用 10 秒窗口，
-/// 实时来源维持 5 秒窗口，partial → final 输出；
+/// 持有识别器 + 音频管线，实时转写路径：固定 5 秒窗口 partial → final 输出；
 /// 识别游标只进不退、落后于播放光标的窗口跳过（避免识别速度跟不上时字幕持续错过）。
 /// 每一条结果（原文 + 译文）写入共享 `SubtitleTranscriptStore`，
 /// 播放器 Overlay 与设置页「字幕记录」都从该存储读取，不再依赖单次消费的流。
@@ -269,12 +268,6 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     /// 识别前瞻上限（秒）：大模型批量模式放宽到 60s（Phase 9.3.3），普通模式保持 10s。
     private var recognitionLookahead: TimeInterval {
         isUsingBatchTranslation ? 60 : 10
-    }
-
-    /// 本地文件可预读时扩展 Whisper 上下文，降低语句在窗口边界被切碎的概率；
-    /// 实时 Tap 维持短窗口，避免网络媒体首次字幕等待过久。
-    private var recognitionWindowDuration: TimeInterval {
-        sourceCanPreload ? 10 : 5
     }
 
     /// 预读前瞻上限（秒）：AssetReader 只预读播放位置前方这么多音频。
@@ -558,7 +551,7 @@ public class SubtitlePipeline: SubtitleStatusProviding {
     }
 
     private func runRecognitionLoop(generation: Int) async {
-        let windowSize = recognitionWindowDuration
+        let windowSize: TimeInterval = 5
         // 识别前瞻窗口：只识别当前播放位置前方 recognitionLookahead 秒内的音频，
         // 避免无限识别整个视频；大模型批量模式放宽到 60s 以便攒出首批批量内容。
         let maxLookahead = recognitionLookahead
